@@ -1,0 +1,6 @@
+{
+  "watch": ["src/electron"],
+  "ext": "ts",
+  "exec": "npm run start:electron",
+  "delay": "200"
+}

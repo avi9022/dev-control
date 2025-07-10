@@ -1,0 +1,478 @@
+{
+  "org": "openfinance",
+  "app": "${env:APP_NAME, 'core'}",
+  "service": "${env:SERVICE_NAME, 'integrations'}",
+  "variablesResolutionMode": 20210326,
+  "frameworkVersion": "4",
+  "provider": {
+    "name": "aws",
+    "runtime": "nodejs18.x",
+    "memorySize": 8000,
+    "logRetentionInDays": "${env:LOG_RETENTION_TIME, '3'}",
+    "region": "eu-west-1",
+    "stage": "${env:ENVIRONMENT, 'development'}",
+    "lambdaHashingVersion": 20201221,
+    "tags": {
+      "LUMIGO_LOG_COLLECTION": true
+    },
+    "httpApi": {
+      "cors": true,
+      "authorizers": {
+        "tokenValidation": {
+          "identitySource": "$request.header.Authorization",
+          "issuerUrl": "https://${env:AUTH0_TENET_DOMAIN, 'dev-5v734fof.us.auth0.com'}/",
+          "audience": [
+            "${env:AUTH0_API_IDENTIFIER, 'http://localhost:3000'}"
+          ]
+        }
+      }
+    },
+    "vpc": "${self:custom.vpc.${self:provider.stage}}",
+    "iam": {
+      "role": {
+        "statements": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "sqs:DeleteMessage",
+              "sqs:GetQueueUrl",
+              "sqs:SendMessage"
+            ],
+            "Resource": [
+              "arn:aws:sqs:eu-west-1:554953451281:big_query_write_data_${env:ENVIRONMENT}"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "dynamodb:BatchWriteItem",
+              "dynamodb:Query",
+              "dynamodb:Scan",
+              "dynamodb:GetItem",
+              "dynamodb:PutItem",
+              "dynamodb:UpdateItem",
+              "dynamodb:DeleteItem",
+              "dynamodb:DescribeTable"
+            ],
+            "Resource": "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}"
+          }
+        ]
+      }
+    },
+    "environment": {
+      "ENVIRONMENT": "${env:ENVIRONMENT, 'development'}",
+      "AUTH0_TENET_DOMAIN": "${env:AUTH0_TENET_DOMAIN, 'dev-5v734fof.us.auth0.com'}",
+      "AUTH0_TENET_AUDIENCE": "${env:AUTH0_TENET_AUDIENCE, ''}",
+      "AUTH0_API_IDENTIFIER": "${env:AUTH0_API_IDENTIFIER, 'http://localhost:3000'}",
+      "LOGZIO_LOGS_TOKEN": "${env:LOGZIO_LOGS_TOKEN, ''}",
+      "LOGZIO_LISTENER": "${env:LOGZIO_LISTENER, ''}",
+      "LUMIGO_AUTO_TAG": "userId,orgId,connectionId,paymentId",
+      "GOOGLE_CREDENTIALS_PATH": "${env:GOOGLE_CREDENTIALS_PATH, 'certs/google-credentials.json'}"
+    }
+  },
+  "package": {
+    "patterns": [
+      "!node_modules/puppeteer/.local-chromium/**",
+      "!node_modules/chrome-aws-lambda/**"
+    ]
+  },
+  "plugins": [
+    "serverless-offline-sqs",
+    "serverless-offline",
+    "serverless-domain-manager",
+    "serverless-plugin-common-excludes",
+    "serverless-iam-roles-per-function",
+    "serverless-prune-plugin"
+  ],
+  "custom": {
+    "prune": {
+      "automatic": true,
+      "number": 3
+    },
+    "serverless-offline": {
+      "httpPort": "${env:PORT, '4200'}",
+      "lambdaPort": "${env:LAMBDA_PORT, '3004'}"
+    },
+    "customDomain": {
+      "domainName": "${env:DOMAIN, ''}",
+      "stage": "$default",
+      "basePath": "v3/integrations",
+      "apiType": "http",
+      "endpointType": "regional"
+    },
+    "serverless-offline-sqs": {
+      "autoCreate": true,
+      "apiVersion": "2012-11-05",
+      "endpoint": "http://localhost:9324",
+      "region": "eu-west-1",
+      "accessKeyId": "root",
+      "secretAccessKey": "root",
+      "skipCacheInvalidation": false
+    },
+    "vpc": {
+      "development": {
+        "securityGroupIds": [],
+        "subnetIds": []
+      },
+      "staging": {
+        "securityGroupIds": [
+          "sg-0b8fe9659ac7b7c93"
+        ],
+        "subnetIds": [
+          "subnet-0bd7d66bf6d05b198",
+          "subnet-0fa5e5dea65db563e",
+          "subnet-014743db136a11ef0"
+        ]
+      },
+      "production": {
+        "securityGroupIds": [
+          "sg-02b77d9ecdf4308e5"
+        ],
+        "subnetIds": [
+          "subnet-021a81ae0fe8c0e60",
+          "subnet-025d0f866c04f359b",
+          "subnet-0d0e136969cc5b67c"
+        ]
+      }
+    }
+  },
+  "functions": {
+    "getCustEssnaReports": {
+      "handler": "src/routes/files/essna/get.handler",
+      "timeout": 29,
+      "events": [
+        {
+          "httpApi": {
+            "path": "/files/{id}/essna",
+            "method": "get",
+            "authorizer": {
+              "name": "tokenValidation",
+              "scopes": [
+                "read:customers"
+              ]
+            }
+          }
+        }
+      ],
+      "iamRoleStatementsInherit": true,
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "s3:GetObject"
+          ],
+          "Resource": [
+            "arn:aws:s3:::*-${self:provider.stage, 'development'}/customers/*",
+            "arn:aws:s3:::*-${self:provider.stage, 'development'}/transactions/*",
+            "arn:aws:s3:::*-${self:provider.stage, 'development'}/invoices/*",
+            "arn:aws:s3:::*-${self:provider.stage, 'development'}/balances/*"
+          ]
+        }
+      ]
+    },
+    "createCustEssnaReport": {
+      "handler": "src/routes/files/essna/create.handler",
+      "timeout": 29,
+      "events": [
+        {
+          "httpApi": {
+            "path": "/files/{id}/essna",
+            "method": "post",
+            "authorizer": {
+              "name": "tokenValidation",
+              "scopes": [
+                "update:customers"
+              ]
+            }
+          }
+        }
+      ],
+      "iamRoleStatementsInherit": true,
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "dynamodb:UpdateItem"
+          ],
+          "Resource": "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "dynamodb:Query"
+          ],
+          "Resource": [
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/orgIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/advisorIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/userIndex"
+          ]
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:GetQueueUrl",
+            "sqs:SendMessage"
+          ],
+          "Resource": [
+            "arn:aws:sqs:${self:provider.region}:554953451281:salesforce_write_file_${self:provider.stage}"
+          ]
+        }
+      ]
+    },
+    "updateCustEssnaReport": {
+      "handler": "src/routes/files/essna/update.handler",
+      "timeout": 29,
+      "events": [
+        {
+          "httpApi": {
+            "path": "/files/{id}/essna",
+            "method": "patch",
+            "authorizer": {
+              "name": "tokenValidation",
+              "scopes": [
+                "update:customers"
+              ]
+            }
+          }
+        }
+      ],
+      "iamRoleStatementsInherit": true,
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "dynamodb:UpdateItem"
+          ],
+          "Resource": "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "dynamodb:Query"
+          ],
+          "Resource": [
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/orgIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/advisorIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/userIndex"
+          ]
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:GetQueueUrl",
+            "sqs:SendMessage"
+          ],
+          "Resource": [
+            "arn:aws:sqs:${self:provider.region}:554953451281:salesforce_write_file_${self:provider.stage}"
+          ]
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:GetQueueUrl",
+            "sqs:SendMessage"
+          ],
+          "Resource": [
+            "arn:aws:sqs:eu-west-1:554953451281:big_query_write_data_${env:ENVIRONMENT}"
+          ]
+        }
+      ]
+    },
+    "syncSfToCWay": {
+      "handler": "src/routes/integrations/c-way/sync-to-cway.handler",
+      "timeout": 29,
+      "events": [
+        {
+          "httpApi": {
+            "path": "/c-way/sync-to-cway",
+            "method": "post",
+            "authorizer": {
+              "name": "tokenValidation",
+              "scopes": [
+                "admin",
+                "create:cway_sync"
+              ]
+            }
+          }
+        }
+      ],
+      "iamRoleStatementsInherit": true,
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:GetQueueUrl",
+            "sqs:SendMessage"
+          ],
+          "Resource": "arn:aws:sqs:eu-west-1:554953451281:sync_to_cway_${env:ENVIRONMENT}"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "dynamodb:Query"
+          ],
+          "Resource": [
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/orgIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/advisorIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/userIndex"
+          ]
+        }
+      ]
+    },
+    "sessionsNotifyChange": {
+      "handler": "src/funcs/notify-changes.handler",
+      "timeout": 300,
+      "events": [
+        {
+          "sqs": {
+            "arn": "arn:aws:sqs:${self:provider.region}:554953451281:notify_session_change_${self:provider.stage}"
+          }
+        }
+      ],
+      "iamRoleStatementsInherit": true,
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:GetQueueUrl",
+            "sqs:SendMessage",
+            "sqs:DeleteMessage"
+          ],
+          "Resource": "arn:aws:sqs:${self:provider.region}:554953451281:notify_session_change_${self:provider.stage}"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "dynamodb:Query"
+          ],
+          "Resource": [
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/orgIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/advisorIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/userIndex"
+          ]
+        }
+      ]
+    },
+    "syncToCway": {
+      "handler": "src/funcs/sync-to-cway.handler",
+      "timeout": 300,
+      "events": [
+        {
+          "sqs": {
+            "arn": "arn:aws:sqs:${self:provider.region}:554953451281:sync_to_cway_${self:provider.stage}"
+          }
+        }
+      ],
+      "iamRoleStatementsInherit": true,
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:GetQueueUrl",
+            "sqs:SendMessage"
+          ],
+          "Resource": "arn:aws:sqs:${self:provider.region}:554953451281:sync_to_cway_${self:provider.stage}"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "dynamodb:Query"
+          ],
+          "Resource": [
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/orgIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/advisorIndex",
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/userIndex"
+          ]
+        }
+      ]
+    },
+    "reportOrgsToCWay": {
+      "handler": "src/cron/report-orgs-to-cway.handler",
+      "runtime": "nodejs16.x",
+      "timeout": 900,
+      "events": [
+        {
+          "schedule": "cron(0 2 2 * ? *)"
+        }
+      ],
+      "iamRoleStatementsInherit": true,
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:GetQueueUrl",
+            "sqs:SendMessage"
+          ],
+          "Resource": "arn:aws:sqs:eu-west-1:554953451281:sync_to_cway_${env:ENVIRONMENT}"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "dynamodb:Query"
+          ],
+          "Resource": [
+            "arn:aws:dynamodb:${self:provider.region}:*:table/open-banking-${self:provider.stage}/index/SKIndex"
+          ]
+        }
+      ]
+    },
+    "writeNevoCases": {
+      "handler": "src/funcs/write-nevo-cases.handler",
+      "timeout": 300,
+      "events": [
+        {
+          "sqs": {
+            "arn": "arn:aws:sqs:eu-west-1:554953451281:nevo_write_cases_${env:ENVIRONMENT}"
+          }
+        }
+      ],
+      "environment": {
+        "GOOGLE_CREDENTIALS_PATH": "${env:GOOGLE_CREDENTIALS_PATH, 'certs/google-credentials.json'}"
+      },
+      "iamRoleStatementsInherit": true,
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "secretsmanager:GetSecretValue"
+          ],
+          "Resource": [
+            "arn:aws:secretsmanager:eu-west-1:554953451281:secret:${self:provider.stage}/google/*"
+          ]
+        }
+      ]
+    },
+    "getCompanyRegistrarData": {
+      "handler": "src/funcs/get-company-registrar-data.handler",
+      "timeout": 300,
+      "events": [
+        {
+          "sqs": {
+            "arn": "arn:aws:sqs:eu-west-1:554953451281:get_company_registrar_data_${env:ENVIRONMENT}"
+          }
+        }
+      ],
+      "environment": {
+        "GOOGLE_CREDENTIALS_PATH": "${env:GOOGLE_CREDENTIALS_PATH, 'certs/google-credentials.json'}"
+      },
+      "iamRoleStatementsInherit": true,
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:GetQueueUrl",
+            "sqs:SendMessage"
+          ],
+          "Resource": "arn:aws:sqs:eu-west-1:554953451281:get_company_registrar_data_${env:ENVIRONMENT}"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "secretsmanager:GetSecretValue"
+          ],
+          "Resource": "arn:aws:secretsmanager:eu-west-1:554953451281:secret:${self:provider.stage}/google/*"
+        }
+      ]
+    }
+  }
+}
