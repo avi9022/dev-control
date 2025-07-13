@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type FC, type PropsWithChildren } from 'react'
+import { useViews } from './views'
 
 const DirectoriesContext = createContext<{
   directories: DirectorySettings[]
@@ -6,9 +7,9 @@ const DirectoriesContext = createContext<{
   chooseDirectory: (id: string | null) => void
   runService: (id: string) => void
   stopService: (id: string) => void
-  directoryToView: DirectorySettings | null
+  stopAllServices: () => void
   addFromFolder: () => Promise<void>
-  updateDirectory: (data: DataToUpdate) => void
+  updateDirectory: (id: string, data: DataToUpdate) => void
   directoriesStateMap: DirectoryMapByState
 }>({
   directories: [],
@@ -16,9 +17,9 @@ const DirectoriesContext = createContext<{
   chooseDirectory: () => { },
   runService: () => { },
   stopService: () => { },
-  directoryToView: null,
   addFromFolder: async () => { },
   updateDirectory: () => { },
+  stopAllServices: () => { },
   directoriesStateMap: {}
 })
 
@@ -28,8 +29,8 @@ export function useDirectories() {
 
 export const DirectoriesProvider: FC<PropsWithChildren> = ({ children }) => {
   const [directories, setDirectories] = useState<DirectorySettings[]>([])
-  const [directoryToView, setDirectoryToView] = useState<DirectorySettings | null>(null)
   const [directoriesStateMap, setDirectoriesStateMap] = useState<DirectoryMapByState>({})
+  const { updateView } = useViews()
 
   const getDirectories = async () => {
     const currDirectories = await window.electron.getDirectories()
@@ -50,21 +51,26 @@ export const DirectoriesProvider: FC<PropsWithChildren> = ({ children }) => {
 
   const removeDirectory = (id?: string) => {
     window.electron.removeDirectory(id)
-    setDirectoryToView(null)
   }
-  const chooseDirectory = (id: string | null) => setDirectoryToView(id ? directories.find(({ id: currId }) => currId === id) || null : null)
+  const chooseDirectory = (id: string | null) => {
+    updateView('directory', id)
+  }
   const addFromFolder = async () => {
     await window.electron.addDirectoriesFromFolder()
     getDirectories()
   }
 
-  const updateDirectory = (data: DataToUpdate) => {
-    if (!directoryToView?.id) return
-    window.electron.updateDirectory(directoryToView.id, data)
+  const updateDirectory = (id: string, data: DataToUpdate) => {
+    window.electron.updateDirectory(id, data)
   }
 
   const runService = (id: string) => window.electron.runService(id)
   const stopService = (id: string) => window.electron.stopService(id)
+  const stopAllServices = () => Object.entries(directoriesStateMap).forEach(([id, state]) => {
+    if (state === 'RUNNING' || state === 'INITIALIZING') {
+      stopService(id)
+    }
+  })
 
   useEffect(() => {
     getDirectories()
@@ -75,12 +81,12 @@ export const DirectoriesProvider: FC<PropsWithChildren> = ({ children }) => {
     directories,
     removeDirectory,
     chooseDirectory,
-    directoryToView,
     addFromFolder,
     updateDirectory,
     runService,
     directoriesStateMap,
-    stopService
+    stopService,
+    stopAllServices
   }}>
     {children}
   </DirectoriesContext.Provider>

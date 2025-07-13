@@ -1,25 +1,22 @@
 import { createContext, useContext, useEffect, useState, type FC, type PropsWithChildren } from 'react'
+import { useViews } from './views'
+
+type QueuesData = Record<string, QueueData>
 
 export const QueuesContext = createContext<{
   queues: string[]
-  chosenQueue: string | null
   onChooseQueue: (url: string | null) => void
-  // getQueueData: (url: string) => Promise<QueueData>,
-  // refreshQueueData: (url: string) => Promise<QueueData>
+  getQueueData: (url: string) => Promise<QueueData>,
+  subscribedQueuesData: QueuesData
 }>({
   queues: [],
-  chosenQueue: null,
-  onChooseQueue: () => { }
-  // getQueueData: async () => ({
-  //   lastFiveMessages: [],
-  //   waitingMessages: [],
-  //   queueAttributes: {}
-  // }),
-  // refreshQueueData: async () => ({
-  //   lastFiveMessages: [],
-  //   waitingMessages: [],
-  //   queueAttributes: {}
-  // })
+  onChooseQueue: () => { },
+  subscribedQueuesData: {},
+  getQueueData: async () => ({
+    lastFiveMessages: [],
+    waitingMessages: [],
+    queueAttributes: {}
+  }),
 })
 
 export function useQueues() {
@@ -28,46 +25,47 @@ export function useQueues() {
 
 export const QueuesProvider: FC<PropsWithChildren> = ({ children }) => {
   const [queues, setQueues] = useState<string[]>([])
-  const [chosenQueue, setChosenQueue] = useState<string | null>(null)
-
+  const [subscribedQueuesData, setSubscribedQueuesData] = useState<QueuesData>({})
+  const { updateView, views, currentViewIndex } = useViews()
 
   useEffect(() => {
     window.electron.subscribeQueuesList((list) => {
       setQueues(list)
     })
+    window.electron.subscribeQueueData((res) => {
+      setSubscribedQueuesData((prev) => {
+        const copy = { ...prev }
+        copy[res.queueUrl] = res.data
+
+        return copy
+      })
+    })
   }, [])
 
-  const onChooseQueue = (url: string | null) => setChosenQueue(url)
-
-  // const refreshQueueData = async (queueUrl: string) => {
-  //   const data = await window.electron.getQueueData(queueUrl)
-  //   setQueues((prev) => ({
-  //     ...prev,
-  //     [queueUrl]: data
-  //   }))
-
-  //   return data
-  // }
-
-  // const getQueueData = async (queueUrl: string) => {
-  //   const existingData = queues[queueUrl]
-
-  //   if (existingData) {
-  //     return existingData
-  //   }
-
-  //   return await refreshQueueData(queueUrl)
-  // }
 
 
+  const onChooseQueue = async (url: string | null) => {
+    const currentView = views[currentViewIndex]
+    if (currentView?.type === 'queue' && currentView.itemId) {
+      await window.electron.stopPollingQueue(currentView.itemId)
+    }
+    updateView('queue', url)
+    if (url) {
+      window.electron.pollQueue(url || '')
+    }
+  }
 
+  const getQueueData = async (queueUrl: string) => {
+    const data = await window.electron.getQueueData(queueUrl)
+
+    return data
+  }
 
   return <QueuesContext.Provider value={{
     queues,
     onChooseQueue,
-    chosenQueue
-    // getQueueData,
-    // refreshQueueData
+    getQueueData,
+    subscribedQueuesData
   }}>
     {children}
   </QueuesContext.Provider>

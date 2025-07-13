@@ -69,7 +69,7 @@ export const stopProcess = (id: string) => {
         console.log('Process on port 3000 killed successfully');
       }
     });
-
+    updateDirectoryData(id, { isInitializing: false })
     return;
   }
 
@@ -77,6 +77,7 @@ export const stopProcess = (id: string) => {
     if (err) {
       console.error(`Failed to kill process ${id}`, err);
     } else {
+      updateDirectoryData(id, { isInitializing: false })
       runningProcesses.delete(id);
     }
   });

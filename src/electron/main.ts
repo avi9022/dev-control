@@ -11,10 +11,15 @@ import { pollPorts } from './functions/poll-ports.js'
 import { removeDirectory } from './functions/remove-directory.js'
 import { openProjectInBrowser } from './functions/open-project-in-browser.js'
 import { getServiceQueues } from './functions/get-service-queues.js'
-import { sendSqsMessage } from './functions/send-queue-message.js'
-import { purgeQueue } from './functions/purge-queue.js'
+import { sendSqsMessage } from './sqs/send-queue-message.js'
+import { purgeQueue } from './sqs/purge-queue.js'
 import { getQueueData } from './functions/get-queue-data.js'
 import { pollQueues } from './functions/poll-queues.js'
+import { deleteQueue } from './sqs/delete-queue.js'
+import { createQueue } from './sqs/create-queue.js'
+
+const queuePollIntervals = new Map<string, NodeJS.Timeout>();
+
 
 app.on("ready", async () => {
   const mainWindow = new BrowserWindow({
@@ -32,6 +37,32 @@ app.on("ready", async () => {
   pollPorts(mainWindow)
   pollQueues(mainWindow)
 
+  ipcMainHandle('pollQueue', (_event, queueUrl: string) => {
+    if (queuePollIntervals.has(queueUrl)) {
+      clearInterval(queuePollIntervals.get(queueUrl)!);
+    }
+
+    const getData = async () => {
+      const data = await getQueueData(queueUrl);
+      ipcWebContentsSend('queueData', mainWindow.webContents, { queueUrl, data });
+    }
+    getData()
+    const interval = setInterval(async () => {
+      await getData()
+    }, 5000);
+
+    queuePollIntervals.set(queueUrl, interval);
+    return true;
+  });
+
+  ipcMainHandle('stopPollingQueue', (_event, queueUrl: string) => {
+    if (queuePollIntervals.has(queueUrl)) {
+      clearInterval(queuePollIntervals.get(queueUrl)!);
+      queuePollIntervals.delete(queueUrl);
+    }
+    return true;
+  });
+
   ipcMainHandle('getDirectories', () => {
     const directories = store.get('directories')
     return directories
@@ -45,6 +76,8 @@ app.on("ready", async () => {
   ipcMainHandle('openProjectInBrowser', (_event, id: string) => openProjectInBrowser(id))
   ipcMainHandle('getQueues', (_event, id: string) => getServiceQueues(id))
   ipcMainHandle('sendQueueMessage', (_event, queueUrl: string, message: string) => sendSqsMessage(queueUrl, message))
+  ipcMainHandle('createQueue', (_event, name: string, options: CreateQueueOptions) => createQueue(name, options))
+  ipcMainHandle('deleteQueue', (_event, queueUrl: string) => deleteQueue(queueUrl))
   ipcMainHandle('purgeQueue', (_event, queueUrl: string) => purgeQueue(queueUrl))
   ipcMainHandle('getQueueData', (_event, queueUrl: string) => getQueueData(queueUrl))
 

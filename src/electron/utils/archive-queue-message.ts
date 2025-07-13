@@ -3,7 +3,7 @@ import { store } from "../storage/store.js"
 
 export const archiveQueueMessage = async (messageToArchive: QueueMessage) => {
   const { queueUrl } = messageToArchive
-  const messagesMap = store.get('archivedMessages')
+  const messagesMap = store.get('archivedMessages') || {}
   const messages = getArchivedMessages(queueUrl)
 
   if (!messages?.length) {
@@ -11,6 +11,9 @@ export const archiveQueueMessage = async (messageToArchive: QueueMessage) => {
     store.set('archivedMessages', messagesMap)
   } else {
     const newMessages = [messageToArchive, ...messages.slice(0, 4)]
-    store.set('archivedMessages', newMessages)
+    store.set('archivedMessages', {
+      ...messagesMap,
+      [queueUrl]: newMessages
+    })
   }
 }

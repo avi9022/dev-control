@@ -28,8 +28,14 @@ const FormSchema = z.object({
   port: z.string(),
 })
 
-export const ServiceSettings: FC = () => {
-  const { directoryToView, updateDirectory } = useDirectories()
+interface ServiceSettingsProps {
+  id: string
+}
+
+export const ServiceSettings: FC<ServiceSettingsProps> = ({ id }) => {
+  const { updateDirectory, directories } = useDirectories()
+  const directoryToView = directories.find(({ id: currId }) => currId === id)
+
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -48,7 +54,7 @@ export const ServiceSettings: FC = () => {
   }, [directoryToView, form])
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    updateDirectory(data)
+    updateDirectory(id, data)
     toast("You submitted the following values:", {
       description: JSON.stringify(data || {})
     })
@@ -116,7 +122,7 @@ export const ServiceSettings: FC = () => {
         />
         <div className="flex gap-3">
           <Button type="submit">Submit</Button>
-          <RemoveDirectoryButton />
+          <RemoveDirectoryButton id={id} />
         </div>
       </form>
     </Form>

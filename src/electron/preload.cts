@@ -20,6 +20,10 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('queuesList', (list) => {
       callback(list);
     }),
+  subscribeQueueData: (callback) =>
+    ipcOn('queueData', (res) => {
+      callback(res);
+    }),
   removeDirectory: (id?: string) => ipcInvoke('removeDirectory', id),
   updateDirectory: (id: string, data: DataToUpdate) => ipcInvoke('updateDirectory', id, data),
   runService: (id: string) => ipcInvoke('runService', id),
@@ -28,7 +32,11 @@ electron.contextBridge.exposeInMainWorld("electron", {
   getQueues: (id: string) => ipcInvoke('getQueues', id),
   sendQueueMessage: (queueUrl: string, message: string) => ipcInvoke('sendQueueMessage', queueUrl, message),
   purgeQueue: (queueUrl: string) => ipcInvoke('purgeQueue', queueUrl),
+  deleteQueue: (queueUrl: string) => ipcInvoke('deleteQueue', queueUrl),
+  createQueue: (name: string, options: CreateQueueOptions) => ipcInvoke('createQueue', name, options),
+  pollQueue: (queueUrl: string) => ipcInvoke('pollQueue', queueUrl),
   getQueueData: (queueUrl: string) => ipcInvoke('getQueueData', queueUrl),
+  stopPollingQueue: (queueUrl: string) => ipcInvoke('stopPollingQueue', queueUrl)
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

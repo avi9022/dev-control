@@ -1,15 +1,10 @@
 import { ReceiveMessageCommand } from "@aws-sdk/client-sqs";
 import { client } from "./sqs.js";
-import { getCachedWaitingMessages } from "../storage/get-cached-waiting-messages.js";
-import { store } from "../storage/store.js";
 
-export const VISIBILITY_TIMEOUT_SECS = 60
+export const VISIBILITY_TIMEOUT_SECS = 3
+export const MAX_TRIES = 10
 
 export const getWaitingMessages = async (queueUrl: string): Promise<QueueMessage[]> => {
-  const cache = getCachedWaitingMessages(queueUrl)
-  if (cache) {
-    return cache
-  }
   const receiveMessageCommand = new ReceiveMessageCommand({
     QueueUrl: queueUrl,
     MaxNumberOfMessages: 10,
@@ -19,13 +14,17 @@ export const getWaitingMessages = async (queueUrl: string): Promise<QueueMessage
   })
   let gotAllMessages = false
   const messagesToReturn: QueueMessage[] = []
+  let currentTry = 1
   while (!gotAllMessages) {
     const result = await client.send(receiveMessageCommand);
 
     const messages = result.Messages || [];
 
     if (messages.length === 0) {
-      console.log('Done scanning.');
+      console.log(`Done scanning on try number: ${currentTry}`);
+      gotAllMessages = true
+    } else if (currentTry === MAX_TRIES) {
+      console.log('Got to max tries, ending fetch');
       gotAllMessages = true
     }
 
@@ -44,15 +43,22 @@ export const getWaitingMessages = async (queueUrl: string): Promise<QueueMessage
         receiptHandle: ReceiptHandle
       })
     })
-
+    currentTry++
   }
 
-  const cachedMessagesMap = store.get('waitingMessagesCache')
-  cachedMessagesMap[queueUrl] = {
-    createdAt: Date.now(),
-    messages: messagesToReturn
-  }
-  store.set('waitingMessagesCache', cachedMessagesMap)
+  const { finalMessages } = messagesToReturn.reduce<{
+    idsMap: Record<string, boolean>,
+    finalMessages: QueueMessage[]
+  }>((acc, message) => {
+    if (!acc.idsMap[message.id]) {
+      acc.idsMap[message.id] = true
+      acc.finalMessages.push(message)
+    }
+    return acc
+  }, {
+    idsMap: {},
+    finalMessages: []
+  })
 
-  return messagesToReturn
+  return finalMessages
 }

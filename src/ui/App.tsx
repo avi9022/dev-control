@@ -1,46 +1,64 @@
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from "@/components/ui/sonner"
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable"
-import { Service } from './views/Service'
 import { AppSidebar } from './components/AppSidebar'
 import { DirectoriesProvider } from './contexts/directories'
 import { LoggerProvider } from './contexts/logger'
-import { QueuesContext, QueuesProvider } from './contexts/queues'
-import { Queue } from './views/Queue'
+import { QueuesProvider } from './contexts/queues'
+import { SidebarProvider } from '@/components/ui/sidebar'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { PanelLeftOpen, PanelRightOpen } from 'lucide-react'
+import { ViewsProvider } from './contexts/views'
+import { MainContent } from './components/MainContent'
+import { SplitScreenChoice } from './components/SplitScreenChoice'
+
 
 function App() {
+  const [open, setOpen] = useState(true)
   return (
     <div>
-      <DirectoriesProvider>
-        <LoggerProvider>
-          <QueuesProvider>
-            <TooltipProvider>
-              <ResizablePanelGroup
-                style={{
-                  height: '100vh'
-                }}
-                direction="horizontal"
-                className="w-full"
-              >
-                <ResizablePanel className='flex flex-col' defaultSize={20}>
+      <ViewsProvider>
+        <SidebarProvider open={open} onOpenChange={setOpen} style={{
+          // @ts-expect-error not sure why
+          "--sidebar-width": "400px",
+          "--sidebar-width-mobile": "20rem",
+        }}
+        >
+          <DirectoriesProvider>
+            <LoggerProvider>
+              <QueuesProvider>
+                <TooltipProvider>
                   <AppSidebar />
-                </ResizablePanel>
-                <ResizableHandle />
-                <ResizablePanel defaultSize={50}>
-                  <QueuesContext.Consumer>
-                    {({ chosenQueue }) => chosenQueue ? <Queue /> : <Service />}
-                  </QueuesContext.Consumer>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            </TooltipProvider>
-          </QueuesProvider>
-          <Toaster />
-        </LoggerProvider>
-      </DirectoriesProvider>
+                  <main className='flex w-full relative h-screen'>
+                    <div className='w-full'>
+                      <div className='h-[40px] flex justify-between items-center'>
+                        <Button className='bg-transparent hover:bg-neutral-500 text-white' onClick={() => setOpen(!open)}>
+                          {open ?
+                            <div className='flex gap-1 items-center'>
+                              <PanelRightOpen />
+                              <p className='text-sm'>Close sidebar</p>
+                            </div> :
+                            <div className='flex gap-1 items-center'>
+                              <PanelLeftOpen />
+                              <p className='text-sm'>Open sidebar</p>
+                            </div>}
+                        </Button>
+                        <div className='pr-5'>
+                          <SplitScreenChoice />
+                        </div>
+                      </div>
+                      <MainContent />
+                    </div>
+
+                  </main>
+                </TooltipProvider>
+              </QueuesProvider>
+              <Toaster />
+            </LoggerProvider>
+          </DirectoriesProvider>
+        </SidebarProvider>
+      </ViewsProvider>
+
     </div>
   )
 }

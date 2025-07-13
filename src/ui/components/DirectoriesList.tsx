@@ -3,24 +3,29 @@ import { DirectoryTab } from "./DirectoryTab";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useDirectories } from "../contexts/directories";
-import { useQueues } from "../contexts/queues";
 
+interface DirectoriesListProps {
+  searchTerm: string
+}
 
-export const DirectoriesList: FC = () => {
+export const DirectoriesList: FC<DirectoriesListProps> = ({
+  searchTerm
+}) => {
 
   const { directories, chooseDirectory, addFromFolder } = useDirectories()
-  const { onChooseQueue } = useQueues()
+  const filteredList = searchTerm ? directories.filter(({ name }) => name.toLowerCase().includes(searchTerm.toLowerCase())) : directories
 
   return <div>
-    {directories.length ? directories.map((settings) => <div key={settings.id}>
+    {directories.length ? filteredList.length ? filteredList.map((settings) => <div key={settings.id}>
       <div onClick={() => {
-        onChooseQueue(null)
         chooseDirectory(settings.id)
       }}>
         <DirectoryTab directorySettings={settings} />
       </div>
-      <Separator className="my-4 " />
+      <Separator />
     </div>) : <div className="flex flex-col px-5 text-center gap-2 h-[400px] justify-center">
+      <p>No directories to match the search</p>
+    </div> : <div className="flex flex-col px-5 text-center gap-2 h-[400px] justify-center">
       <p>Looks like you have no directories</p>
       <Button onClick={addFromFolder}>Add new directories</Button>
     </div>}

@@ -9,7 +9,7 @@ export const getQueueData = async (queueUrl: string) => {
 
   return {
     lastFiveMessages,
-    waitingMessages,
+    waitingMessages: waitingMessages.sort((messageA, messageB) => messageA.id.localeCompare(messageB.id)),
     queueAttributes
   }
 }

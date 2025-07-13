@@ -3,10 +3,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, CircleX, Trash2 } from "lucide-react";
 import { useLogger } from "../contexts/logger";
-import { useDirectories } from "../contexts/directories";
 
 interface TerminalProps {
   logs: string[];
+  id: string
   height?: string | number;
 }
 
@@ -32,13 +32,11 @@ const IN_LINE_TOKENS: HighlightToken[] = [
   { regex: /\binfo\b/i, className: "text-green-400" },
   { regex: /\bdebug\b/i, className: "text-yellow-400" },
   { regex: /\bstarted?\b/i, className: "text-green-400" },
-  // { regex: /\bhttps?:\/\/[^\s]+/gi, className: "text-purple-400" },
 ];
 
 
-export const Terminal: FC<TerminalProps> = ({ logs }) => {
+export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
   const { clearTerminal } = useLogger()
-  const { directoryToView } = useDirectories()
   const scrollRef = useRef<HTMLDivElement>(null);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,7 +47,7 @@ export const Terminal: FC<TerminalProps> = ({ logs }) => {
     setSearchTerm('')
     setSearchInput('')
     setMatchIndexes([])
-  }, [directoryToView])
+  }, [id])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -96,8 +94,8 @@ export const Terminal: FC<TerminalProps> = ({ logs }) => {
   };
 
   const handleClearTerminal = () => {
-    if (directoryToView?.id) {
-      clearTerminal(directoryToView?.id)
+    if (id) {
+      clearTerminal(id)
     }
   }
 
