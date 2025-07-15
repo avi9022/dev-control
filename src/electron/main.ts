@@ -21,6 +21,7 @@ import { createWorkflow } from './functions/create-workflow.js'
 import { removeWorkflow } from './functions/remove-workflow.js'
 import { updateWorkflow } from './functions/update-workflow.js'
 import { startWorkflow } from './functions/start-workflow.js'
+import { openInVSCode } from './functions/open-in-vscode.js'
 
 const queuePollIntervals = new Map<string, NodeJS.Timeout>();
 
@@ -82,6 +83,7 @@ app.on("ready", async () => {
   ipcMainHandle('stopService', (_event, id: string) => stopProcess(id))
   ipcMainHandle('checkServiceState', (_event, id: string) => isServiceRunning(id))
   ipcMainHandle('openProjectInBrowser', (_event, id: string) => openProjectInBrowser(id))
+  ipcMainHandle('openInVSCode', (_event, id: string) => openInVSCode(id))
   ipcMainHandle('getQueues', (_event, id: string) => getServiceQueues(id))
   ipcMainHandle('sendQueueMessage', (_event, queueUrl: string, message: string) => sendSqsMessage(queueUrl, message))
   ipcMainHandle('createQueue', (_event, name: string, options: CreateQueueOptions) => createQueue(name, options))

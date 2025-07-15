@@ -187,6 +187,10 @@ type EventPayloadMapping = {
     return: void;
     args: [string]
   }
+  openInVSCode: {
+    return: void;
+    args: [string]
+  }
 };
 
 interface Window {
@@ -218,5 +222,6 @@ interface Window {
     removeWorkflow: (id: string) => void
     updateWorkflow: (id: string, data: Omit<Workflow, 'id'>) => void
     startWorkflow: (id: string) => void
+    openInVSCode: (id: string) => void
   }
 }

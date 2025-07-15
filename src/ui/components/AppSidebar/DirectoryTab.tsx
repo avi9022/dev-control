@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Loader2 } from "lucide-react";
 import { useDirectories } from "@/ui/contexts/directories";
 import { useViews } from "@/ui/contexts/views";
+import { DirectoryDropdownMenu } from "./DirectoryDropdownMenu";
 
 interface DirectoryTabProps {
   directorySettings: DirectorySettings
@@ -34,12 +35,12 @@ export const DirectoryTab: FC<DirectoryTabProps> = ({
 
 
   return <div className={`px-5 py-5 flex justify-between ${isDirectoryPanelOpen ? 'bg-stone-300 text-black' : ''}`}>
-    <div>
-      <div className="w-full flex gap-3 justify-start">
-        <div className="w-[180px]">
+    <div className="w-full flex gap-1 justify-start">
+      <div>
+        <div className="flex w-[180px] justify-between items-center">
           <Tooltip>
             <TooltipTrigger asChild>
-              <p className="font-bold max-w-[150px] text-sm truncate overflow-hidden whitespace-nowrap capitalize">
+              <p className="font-bold max-w-[150px]  text-sm truncate overflow-hidden whitespace-nowrap capitalize">
                 {name}
               </p>
             </TooltipTrigger>
@@ -49,24 +50,30 @@ export const DirectoryTab: FC<DirectoryTabProps> = ({
               </p>
             </TooltipContent>
           </Tooltip>
-          <p className='text-xs opacity-60'>
-            {runCommand}
-          </p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge className={`font-semibold ${isRunning ?
+                'bg-success' : isInitializing ? 'bg-yellow-600' :
+                  'bg-destructive'
+                } h-4 w-4 rounded-full`}>
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="capitalize font-bold">
+                {state}
+              </p>
+            </TooltipContent>
+          </Tooltip>
         </div>
+        <p className='text-xs opacity-60'>
+          {runCommand}
+        </p>
 
-        <Badge className={`font-semibold
- ${isRunning ?
-            isDirectoryPanelOpen ? 'bg-success/40 text-green-900' : 'bg-success/20 text-success' :
-            isDirectoryPanelOpen ? 'bg-destructive/40 text-red-900' : 'bg-destructive/20 text-red-400'
-          } h-6`}>
-          <p className="capitalize">
-            {state?.toLowerCase()}
-          </p>
-        </Badge>
       </div>
 
+
     </div>
-    <div className="flex gap-2">
+    <div className="flex gap-2 items-center">
       {isFrontendProj && !isInitializing && <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -132,7 +139,9 @@ export const DirectoryTab: FC<DirectoryTabProps> = ({
           <p>Please update the project's port to use this action</p>
         </TooltipContent>}
       </Tooltip>
-
+      <div>
+        <DirectoryDropdownMenu id={id} />
+      </div>
     </div>
   </div>
 }

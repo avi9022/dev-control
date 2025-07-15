@@ -49,7 +49,9 @@ function App() {
                             <SplitScreenChoice />
                           </div>
                         </div>
-                        <MainContent />
+                        <div className='h-[calc(100vh-40px)]'>
+                          <MainContent />
+                        </div>
                       </div>
 
                     </main>

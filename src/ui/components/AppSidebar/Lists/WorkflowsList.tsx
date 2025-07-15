@@ -8,10 +8,12 @@ import { SaveWorkflowButton } from "../../DialogButtons/SaveWorkflowButton";
 
 interface WorkflowsListProps {
   searchTerm: string
+  onStartWorkflow: () => void
 }
 
 export const WorkflowsList: FC<WorkflowsListProps> = ({
-  searchTerm
+  searchTerm,
+  onStartWorkflow,
 }) => {
   const { workflows } = useWorkflows()
   const filteredList = searchTerm ? workflows.filter(({ name }) => name.toLowerCase().includes(searchTerm.toLowerCase())) : workflows
@@ -31,6 +33,7 @@ export const WorkflowsList: FC<WorkflowsListProps> = ({
               onClick={(ev) => {
                 ev.stopPropagation()
                 window.electron.startWorkflow(id)
+                onStartWorkflow()
               }}
               className={'bg-success hover:bg-success/80 cursor-pointer'} size="sm"
             >

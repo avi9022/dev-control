@@ -11,12 +11,14 @@ export const ViewsContext = createContext<{
   setViewsCount: (count: number) => void,
   updateView: (type: ViewType, id: string | null) => void
   setCurrentViewIndex: (index: number) => void
+  closeView: (index: number) => void
   views: View[]
   currentViewIndex: number
 }>({
   setViewsCount: () => { },
   updateView: () => { },
   setCurrentViewIndex: () => { },
+  closeView: () => { },
   views: [],
   currentViewIndex: 0
 })
@@ -66,10 +68,16 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
     })
   }
 
+  const closeView = (index: number) => {
+    setViews((prev) => prev.filter((_, currIndex) => currIndex !== index))
+    setCurrentViewIndex(0)
+  }
+
   return <ViewsContext.Provider value={{
     setViewsCount,
     updateView,
     setCurrentViewIndex,
+    closeView,
     views,
     currentViewIndex,
   }}>

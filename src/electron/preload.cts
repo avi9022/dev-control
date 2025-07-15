@@ -45,6 +45,7 @@ electron.contextBridge.exposeInMainWorld("electron", {
   removeWorkflow: (id: string) => ipcInvoke('removeWorkflow', id),
   updateWorkflow: (id: string, data: Omit<Workflow, 'id'>) => ipcInvoke('updateWorkflow', id, data),
   startWorkflow: (id: string) => ipcInvoke('startWorkflow', id),
+  openInVSCode: (id: string) => ipcInvoke('openInVSCode', id),
 
 } satisfies Window['electron'])
 

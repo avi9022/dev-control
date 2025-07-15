@@ -6,7 +6,11 @@ import { useState, type FC } from "react";
 import { SaveWorkflowButton } from "../DialogButtons/SaveWorkflowButton";
 import { WorkflowsList } from "./Lists/WorkflowsList";
 
-export const WorkflowsMenu: FC = () => {
+interface WorkflowsMenuProps {
+  onStartWorkflow: () => void
+}
+
+export const WorkflowsMenu: FC<WorkflowsMenuProps> = ({ onStartWorkflow }) => {
   const [searchTerm, setSearchTerm] = useState('')
 
   return <div>
@@ -18,7 +22,7 @@ export const WorkflowsMenu: FC = () => {
       </Button>
     </div>
     <ScrollArea className="h-[calc(100vh-80px-40px-80px-35px-20px)]">
-      <WorkflowsList searchTerm={searchTerm} />
+      <WorkflowsList onStartWorkflow={onStartWorkflow} searchTerm={searchTerm} />
     </ScrollArea>
     <div className="flex justify-between items-center px-4 gap-20 h-[80px] bg-stone-600">
       <SaveWorkflowButton />

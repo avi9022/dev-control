@@ -1,4 +1,4 @@
-import { type FC } from "react"
+import { useState, type FC } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Logo } from "./Logo"
 import { Sidebar, SidebarHeader } from "@/components/ui/sidebar"
@@ -7,6 +7,7 @@ import { QueuesMenu } from "./QueuesMenu"
 import { WorkflowsMenu } from "./WorkflowsMenu"
 
 export const AppSidebar: FC = () => {
+  const [tab, setTab] = useState('services')
   return (
     <Sidebar>
       <div className="h-[100vh] flex flex-col">
@@ -14,11 +15,11 @@ export const AppSidebar: FC = () => {
           <Logo />
         </SidebarHeader>
 
-        <Tabs defaultValue="services" className="flex-1 h-[calc(100vh-80px)]">
+        <Tabs defaultValue="services" value={tab} className="flex-1 h-[calc(100vh-80px)]">
           <TabsList className={`w-full flex gap-2 h-[40px]`}>
-            <TabsTrigger value="services">Services</TabsTrigger>
-            <TabsTrigger value="queues">Queues</TabsTrigger>
-            <TabsTrigger value="workflows">Workflows</TabsTrigger>
+            <TabsTrigger onClick={() => setTab('services')} value="services">Services</TabsTrigger>
+            <TabsTrigger onClick={() => setTab('queues')} value="queues">Queues</TabsTrigger>
+            <TabsTrigger onClick={() => setTab('workflows')} value="workflows">Workflows</TabsTrigger>
           </TabsList>
           <TabsContent value="services">
             <ServicesMenu />
@@ -27,7 +28,7 @@ export const AppSidebar: FC = () => {
             <QueuesMenu />
           </TabsContent>
           <TabsContent value="workflows">
-            <WorkflowsMenu />
+            <WorkflowsMenu onStartWorkflow={() => setTab('services')} />
           </TabsContent>
         </Tabs>
       </div >

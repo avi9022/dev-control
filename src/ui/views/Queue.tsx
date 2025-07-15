@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookCheck, Clock } from "lucide-react";
 import { QueueMessage } from "../components/QueueMessage";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { QueueDataCardsSkeleton } from "../components/Skeletons/QueueDataCardsSkeleton";
 
 interface QueueProps {
@@ -71,86 +70,84 @@ export const Queue: FC<QueueProps> = ({
     </div>
   }
 
-  return <ScrollArea className='h-[calc(100vh-50px)]'>
-    <div className="p-5 pt-0">
-      <div className="flex justify-between items-end mb-5">
-        <div>
-          <p className="text-3xl font-bold">Queue manager</p>
-          <p >{id.split('/').pop()}</p>
-        </div>
-        <Button onClick={handlePurgeQueue}>Purge queue</Button>
+  return <div className="p-5 pt-0">
+    <div className="flex justify-between items-end mb-5">
+      <div>
+        <p className="text-3xl font-bold">Queue manager</p>
+        <p >{id.split('/').pop()}</p>
       </div>
-      <QueueDataCards data={chosenQueueData} />
-      <div className="flex justify-between align-end mb-4 mt-4">
-        <p className="text-3xl">Send message</p>
-        <Button onClick={sendMessageToQueue} disabled={!id}>Send</Button>
-      </div>
-      <div className="w-[99%]">
-        <JsonInput value={requestBody} disabled={!id} onChange={handleEditorChange} />
-      </div>
-
-      <Tabs defaultValue="prev" className="flex-1">
-        <TabsList className={`w-full flex gap-2 h-[40px]`}>
-          <TabsTrigger value="prev">Previous messages</TabsTrigger>
-          <TabsTrigger value="current">Current messages</TabsTrigger>
-        </TabsList>
-        <TabsContent value="prev">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <div className="flex gap-3 items-start">
-                  <div className="pt-1">
-                    <Clock className="text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl mb-2">Previous messages sent</p>
-                    <p>The last 5 messages you have sent from DevControl</p>
-                  </div>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-3">
-
-                {chosenQueueData?.lastFiveMessages.map(({ createdAt, id, message }) => <QueueMessage
-                  onReuseMessage={(message) => handleEditorChange(message)}
-                  createdAt={createdAt}
-                  id={id}
-                  message={message}
-                />)}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="current">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <div className="flex gap-3 items-start">
-                  <div className="pt-1">
-                    <BookCheck className="text-yellow-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl mb-2">Current messages</p>
-                    <p>The messages that are currently in the queue</p>
-                  </div>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-3">
-
-                {chosenQueueData?.waitingMessages.map(({ createdAt, id, message }) => <QueueMessage
-                  onReuseMessage={(message) => handleEditorChange(message)}
-                  createdAt={createdAt}
-                  id={id}
-                  message={message}
-                />)}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <Button onClick={handlePurgeQueue}>Purge queue</Button>
     </div>
-  </ScrollArea>
+    <QueueDataCards data={chosenQueueData} />
+    <div className="flex justify-between align-end mb-4 mt-4">
+      <p className="text-3xl">Send message</p>
+      <Button onClick={sendMessageToQueue} disabled={!id}>Send</Button>
+    </div>
+    <div className="w-[99%]">
+      <JsonInput value={requestBody} disabled={!id} onChange={handleEditorChange} />
+    </div>
+
+    <Tabs defaultValue="prev" className="flex-1">
+      <TabsList className={`w-full flex gap-2 h-[40px]`}>
+        <TabsTrigger value="prev">Previous messages</TabsTrigger>
+        <TabsTrigger value="current">Current messages</TabsTrigger>
+      </TabsList>
+      <TabsContent value="prev">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <div className="flex gap-3 items-start">
+                <div className="pt-1">
+                  <Clock className="text-green-400" />
+                </div>
+                <div>
+                  <p className="text-2xl mb-2">Previous messages sent</p>
+                  <p>The last 5 messages you have sent from DevControl</p>
+                </div>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+
+              {chosenQueueData?.lastFiveMessages.map(({ createdAt, id, message }) => <QueueMessage
+                onReuseMessage={(message) => handleEditorChange(message)}
+                createdAt={createdAt}
+                id={id}
+                message={message}
+              />)}
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+      <TabsContent value="current">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <div className="flex gap-3 items-start">
+                <div className="pt-1">
+                  <BookCheck className="text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-2xl mb-2">Current messages</p>
+                  <p>The messages that are currently in the queue</p>
+                </div>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+
+              {chosenQueueData?.waitingMessages.map(({ createdAt, id, message }) => <QueueMessage
+                onReuseMessage={(message) => handleEditorChange(message)}
+                createdAt={createdAt}
+                id={id}
+                message={message}
+              />)}
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
+  </div>
 }
