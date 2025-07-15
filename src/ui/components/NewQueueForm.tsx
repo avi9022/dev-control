@@ -47,7 +47,7 @@ export const NewQueueForm: FC = () => {
     },
   })
 
-  function onSubmit(data: z.infer<typeof FormSchema>) {
+  const onSubmit = (data: z.infer<typeof FormSchema>) => {
     if (data.fifoQueue && !data.name.endsWith('.fifo')) {
       data.name += '.fifo';
     }

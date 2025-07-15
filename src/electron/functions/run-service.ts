@@ -1,6 +1,5 @@
 import { ChildProcess, spawn } from 'child_process';
 import treeKill from 'tree-kill';
-import { store } from '../storage/store.js';
 import { ipcWebContentsSend } from '../utils/ipc-handle.js';
 import { BrowserWindow } from 'electron';
 import { exec } from 'child_process';
@@ -17,13 +16,11 @@ export const runService = (
     stopProcess(id)
   }
 
-  const directories = store.get('directories')
-  const currDirectory = directories.find(({ id: currId }) => currId === id)
+  const currDirectory = getDirectoryById(id)
 
   if (!currDirectory) {
     throw new Error('Directory was not found')
   }
-  console.log('updating - here');
 
   updateDirectoryData(id, { isInitializing: true })
 

@@ -9,8 +9,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { useDirectories } from "../contexts/directories"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useDirectories } from "../../contexts/directories"
 import { Square } from "lucide-react"
 
 export const StopAllServicesButton = () => {

@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { useEffect, type FC } from "react"
 import { useDirectories } from "../contexts/directories"
-import { RemoveDirectoryButton } from "./RemoveDirectoryButton"
+import { RemoveDirectoryButton } from "./DialogButtons/RemoveDirectoryButton"
 
 const FormSchema = z.object({
   name: z.string().min(2, {

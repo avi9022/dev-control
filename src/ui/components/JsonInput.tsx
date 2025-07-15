@@ -13,14 +13,11 @@ export const JsonInput: FC<JsonInputProps> = ({
   value = "{}",
   disabled
 }) => {
-  // const [value, setValue] = useState(initialValue);
   const [error, setError] = useState<string | null>(null);
 
   const handleEditorChange = (val?: string) => {
     const newVal = val ?? "";
-    // setValue(newVal);
     try {
-      // const parsed = JSON.parse(newVal);
       setError(null);
       onChange?.(newVal);
     } catch {

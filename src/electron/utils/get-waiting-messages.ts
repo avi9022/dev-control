@@ -21,7 +21,6 @@ export const getWaitingMessages = async (queueUrl: string): Promise<QueueMessage
     const messages = result.Messages || [];
 
     if (messages.length === 0) {
-      console.log(`Done scanning on try number: ${currentTry}`);
       gotAllMessages = true
     } else if (currentTry === MAX_TRIES) {
       console.log('Got to max tries, ending fetch');

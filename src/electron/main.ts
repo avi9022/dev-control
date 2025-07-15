@@ -17,6 +17,10 @@ import { getQueueData } from './functions/get-queue-data.js'
 import { pollQueues } from './functions/poll-queues.js'
 import { deleteQueue } from './sqs/delete-queue.js'
 import { createQueue } from './sqs/create-queue.js'
+import { createWorkflow } from './functions/create-workflow.js'
+import { removeWorkflow } from './functions/remove-workflow.js'
+import { updateWorkflow } from './functions/update-workflow.js'
+import { startWorkflow } from './functions/start-workflow.js'
 
 const queuePollIntervals = new Map<string, NodeJS.Timeout>();
 
@@ -67,6 +71,10 @@ app.on("ready", async () => {
     const directories = store.get('directories')
     return directories
   })
+  ipcMainHandle('getWorkflows', () => {
+    const flows = store.get('workflows')
+    return flows
+  })
   ipcMainHandle('addDirectoriesFromFolder', () => addDirectoriesFromFolder())
   ipcMainHandle('removeDirectory', (_event, id: string | undefined) => removeDirectory(id))
   ipcMainHandle('updateDirectory', (_event, id: string, data: DataToUpdate) => updateDirectoryData(id, data))
@@ -81,7 +89,16 @@ app.on("ready", async () => {
   ipcMainHandle('purgeQueue', (_event, queueUrl: string) => purgeQueue(queueUrl))
   ipcMainHandle('getQueueData', (_event, queueUrl: string) => getQueueData(queueUrl))
 
+  // Workflows
+  ipcMainHandle('createWorkflow', (_event, name: string, services: string[]) => createWorkflow(name, services))
+  ipcMainHandle('removeWorkflow', (_event, id: string) => removeWorkflow(id))
+  ipcMainHandle('updateWorkflow', (_event, id: string, data: Omit<Workflow, 'id'>) => updateWorkflow(id, data))
+  ipcMainHandle('startWorkflow', (_event, id: string) => startWorkflow(id, mainWindow))
+
   store.onDidChange('directories', (newVal) => {
     ipcWebContentsSend('directories', mainWindow.webContents, newVal || []);
+  });
+  store.onDidChange('workflows', (newVal) => {
+    ipcWebContentsSend('workflows', mainWindow.webContents, newVal || []);
   });
 })

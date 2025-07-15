@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink, Play, Square } from "lucide-react";
 import type { FC } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useDirectories } from "../contexts/directories";
 import { Loader2 } from "lucide-react";
-import { useViews } from "../contexts/views";
+import { useDirectories } from "@/ui/contexts/directories";
+import { useViews } from "@/ui/contexts/views";
 
 interface DirectoryTabProps {
   directorySettings: DirectorySettings
@@ -67,7 +67,7 @@ export const DirectoryTab: FC<DirectoryTabProps> = ({
 
     </div>
     <div className="flex gap-2">
-      {isFrontendProj && <Tooltip>
+      {isFrontendProj && !isInitializing && <Tooltip>
         <TooltipTrigger asChild>
           <Button
             className="shadow-gray-600"

@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { useDirectories } from "../contexts/directories"
+import { useDirectories } from "../../contexts/directories"
 import type { FC } from "react"
 
 interface RemoveDirectoryButtonProps {

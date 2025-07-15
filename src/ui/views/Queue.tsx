@@ -71,7 +71,7 @@ export const Queue: FC<QueueProps> = ({
     </div>
   }
 
-  return <ScrollArea className='w-full h-[calc(100vh-50px)]'>
+  return <ScrollArea className='h-[calc(100vh-50px)]'>
     <div className="p-5 pt-0">
       <div className="flex justify-between items-end mb-5">
         <div>
@@ -81,11 +81,11 @@ export const Queue: FC<QueueProps> = ({
         <Button onClick={handlePurgeQueue}>Purge queue</Button>
       </div>
       <QueueDataCards data={chosenQueueData} />
-      <div className="mt-5 flex flex-col gap-2 mb-5">
-        <div className="flex justify-between align-end mb-2">
-          <p className="text-3xl">Send message</p>
-          <Button onClick={sendMessageToQueue} disabled={!id}>Send</Button>
-        </div>
+      <div className="flex justify-between align-end mb-4 mt-4">
+        <p className="text-3xl">Send message</p>
+        <Button onClick={sendMessageToQueue} disabled={!id}>Send</Button>
+      </div>
+      <div className="w-[99%]">
         <JsonInput value={requestBody} disabled={!id} onChange={handleEditorChange} />
       </div>
 

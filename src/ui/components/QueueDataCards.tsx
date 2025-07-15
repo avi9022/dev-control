@@ -87,7 +87,7 @@ export const QueueDataCards: FC<QueueDataCardsProps> = ({ data }) => {
           <CaseSensitive />
           <div>
             <p className="text-lg">Queue ARN</p>
-            <p className="text-gray-400">{data?.queueAttributes.QueueArn || ' '}</p>
+            <p className="text-gray-400 font-bold max-w-[200px] text-sm truncate overflow-hidden whitespace-nowrap">{data?.queueAttributes.QueueArn || ' '}</p>
           </div>
         </div>
       </CardContent>

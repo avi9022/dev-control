@@ -22,7 +22,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Logo } from "@/ui/components/Logo"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -331,7 +330,7 @@ function SidebarInput({
   )
 }
 
-function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
+function SidebarHeader({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-header"
@@ -339,7 +338,7 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
       className={cn("flex flex-col gap-2 p-2 h-30", className)}
       {...props}
     >
-      <Logo />
+      {children}
     </div>
   )
 }

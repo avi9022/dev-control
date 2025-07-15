@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { DialogHeader, Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CirclePlus } from "lucide-react";
 import type { FC } from "react";
-import { NewQueueForm } from "./NewQueueForm";
+import { NewQueueForm } from "../NewQueueForm";
 
 export const AddNewQueueButton: FC = () => {
   return <div className="w-full">

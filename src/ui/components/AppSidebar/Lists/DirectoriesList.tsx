@@ -1,8 +1,8 @@
 import { type FC } from "react";
-import { DirectoryTab } from "./DirectoryTab";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useDirectories } from "../contexts/directories";
+import { useDirectories } from "@/ui/contexts/directories";
+import { DirectoryTab } from "../DirectoryTab";
 
 interface DirectoriesListProps {
   searchTerm: string

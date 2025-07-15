@@ -72,6 +72,12 @@ interface QueueData {
   queueAttributes: Partial<Record<QueueAttributeName, string>>
 }
 
+interface Workflow {
+  name: string
+  id: string
+  services: string[]
+}
+
 type EventPayloadMapping = {
   getDirectories: {
     return: DirectorySettings[];
@@ -92,6 +98,10 @@ type EventPayloadMapping = {
   directories: {
     return: DirectorySettings[];
     args: [DirectorySettings[]];
+  };
+  workflows: {
+    return: Workflow[];
+    args: [Workflow[]];
   };
   logs: {
     return: Log;
@@ -157,12 +167,33 @@ type EventPayloadMapping = {
     return: void;
     args: [string]
   }
+  getWorkflows: {
+    return: Workflow[],
+    args: []
+  },
+  createWorkflow: {
+    return: void;
+    args: [string, string[]]
+  }
+  removeWorkflow: {
+    return: void;
+    args: [string]
+  }
+  updateWorkflow: {
+    return: void;
+    args: [string, Omit<Workflow, 'id'>]
+  }
+  startWorkflow: {
+    return: void;
+    args: [string]
+  }
 };
 
 interface Window {
   electron: {
     getDirectories: () => Promise<DirectorySettings[]>
     subscribeDirectories: (callback: (directories: DirectorySettings[]) => void) => void
+    subscribeWorkflows: (callback: (flows: Workflow[]) => void) => void
     subscribeLogs: (callback: (log: Log) => void) => void
     addDirectoriesFromFolder: () => Promise<void>
     updateDirectory: (id: string, data: DataToUpdate) => void
@@ -182,5 +213,10 @@ interface Window {
     createQueue: (name: string, options: CreateQueueOptions) => void
     getQueueData: (queueUrl: string) => Promise<QueueData>
     stopPollingQueue: (queueUrl: string) => Promise<boolean>
+    getWorkflows: () => Promise<Workflow[]>
+    createWorkflow: (name: string, services: string[]) => void
+    removeWorkflow: (id: string) => void
+    updateWorkflow: (id: string, data: Omit<Workflow, 'id'>) => void
+    startWorkflow: (id: string) => void
   }
 }

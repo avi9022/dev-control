@@ -171,7 +171,7 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
 
       if (LEVEL_PREFIXES[rawPrefix]) {
         prefixNode = (
-          <span key={`prefix-${idx}`} className={LEVEL_PREFIXES[rawPrefix]}>
+          <span key={`prefix-${idx}`} className={`${LEVEL_PREFIXES[rawPrefix]}`}>
             {`${rawPrefix}${spacer}`}
           </span>
         );
@@ -199,7 +199,7 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
 
     return (
       <div key={idx} data-log-line={idx}
-        className="whitespace-pre-wrap text-gray-200">
+        className="whitespace-pre-wrap text-wrap break-all text-gray-200">
         {prefixNode}
         {contentNodes}
       </div>
@@ -208,7 +208,7 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
 
 
   return (
-    <div className="h-full flex  flex-col">
+    <div className="h-full flex flex-col">
       <div className="flex items-center gap-5 px-4 py-2 bg-gray-900 rounded-t-lg border-b border-gray-700">
         <div className="flex items-center flex-1 gap-2">
           <Button variant="secondary" size={'sm'} onClick={handleClearTerminal}><Trash2 /></Button>
@@ -247,7 +247,7 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
       </div>
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-3 bg-gray-950 font-mono text-sm whitespace-pre-wrap break-words rounded-b-lg"
+        className="flex-1 overflow-y-auto px-4 py-3 bg-gray-950 font-mono text-sm whitespace-pre-wrap break-words break-all rounded-b-lg"
       >
         {logs.map((line, idx) => renderLine(line, idx))}
       </div>

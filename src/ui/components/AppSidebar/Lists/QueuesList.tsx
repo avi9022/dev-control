@@ -1,8 +1,8 @@
 import { type FC } from "react";
 import { Separator } from "@/components/ui/separator";
-import { useQueues } from "../contexts/queues";
-import { DeleteQueueButton } from "./DeleteQueueButton";
-import { useViews } from "../contexts/views";
+import { useQueues } from "@/ui/contexts/queues";
+import { useViews } from "@/ui/contexts/views";
+import { DeleteQueueButton } from "../../DialogButtons/DeleteQueueButton";
 
 interface QueuesListProps {
   searchTerm: string
