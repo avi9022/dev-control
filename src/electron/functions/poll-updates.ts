@@ -13,6 +13,7 @@ export const pollUpdates = () => {
   setInterval(async () => {
     const settings = getUpdateNotificationSettings()
 
+
     try {
       await execAsync('git fetch');
       const { stdout } = await execAsync('git status -uno');
