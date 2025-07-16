@@ -28,6 +28,10 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('queueData', (res) => {
       callback(res);
     }),
+  subscribeUpdateNotificationSettings: (callback) =>
+    ipcOn('updateNotificationSettings', (res) => {
+      callback(res);
+    }),
   removeDirectory: (id?: string) => ipcInvoke('removeDirectory', id),
   updateDirectory: (id: string, data: DataToUpdate) => ipcInvoke('updateDirectory', id, data),
   runService: (id: string) => ipcInvoke('runService', id),
@@ -46,7 +50,9 @@ electron.contextBridge.exposeInMainWorld("electron", {
   updateWorkflow: (id: string, data: Omit<Workflow, 'id'>) => ipcInvoke('updateWorkflow', id, data),
   startWorkflow: (id: string) => ipcInvoke('startWorkflow', id),
   openInVSCode: (id: string) => ipcInvoke('openInVSCode', id),
-
+  markUserAsPrompted: () => ipcInvoke('markUserAsPrompted'),
+  refuseUpdates: () => ipcInvoke('refuseUpdates'),
+  updateSystem: () => ipcInvoke('updateSystem')
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

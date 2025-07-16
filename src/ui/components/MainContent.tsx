@@ -5,6 +5,9 @@ import { Queue } from "../views/Queue"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
+const height = 'h-[calc(100vh-50px)]'
+const heightWithLesSpace = 'h-[calc(100vh-50px-40px)]'
+
 export const MainContent: FC = () => {
   const { views, setCurrentViewIndex, currentViewIndex, closeView } = useViews()
 
@@ -14,11 +17,14 @@ export const MainContent: FC = () => {
         <div key={`${itemId}-${type}-${index}`} onClick={() => setCurrentViewIndex(index)} className={`relative h-full flex-1 basis-1/${views.length} ${views.length > 1 ? `border rounded-md ${currentViewIndex === index ? 'border-green-700' : ''}` : 'w-full'}`}>
           {views.length > 1 && <div className="flex justify-between px-5 bg-card rounded-t-md items-center py-2">
             <p className="font-bold">View: {index + 1}</p>
-            <Button className="h-5" onClick={() => closeView(index)}>
+            <Button className="h-5" onClick={(ev) => {
+              ev.stopPropagation()
+              closeView(index)
+            }}>
               <p className="text-xs">Close</p>
             </Button>
           </div>}
-          <ScrollArea className={`h-[calc(100vh-50px${views.length > 1 ? '-40px' : ''})]`}>
+          <ScrollArea className={views.length > 1 ? heightWithLesSpace : height}>
             {type === 'directory' ?
               <Service key={index} id={itemId} /> :
               <Queue key={index} id={itemId} />}

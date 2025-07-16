@@ -5,7 +5,7 @@ import { DirectoriesProvider } from './contexts/directories'
 import { LoggerProvider } from './contexts/logger'
 import { QueuesProvider } from './contexts/queues'
 import { SidebarProvider } from '@/components/ui/sidebar'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { PanelLeftOpen, PanelRightOpen } from 'lucide-react'
 import { ViewsProvider } from './contexts/views'
@@ -16,6 +16,16 @@ import { WorkflowsProvider } from './contexts/workflows'
 
 function App() {
   const [open, setOpen] = useState(true)
+  const [updateSettings, setUpdateSettings] = useState<UpdateNotificationSettings>()
+
+  useEffect(() => {
+    window.electron.subscribeUpdateNotificationSettings((settings) => {
+      console.log(settings);
+
+      setUpdateSettings(settings)
+    })
+  }, [])
+
   return (
     <div>
       <ViewsProvider>

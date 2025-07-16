@@ -22,6 +22,10 @@ import { removeWorkflow } from './functions/remove-workflow.js'
 import { updateWorkflow } from './functions/update-workflow.js'
 import { startWorkflow } from './functions/start-workflow.js'
 import { openInVSCode } from './functions/open-in-vscode.js'
+import { pollUpdates } from './functions/poll-updates.js'
+import { markUserAsPrompted } from './functions/markUserAsPrompted.js'
+import { refuseUpdates } from './functions/refuse-updates.js'
+import { updateSystem } from './functions/update-system.js'
 
 const queuePollIntervals = new Map<string, NodeJS.Timeout>();
 
@@ -41,6 +45,7 @@ app.on("ready", async () => {
 
   pollPorts(mainWindow)
   pollQueues(mainWindow)
+  pollUpdates()
 
   ipcMainHandle('pollQueue', (_event, queueUrl: string) => {
     if (queuePollIntervals.has(queueUrl)) {
@@ -97,10 +102,23 @@ app.on("ready", async () => {
   ipcMainHandle('updateWorkflow', (_event, id: string, data: Omit<Workflow, 'id'>) => updateWorkflow(id, data))
   ipcMainHandle('startWorkflow', (_event, id: string) => startWorkflow(id, mainWindow))
 
+  // Update notification settings
+  ipcMainHandle('markUserAsPrompted', () => markUserAsPrompted())
+  ipcMainHandle('refuseUpdates', () => refuseUpdates())
+  ipcMainHandle('updateSystem', () => updateSystem())
+
+
   store.onDidChange('directories', (newVal) => {
     ipcWebContentsSend('directories', mainWindow.webContents, newVal || []);
   });
   store.onDidChange('workflows', (newVal) => {
     ipcWebContentsSend('workflows', mainWindow.webContents, newVal || []);
+  });
+  store.onDidChange('updateNotificationSettings', (newVal) => {
+    ipcWebContentsSend('updateNotificationSettings', mainWindow.webContents, newVal || {
+      hasUpdates: false,
+      userWasPrompted: false,
+      userRefusedUpdates: false,
+    });
   });
 })

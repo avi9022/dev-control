@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { useDirectories } from "@/ui/contexts/directories";
 import { useViews } from "@/ui/contexts/views";
 import { DirectoryDropdownMenu } from "./DirectoryDropdownMenu";
+import { OpenItemViewButton } from "../OpenItemViewButton";
 
 interface DirectoryTabProps {
   directorySettings: DirectorySettings
@@ -34,7 +35,7 @@ export const DirectoryTab: FC<DirectoryTabProps> = ({
   }
 
 
-  return <div className={`px-5 py-5 flex justify-between ${isDirectoryPanelOpen ? 'bg-stone-300 text-black' : ''}`}>
+  return <div className={`px-3 py-5 flex justify-between ${isDirectoryPanelOpen ? 'bg-stone-300 text-black' : ''}`}>
     <div className="w-full flex gap-1 justify-start">
       <div>
         <div className="flex w-[180px] justify-between items-center">
@@ -117,6 +118,7 @@ export const DirectoryTab: FC<DirectoryTabProps> = ({
           <p>Force stop</p>
         </TooltipContent>
       </Tooltip>}
+      <OpenItemViewButton id={id} type="directory" variant={isDirectoryPanelOpen ? 'secondary' : 'outline'} />
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

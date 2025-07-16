@@ -5,9 +5,13 @@ import { Terminal } from "../components/Terminal";
 import { useLogger } from "../contexts/logger";
 import { useDirectories } from "../contexts/directories";
 import { useViews } from "../contexts/views";
+import clsx from "clsx";
 
 const headerHeight = '56px'
 const tabsListHeight = '40px'
+const height = 'h-[calc(100vh-56px-40px-70px-30px)]'
+const heightWithLesSpace = 'h-[calc(100vh-56px-40px-70px-30px-30px)]'
+
 
 interface ServiceProps {
   id: string | null
@@ -30,7 +34,7 @@ export const Service: FC<ServiceProps> = ({
 
   const directoryToView = directories.find(({ id: currId }) => currId === id)
 
-  return <div className="p-5 pt-0 pb-0">
+  return <div className="p-5 pt-0 pb-0 h-full">
     <div className={`h-[${headerHeight}] pb-4`}>
       <p className="text-3xl font-bold">Directory manager</p>
       <p >{directoryToView?.name}</p>
@@ -42,7 +46,7 @@ export const Service: FC<ServiceProps> = ({
         <TabsTrigger value="settings">Settings</TabsTrigger>
       </TabsList>
       <TabsContent value="terminal">
-        <div className={`h-[calc(100vh-56px-40px-70px-30px${views.length > 1 ? '-30px' : ''})]`}>
+        <div className={clsx(views.length > 1 ? heightWithLesSpace : height)}>
           <Terminal logs={getLogsByDirId(id)} id={id} />
         </div>
       </TabsContent>

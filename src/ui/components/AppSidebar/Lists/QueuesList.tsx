@@ -3,6 +3,9 @@ import { Separator } from "@/components/ui/separator";
 import { useQueues } from "@/ui/contexts/queues";
 import { useViews } from "@/ui/contexts/views";
 import { DeleteQueueButton } from "../../DialogButtons/DeleteQueueButton";
+import { OpenItemViewButton } from "../../OpenItemViewButton";
+import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
+import { TooltipTrigger } from "@radix-ui/react-tooltip";
 
 interface QueuesListProps {
   searchTerm: string
@@ -21,12 +24,24 @@ export const QueuesList: FC<QueuesListProps> = ({
       const isCurrent = views.some(({ itemId, type }) => type === 'queue' && itemId === url)
 
       return <div key={url}>
-        <div className={`px-5 py-5 flex justify-between items-center ${isCurrent ? 'bg-stone-300 text-black' : ''}`}
+        <div className={`py-5 px-3 flex w-full justify-between items-center ${isCurrent ? 'bg-stone-300 text-black' : ''}`}
           onClick={() => {
             onChooseQueue(url)
           }}>
-          <p className="font-bold max-w-[300px] text-sm truncate overflow-hidden whitespace-nowrap">{url.split('/').pop()}</p>
-          <DeleteQueueButton queueUrl={url} />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="font-bold w-[250px] text-sm truncate overflow-hidden whitespace-nowrap">{url.split('/').pop()}</p>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="font-bold">{url.split('/').pop()}</p>
+            </TooltipContent>
+          </Tooltip>
+          <div className="flex gap-2 justify-end flex-1">
+            <OpenItemViewButton onOpenView={() => {
+              onChooseQueue(url, false)
+            }} id={url} type="queue" variant={isCurrent ? 'secondary' : 'outline'} />
+            <DeleteQueueButton queueUrl={url} />
+          </div>
         </div>
         <Separator />
       </div>

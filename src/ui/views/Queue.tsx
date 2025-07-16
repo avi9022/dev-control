@@ -1,7 +1,7 @@
 import { useEffect, useState, type FC } from "react";
 import { useQueues } from "../contexts/queues";
 import { Button } from "@/components/ui/button";
-import { JsonInput } from "../components/JsonInput";
+import { JsonInput } from "../components/Inputs/JsonInput";
 import { QueueDataCards } from "../components/QueueDataCards";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -70,7 +70,7 @@ export const Queue: FC<QueueProps> = ({
     </div>
   }
 
-  return <div className="p-5 pt-0">
+  return <div className="p-5 pt-0 h-full">
     <div className="flex justify-between items-end mb-5">
       <div>
         <p className="text-3xl font-bold">Queue manager</p>

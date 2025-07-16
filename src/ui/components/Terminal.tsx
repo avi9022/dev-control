@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FC } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, CircleX, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, CircleX, Trash2 } from "lucide-react";
 import { useLogger } from "../contexts/logger";
+import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
+import { TooltipTrigger } from "@radix-ui/react-tooltip";
 
 interface TerminalProps {
   logs: string[];
@@ -42,6 +44,7 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [matchIndexes, setMatchIndexes] = useState<number[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [autoScroll, setAutoScroll] = useState(true)
 
   useEffect(() => {
     setSearchTerm('')
@@ -50,10 +53,34 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
   }, [id])
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight
-      });
+    const el = scrollRef.current;
+    if (!el) return;
+    console.log('here');
+
+
+    const handleScroll = () => {
+      const threshold = 80;
+      const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+      setAutoScroll(isAtBottom);
+    };
+
+
+    el.addEventListener("scroll", handleScroll);
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  const scrollToBottom = () => {
+    if (!scrollRef.current) return
+    scrollRef.current.scrollTo({
+      top: scrollRef.current.scrollHeight
+    });
+  }
+
+  useEffect(() => {
+    if (scrollRef.current && autoScroll) {
+      scrollToBottom()
     }
   }, [logs]);
 
@@ -63,7 +90,6 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
         .map((line, idx) => line.toLowerCase().includes(searchTerm.toLowerCase()) ? idx : -1)
         .filter(idx => idx !== -1);
       setMatchIndexes(matches);
-      setCurrentMatchIndex(0);
     } else {
       setMatchIndexes([]);
       setCurrentMatchIndex(0);
@@ -71,25 +97,28 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
   }, [searchTerm, logs]);
 
   useEffect(() => {
-    if (matchIndexes.length && scrollRef.current) {
+    if (matchIndexes.length && scrollRef.current && !autoScroll) {
       const lineEl = scrollRef.current.querySelector(`[data-log-line='${matchIndexes[currentMatchIndex]}']`);
       if (lineEl) {
         lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [currentMatchIndex, matchIndexes]);
+  }, [currentMatchIndex, matchIndexes, autoScroll]);
 
   const handleNext = () => {
     if (matchIndexes.length === 0) return;
+    setAutoScroll(false)
     setCurrentMatchIndex((prev) => (prev + 1) % matchIndexes.length);
   };
 
   const handlePrev = () => {
     if (matchIndexes.length === 0) return;
+    setAutoScroll(false)
     setCurrentMatchIndex((prev) => (prev - 1 + matchIndexes.length) % matchIndexes.length);
   };
 
   const handleSearchSubmit = () => {
+    setAutoScroll(false)
     setSearchTerm(searchInput);
   };
 
@@ -211,6 +240,19 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-5 px-4 py-2 bg-gray-900 rounded-t-lg border-b border-gray-700">
         <div className="flex items-center flex-1 gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="secondary" size={'sm'} onClick={() => {
+                scrollToBottom()
+                setAutoScroll(true)
+              }}>
+                <ChevronDown />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Scroll to bottom</p>
+            </TooltipContent>
+          </Tooltip>
           <Button variant="secondary" size={'sm'} onClick={handleClearTerminal}><Trash2 /></Button>
           <Input
             placeholder="Search logs..."
@@ -237,7 +279,7 @@ export const Terminal: FC<TerminalProps> = ({ logs, id }) => {
           <Button variant="secondary" size={'sm'} onClick={handlePrev}><ChevronLeft /></Button>
           <Button variant="secondary" size={'sm'} onClick={handleNext}> <ChevronRight /></Button>
           {matchIndexes.length > 0 && (
-            <div className="w-3">
+            <div>
               <span className="text-gray-400 text-sm">
                 {`${currentMatchIndex + 1}/${matchIndexes.length}`}
               </span>

@@ -78,6 +78,12 @@ interface Workflow {
   services: string[]
 }
 
+interface UpdateNotificationSettings {
+  hasUpdates: boolean
+  userWasPrompted: boolean
+  userRefusedUpdates: boolean
+}
+
 type EventPayloadMapping = {
   getDirectories: {
     return: DirectorySettings[];
@@ -102,6 +108,10 @@ type EventPayloadMapping = {
   workflows: {
     return: Workflow[];
     args: [Workflow[]];
+  };
+  updateNotificationSettings: {
+    return: UpdateNotificationSettings;
+    args: [UpdateNotificationSettings];
   };
   logs: {
     return: Log;
@@ -187,6 +197,18 @@ type EventPayloadMapping = {
     return: void;
     args: [string]
   }
+  markUserAsPrompted: {
+    return: void;
+    args: []
+  }
+  refuseUpdates: {
+    return: void;
+    args: []
+  }
+  updateSystem: {
+    return: void;
+    args: []
+  }
   openInVSCode: {
     return: void;
     args: [string]
@@ -198,6 +220,7 @@ interface Window {
     getDirectories: () => Promise<DirectorySettings[]>
     subscribeDirectories: (callback: (directories: DirectorySettings[]) => void) => void
     subscribeWorkflows: (callback: (flows: Workflow[]) => void) => void
+    subscribeUpdateNotificationSettings: (callback: (flows: UpdateNotificationSettings) => void) => void
     subscribeLogs: (callback: (log: Log) => void) => void
     addDirectoriesFromFolder: () => Promise<void>
     updateDirectory: (id: string, data: DataToUpdate) => void
@@ -223,5 +246,9 @@ interface Window {
     updateWorkflow: (id: string, data: Omit<Workflow, 'id'>) => void
     startWorkflow: (id: string) => void
     openInVSCode: (id: string) => void
+    markUserAsPrompted: () => void
+    refuseUpdates: () => void
+    updateSystem: () => void
+
   }
 }

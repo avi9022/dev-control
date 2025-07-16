@@ -4,6 +4,7 @@ type Schema = {
   directories: DirectorySettings[];
   workflows: Workflow[]
   archivedMessages: QueueMessageMapByQueue
+  updateNotificationSettings: UpdateNotificationSettings
   waitingMessagesCache: Record<string, {
     createdAt: number,
     messages: QueueMessage[]
@@ -15,6 +16,11 @@ export const store = new Store<Schema>({
     directories: [],
     workflows: [],
     archivedMessages: {},
-    waitingMessagesCache: {}
+    waitingMessagesCache: {},
+    updateNotificationSettings: {
+      hasUpdates: false,
+      userRefusedUpdates: false,
+      userWasPrompted: false
+    }
   },
 });

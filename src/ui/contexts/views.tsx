@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type FC, type PropsWithChildren } from 'react'
 
-type ViewType = 'directory' | 'queue'
+export type ViewType = 'directory' | 'queue'
 
 interface View {
   type: ViewType,
@@ -12,6 +12,7 @@ export const ViewsContext = createContext<{
   updateView: (type: ViewType, id: string | null) => void
   setCurrentViewIndex: (index: number) => void
   closeView: (index: number) => void
+  openViewForItem: (type: ViewType, itemId: string) => void
   views: View[]
   currentViewIndex: number
 }>({
@@ -19,6 +20,7 @@ export const ViewsContext = createContext<{
   updateView: () => { },
   setCurrentViewIndex: () => { },
   closeView: () => { },
+  openViewForItem: () => { },
   views: [],
   currentViewIndex: 0
 })
@@ -73,6 +75,15 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
     setCurrentViewIndex(0)
   }
 
+  const openViewForItem = (type: ViewType, itemId: string) => {
+    if (views.length >= 3) return
+
+    setViews((prev) => [...prev, {
+      itemId,
+      type,
+    }])
+  }
+
   return <ViewsContext.Provider value={{
     setViewsCount,
     updateView,
@@ -80,6 +91,7 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
     closeView,
     views,
     currentViewIndex,
+    openViewForItem
   }}>
     {children}
   </ViewsContext.Provider>

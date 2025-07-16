@@ -5,7 +5,7 @@ type QueuesData = Record<string, QueueData>
 
 export const QueuesContext = createContext<{
   queues: string[]
-  onChooseQueue: (url: string | null) => void
+  onChooseQueue: (url: string | null, openView?: boolean) => void
   getQueueData: (url: string) => Promise<QueueData>,
   subscribedQueuesData: QueuesData
 }>({
@@ -44,12 +44,14 @@ export const QueuesProvider: FC<PropsWithChildren> = ({ children }) => {
 
 
 
-  const onChooseQueue = async (url: string | null) => {
-    const currentView = views[currentViewIndex]
-    if (currentView?.type === 'queue' && currentView.itemId) {
-      await window.electron.stopPollingQueue(currentView.itemId)
+  const onChooseQueue = async (url: string | null, openView: boolean = true) => {
+    if (openView) {
+      const currentView = views[currentViewIndex]
+      if (currentView?.type === 'queue' && currentView.itemId) {
+        await window.electron.stopPollingQueue(currentView.itemId)
+      }
+      updateView('queue', url)
     }
-    updateView('queue', url)
     if (url) {
       window.electron.pollQueue(url || '')
     }

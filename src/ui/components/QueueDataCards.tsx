@@ -2,6 +2,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CaseSensitive, CircleCheck, CirclePower, ClockAlert, ClockArrowUp, DatabaseBackup, FileText, Hourglass } from "lucide-react";
 import type { FC } from "react";
 import moment from 'moment'
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface QueueDataCardsProps {
   data: QueueData | null
@@ -87,7 +88,14 @@ export const QueueDataCards: FC<QueueDataCardsProps> = ({ data }) => {
           <CaseSensitive />
           <div>
             <p className="text-lg">Queue ARN</p>
-            <p className="text-gray-400 font-bold max-w-[200px] text-sm truncate overflow-hidden whitespace-nowrap">{data?.queueAttributes.QueueArn || ' '}</p>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="text-gray-400 font-bold max-w-[300px] text-sm truncate overflow-hidden whitespace-nowrap">{data?.queueAttributes.QueueArn || ' '}</p>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="font-bold">{data?.queueAttributes.QueueArn || ' '}</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </CardContent>
