@@ -52,7 +52,14 @@ electron.contextBridge.exposeInMainWorld("electron", {
   openInVSCode: (id: string) => ipcInvoke('openInVSCode', id),
   markUserAsPrompted: () => ipcInvoke('markUserAsPrompted'),
   refuseUpdates: () => ipcInvoke('refuseUpdates'),
-  updateSystem: () => ipcInvoke('updateSystem')
+  updateSystem: () => ipcInvoke('updateSystem'),
+  getLogs: (dirId: string) => ipcInvoke('getLogs', dirId),
+  clearLogs: (dirId: string) => ipcInvoke('clearLogs', dirId),
+  getLogsChunk: (dirId: string, offset: number, limit: number) => ipcInvoke('getLogsChunk', dirId, offset, limit),
+  getLogsTail: (dirId: string, limit: number) => ipcInvoke('getLogsTail', dirId, limit),
+  getLogFileLineCount: (dirId: string) => ipcInvoke('getLogFileLineCount', dirId),
+  searchLogs: (dirId: string, searchTerm: string) => ipcInvoke('searchLogs', dirId, searchTerm),
+  getLogsRange: (dirId: string, startLine: number, endLine: number) => ipcInvoke('getLogsRange', dirId, startLine, endLine)
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

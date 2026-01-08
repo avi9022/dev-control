@@ -26,6 +26,7 @@ import { pollUpdates } from './functions/poll-updates.js'
 import { markUserAsPrompted } from './functions/markUserAsPrompted.js'
 import { refuseUpdates } from './functions/refuse-updates.js'
 import { updateSystem } from './functions/update-system.js'
+import { readLogFile, clearLogFile, ensureLogsDirectory, readLogFileChunk, readLogFileTail, getLogFileLineCount, searchLogFile, readLogFileRange } from './utils/log-file-manager.js'
 
 const queuePollIntervals = new Map<string, NodeJS.Timeout>();
 
@@ -42,6 +43,9 @@ app.on("ready", async () => {
   } else {
     mainWindow.loadFile(getUIPath())
   }
+
+  // Ensure logs directory exists
+  ensureLogsDirectory()
 
   pollPorts(mainWindow)
   pollQueues(mainWindow)
@@ -82,7 +86,9 @@ app.on("ready", async () => {
     return flows
   })
   ipcMainHandle('addDirectoriesFromFolder', () => addDirectoriesFromFolder())
-  ipcMainHandle('removeDirectory', (_event, id: string | undefined) => removeDirectory(id))
+  ipcMainHandle('removeDirectory', async (_event, id: string | undefined) => {
+    await removeDirectory(id)
+  })
   ipcMainHandle('updateDirectory', (_event, id: string, data: DataToUpdate) => updateDirectoryData(id, data))
   ipcMainHandle('runService', (_event, id: string) => runService(id, mainWindow))
   ipcMainHandle('stopService', (_event, id: string) => stopProcess(id))
@@ -106,6 +112,37 @@ app.on("ready", async () => {
   ipcMainHandle('markUserAsPrompted', () => markUserAsPrompted())
   ipcMainHandle('refuseUpdates', () => refuseUpdates())
   ipcMainHandle('updateSystem', () => updateSystem())
+
+  // Log file operations
+  ipcMainHandle('getLogs', async (_event, dirId: string) => {
+    return await readLogFile(dirId)
+  })
+  ipcMainHandle('clearLogs', async (_event, dirId: string) => {
+    try {
+      await clearLogFile(dirId)
+      return true
+    } catch (error) {
+      console.error('Failed to clear logs:', error)
+      return false
+    }
+  })
+  
+  // Pagination and search operations
+  ipcMainHandle('getLogsChunk', async (_event, dirId: string, offset: number, limit: number) => {
+    return await readLogFileChunk(dirId, offset, limit)
+  })
+  ipcMainHandle('getLogsTail', async (_event, dirId: string, limit: number) => {
+    return await readLogFileTail(dirId, limit)
+  })
+  ipcMainHandle('getLogFileLineCount', async (_event, dirId: string) => {
+    return await getLogFileLineCount(dirId)
+  })
+  ipcMainHandle('searchLogs', async (_event, dirId: string, searchTerm: string) => {
+    return await searchLogFile(dirId, searchTerm)
+  })
+  ipcMainHandle('getLogsRange', async (_event, dirId: string, startLine: number, endLine: number) => {
+    return await readLogFileRange(dirId, startLine, endLine)
+  })
 
 
   store.onDidChange('directories', (newVal) => {

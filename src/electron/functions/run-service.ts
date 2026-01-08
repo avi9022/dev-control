@@ -5,6 +5,7 @@ import { BrowserWindow } from 'electron';
 import { exec } from 'child_process';
 import { getDirectoryById } from '../storage/get-directory-by-id.js';
 import { updateDirectoryData } from './update-directory-data.js';
+import { appendLogToFile } from '../utils/log-file-manager.js';
 
 const runningProcesses = new Map<string, ChildProcess>();
 
@@ -35,11 +36,19 @@ export const runService = (
   child.stdout.on('data', (data) => {
     const line = data.toString();
     ipcWebContentsSend('logs', mainWindow.webContents, { dirId: id, line });
+    // Persist to file (non-blocking)
+    appendLogToFile(id, line).catch((error) => {
+      console.error(`Failed to write log to file for ${id}:`, error);
+    });
   });
 
   child.stderr.on('data', (data) => {
     const line = data.toString();
     ipcWebContentsSend('logs', mainWindow.webContents, { dirId: id, line });
+    // Persist to file (non-blocking)
+    appendLogToFile(id, line).catch((error) => {
+      console.error(`Failed to write log to file for ${id}:`, error);
+    });
   });
 
   child.on('exit', (code) => {

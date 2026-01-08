@@ -213,6 +213,34 @@ type EventPayloadMapping = {
     return: void;
     args: [string]
   }
+  getLogs: {
+    return: string[];
+    args: [string]
+  }
+  clearLogs: {
+    return: boolean;
+    args: [string]
+  }
+  getLogsChunk: {
+    return: string[];
+    args: [string, number, number]
+  }
+  getLogsTail: {
+    return: string[];
+    args: [string, number]
+  }
+  getLogFileLineCount: {
+    return: number;
+    args: [string]
+  }
+  searchLogs: {
+    return: Array<{ lineNumber: number, line: string }>;
+    args: [string, string]
+  }
+  getLogsRange: {
+    return: string[];
+    args: [string, number, number]
+  }
 };
 
 interface Window {
@@ -249,6 +277,13 @@ interface Window {
     markUserAsPrompted: () => void
     refuseUpdates: () => void
     updateSystem: () => void
+    getLogs: (dirId: string) => Promise<string[]>
+    clearLogs: (dirId: string) => Promise<boolean>
+    getLogsChunk: (dirId: string, offset: number, limit: number) => Promise<string[]>
+    getLogsTail: (dirId: string, limit: number) => Promise<string[]>
+    getLogFileLineCount: (dirId: string) => Promise<number>
+    searchLogs: (dirId: string, searchTerm: string) => Promise<Array<{ lineNumber: number, line: string }>>
+    getLogsRange: (dirId: string, startLine: number, endLine: number) => Promise<string[]>
 
   }
 }

@@ -47,7 +47,7 @@ export const Service: FC<ServiceProps> = ({
       </TabsList>
       <TabsContent value="terminal">
         <div className={clsx(views.length > 1 ? heightWithLesSpace : height)}>
-          <Terminal logs={getLogsByDirId(id)} id={id} />
+          <Terminal id={id} />
         </div>
       </TabsContent>
       <TabsContent value="settings">
