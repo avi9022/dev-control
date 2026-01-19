@@ -84,6 +84,20 @@ interface UpdateNotificationSettings {
   userRefusedUpdates: boolean
 }
 
+type TodoPriority = 'none' | 'low' | 'medium' | 'high'
+
+interface Todo {
+  id: string
+  text: string
+  completed: boolean
+  createdAt: string
+  priority?: TodoPriority
+}
+
+interface TodoSettings {
+  autoHide: boolean
+}
+
 type EventPayloadMapping = {
   getDirectories: {
     return: DirectorySettings[];
@@ -241,6 +255,47 @@ type EventPayloadMapping = {
     return: string[];
     args: [string, number, number]
   }
+  // Todo handlers
+  getTodosForDate: {
+    return: Todo[];
+    args: [string]
+  }
+  saveTodosForDate: {
+    return: void;
+    args: [string, Todo[]]
+  }
+  getTodoFolderPath: {
+    return: string;
+    args: []
+  }
+  setTodoFolderPath: {
+    return: void;
+    args: [string]
+  }
+  getAvailableDates: {
+    return: string[];
+    args: []
+  }
+  getTodoSettings: {
+    return: TodoSettings;
+    args: []
+  }
+  setTodoSettings: {
+    return: void;
+    args: [TodoSettings]
+  }
+  hideOverlay: {
+    return: void;
+    args: []
+  }
+  selectTodoFolder: {
+    return: string | null;
+    args: []
+  }
+  todosFileChanged: {
+    return: { date: string };
+    args: [{ date: string }];
+  }
 };
 
 interface Window {
@@ -284,6 +339,16 @@ interface Window {
     getLogFileLineCount: (dirId: string) => Promise<number>
     searchLogs: (dirId: string, searchTerm: string) => Promise<Array<{ lineNumber: number, line: string }>>
     getLogsRange: (dirId: string, startLine: number, endLine: number) => Promise<string[]>
-
+    // Todo API
+    getTodosForDate: (date: string) => Promise<Todo[]>
+    saveTodosForDate: (date: string, todos: Todo[]) => Promise<void>
+    getTodoFolderPath: () => Promise<string>
+    setTodoFolderPath: (path: string) => Promise<void>
+    getAvailableDates: () => Promise<string[]>
+    getTodoSettings: () => Promise<TodoSettings>
+    setTodoSettings: (settings: TodoSettings) => Promise<void>
+    hideOverlay: () => Promise<void>
+    selectTodoFolder: () => Promise<string | null>
+    subscribeTodosFileChanged: (callback: (data: { date: string }) => void) => () => void
   }
 }

@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 
 let logsDirectory: string | null = null;
+console.log('logsDirectory', logsDirectory);
+
 
 /**
  * Gets the logs directory path, ensuring it exists
@@ -47,6 +49,8 @@ export function getLogFilePath(dirId: string): string {
 export async function appendLogToFile(dirId: string, line: string): Promise<void> {
   try {
     const filePath = getLogFilePath(dirId);
+    console.log('filePath', filePath);
+
     await fs.promises.appendFile(filePath, line, 'utf8');
     // Invalidate cache when file is modified
     invalidateLineCountCache(dirId);

@@ -12,6 +12,7 @@ import { ViewsProvider } from './contexts/views'
 import { MainContent } from './components/MainContent'
 import { SplitScreenChoice } from './components/SplitScreenChoice'
 import { WorkflowsProvider } from './contexts/workflows'
+import { ToolsProvider } from './contexts/tools'
 
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
   return (
     <div>
       <ViewsProvider>
+        <ToolsProvider>
         <SidebarProvider open={open} onOpenChange={setOpen} style={{
           // @ts-expect-error not sure why
           "--sidebar-width": "400px",
@@ -72,6 +74,7 @@ function App() {
             </DirectoriesProvider>
           </WorkflowsProvider>
         </SidebarProvider>
+        </ToolsProvider>
       </ViewsProvider>
 
     </div>

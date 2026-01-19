@@ -5,6 +5,7 @@ import { Sidebar, SidebarHeader } from "@/components/ui/sidebar"
 import { ServicesMenu } from "./ServicesMenu"
 import { QueuesMenu } from "./QueuesMenu"
 import { WorkflowsMenu } from "./WorkflowsMenu"
+import { ToolsMenu } from "./ToolsMenu"
 
 export const AppSidebar: FC = () => {
   const [tab, setTab] = useState('services')
@@ -20,6 +21,7 @@ export const AppSidebar: FC = () => {
             <TabsTrigger onClick={() => setTab('services')} value="services">Services</TabsTrigger>
             <TabsTrigger onClick={() => setTab('queues')} value="queues">Queues</TabsTrigger>
             <TabsTrigger onClick={() => setTab('workflows')} value="workflows">Workflows</TabsTrigger>
+            <TabsTrigger onClick={() => setTab('tools')} value="tools">Tools</TabsTrigger>
           </TabsList>
           <TabsContent value="services">
             <ServicesMenu />
@@ -29,6 +31,9 @@ export const AppSidebar: FC = () => {
           </TabsContent>
           <TabsContent value="workflows">
             <WorkflowsMenu onStartWorkflow={() => setTab('services')} />
+          </TabsContent>
+          <TabsContent value="tools">
+            <ToolsMenu />
           </TabsContent>
         </Tabs>
       </div >

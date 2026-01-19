@@ -11,3 +11,11 @@ export const getPreloadPath = () => {
 }
 
 export const getUIPath = () => path.join(app.getAppPath(), '/dist-react/index.html')
+
+export const getOverlayUIPath = () => path.join(app.getAppPath(), '/dist-react/overlay.html')
+
+export const getAssetsPath = () => path.join(
+  app.getAppPath(),
+  isDev() ? '.' : '..',
+  '/assets'
+)

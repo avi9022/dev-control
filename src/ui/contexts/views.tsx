@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type FC, type PropsWithChildren } from 'react'
 
-export type ViewType = 'directory' | 'queue'
+export type ViewType = 'directory' | 'queue' | 'tool'
 
 interface View {
   type: ViewType,

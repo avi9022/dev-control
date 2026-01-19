@@ -1,7 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { FC } from "react";
 import { ServiceSettings } from "../components/ServiceSettings";
-import { Terminal } from "../components/Terminal";
+import { Terminal } from "../components/terminal";
 import { useLogger } from "../contexts/logger";
 import { useDirectories } from "../contexts/directories";
 import { useViews } from "../contexts/views";

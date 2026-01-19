@@ -43,6 +43,8 @@ function truncateCache(logs: string[], maxSize: number): string[] {
 export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
   // Cache with metadata for each directory
   const [logsCacheByDirId, setLogsCacheByDirId] = useState<Record<string, LogCacheEntry>>({})
+  console.log(logsCacheByDirId);
+
 
   const subscribeToLogs = () => {
     window.electron.subscribeLogs((log) => {
@@ -51,12 +53,15 @@ export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
 
         if (existing) {
           // Append new log and truncate if needed
+          const originalLength = existing.logs.length + 1  // +1 for new log
           const newLogs = truncateCache([...existing.logs, log.line], MAX_CACHE_SIZE)
+          const truncatedCount = originalLength - newLogs.length
+
           return {
             ...prev,
             [log.dirId]: {
               logs: newLogs,
-              startLine: existing.startLine,
+              startLine: existing.startLine + truncatedCount,  // Advance startLine by truncated amount
               endLine: existing.endLine + 1,
               totalLines: existing.totalLines + 1
             }
@@ -131,34 +136,100 @@ export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
     try {
       const logs = await window.electron.getLogsChunk(id, offset, limit)
 
-      // Update cache
-      const existing = logsCacheByDirId[id]
-      if (existing) {
-        // Merge with existing cache, truncate if needed
-        const mergedLogs = [...existing.logs, ...logs]
-        const truncated = truncateCache(mergedLogs, MAX_CACHE_SIZE)
+      setLogsCacheByDirId((prev) => {
+        const existing = prev[id]
 
-        setLogsCacheByDirId((prev) => ({
-          ...prev,
-          [id]: {
-            logs: truncated,
-            startLine: Math.min(existing.startLine, offset),
-            endLine: Math.max(existing.endLine, offset + logs.length - 1),
-            totalLines: existing.totalLines
+        if (existing) {
+          const newChunkStart = offset
+          const newChunkEnd = offset + logs.length - 1
+
+          // Determine merge strategy based on overlap
+          let mergedLogs: string[]
+          let newStartLine: number
+          let newEndLine: number
+
+          if (newChunkEnd < existing.startLine) {
+            // New chunk is entirely before existing - prepend
+            mergedLogs = [...logs, ...existing.logs]
+            newStartLine = newChunkStart
+            newEndLine = existing.endLine
+          } else if (newChunkStart > existing.endLine) {
+            // New chunk is entirely after existing - append
+            mergedLogs = [...existing.logs, ...logs]
+            newStartLine = existing.startLine
+            newEndLine = newChunkEnd
+          } else {
+            // Overlapping ranges - merge carefully
+            newStartLine = Math.min(existing.startLine, newChunkStart)
+            newEndLine = Math.max(existing.endLine, newChunkEnd)
+
+            // Build merged array by position
+            const mergedSize = newEndLine - newStartLine + 1
+            mergedLogs = new Array(mergedSize)
+
+            // Copy existing logs to their positions
+            for (let i = 0; i < existing.logs.length; i++) {
+              const absoluteIdx = existing.startLine + i
+              const mergedIdx = absoluteIdx - newStartLine
+              mergedLogs[mergedIdx] = existing.logs[i]
+            }
+
+            // Overwrite/fill with new logs (newer data takes precedence)
+            for (let i = 0; i < logs.length; i++) {
+              const absoluteIdx = newChunkStart + i
+              const mergedIdx = absoluteIdx - newStartLine
+              mergedLogs[mergedIdx] = logs[i]
+            }
+
+            // Filter out any undefined entries
+            mergedLogs = mergedLogs.filter(Boolean)
           }
-        }))
-      } else {
-        // New cache entry
+
+          // Apply truncation
+          const truncated = truncateCache(mergedLogs, MAX_CACHE_SIZE)
+          const truncatedCount = mergedLogs.length - truncated.length
+
+          // Adjust startLine if truncation happened from the beginning
+          const finalStartLine = newStartLine + truncatedCount
+          const finalEndLine = newEndLine
+
+          return {
+            ...prev,
+            [id]: {
+              logs: truncated,
+              startLine: finalStartLine,
+              endLine: finalEndLine,
+              totalLines: existing.totalLines
+            }
+          }
+        } else {
+          // New cache entry
+          return {
+            ...prev,
+            [id]: {
+              logs: truncateCache(logs, MAX_CACHE_SIZE),
+              startLine: offset,
+              endLine: offset + logs.length - 1,
+              totalLines: offset + logs.length
+            }
+          }
+        }
+      })
+
+      // Update totalLines separately for new entries
+      const existing = logsCacheByDirId[id]
+      if (!existing) {
         const totalLines = await window.electron.getLogFileLineCount(id)
-        setLogsCacheByDirId((prev) => ({
-          ...prev,
-          [id]: {
-            logs: truncateCache(logs, MAX_CACHE_SIZE),
-            startLine: offset,
-            endLine: offset + logs.length - 1,
-            totalLines
+        setLogsCacheByDirId((prev) => {
+          const entry = prev[id]
+          if (entry && entry.totalLines !== totalLines) {
+            return {
+              ...prev,
+              [id]: { ...entry, totalLines }
+            }
           }
-        }))
+          return prev
+        })
       }
 
       return logs

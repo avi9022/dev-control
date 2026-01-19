@@ -59,7 +59,21 @@ electron.contextBridge.exposeInMainWorld("electron", {
   getLogsTail: (dirId: string, limit: number) => ipcInvoke('getLogsTail', dirId, limit),
   getLogFileLineCount: (dirId: string) => ipcInvoke('getLogFileLineCount', dirId),
   searchLogs: (dirId: string, searchTerm: string) => ipcInvoke('searchLogs', dirId, searchTerm),
-  getLogsRange: (dirId: string, startLine: number, endLine: number) => ipcInvoke('getLogsRange', dirId, startLine, endLine)
+  getLogsRange: (dirId: string, startLine: number, endLine: number) => ipcInvoke('getLogsRange', dirId, startLine, endLine),
+  // Todo API
+  getTodosForDate: (date: string) => ipcInvoke('getTodosForDate', date),
+  saveTodosForDate: (date: string, todos: Todo[]) => ipcInvoke('saveTodosForDate', date, todos),
+  getTodoFolderPath: () => ipcInvoke('getTodoFolderPath'),
+  setTodoFolderPath: (path: string) => ipcInvoke('setTodoFolderPath', path),
+  getAvailableDates: () => ipcInvoke('getAvailableDates'),
+  getTodoSettings: () => ipcInvoke('getTodoSettings'),
+  setTodoSettings: (settings: TodoSettings) => ipcInvoke('setTodoSettings', settings),
+  hideOverlay: () => ipcInvoke('hideOverlay'),
+  selectTodoFolder: () => ipcInvoke('selectTodoFolder'),
+  subscribeTodosFileChanged: (callback) =>
+    ipcOn('todosFileChanged', (data) => {
+      callback(data);
+    })
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

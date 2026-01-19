@@ -2,6 +2,7 @@ import type { FC } from "react"
 import { useViews } from "../contexts/views"
 import { Service } from "../views/Service"
 import { Queue } from "../views/Queue"
+import { Tool } from "../views/Tool"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -25,9 +26,13 @@ export const MainContent: FC = () => {
             </Button>
           </div>}
           <ScrollArea className={views.length > 1 ? heightWithLesSpace : height}>
-            {type === 'directory' ?
-              <Service key={index} id={itemId} /> :
-              <Queue key={index} id={itemId} />}
+            {type === 'directory' ? (
+              <Service key={index} id={itemId} />
+            ) : type === 'queue' ? (
+              <Queue key={index} id={itemId} />
+            ) : (
+              <Tool key={index} id={itemId} />
+            )}
           </ScrollArea>
         </div>
       ))}

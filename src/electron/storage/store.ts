@@ -9,6 +9,10 @@ type Schema = {
     createdAt: number,
     messages: QueueMessage[]
   }>
+  todoFolderPath: string | undefined
+  todoSettings: {
+    autoHide: boolean
+  }
 };
 
 export const store = new Store<Schema>({
@@ -21,6 +25,10 @@ export const store = new Store<Schema>({
       hasUpdates: false,
       userRefusedUpdates: false,
       userWasPrompted: false
+    },
+    todoFolderPath: undefined,
+    todoSettings: {
+      autoHide: false
     }
   },
 });
