@@ -320,10 +320,10 @@ type EventPayloadMapping = {
 interface Window {
   electron: {
     getDirectories: () => Promise<DirectorySettings[]>
-    subscribeDirectories: (callback: (directories: DirectorySettings[]) => void) => void
-    subscribeWorkflows: (callback: (flows: Workflow[]) => void) => void
-    subscribeUpdateNotificationSettings: (callback: (flows: UpdateNotificationSettings) => void) => void
-    subscribeLogs: (callback: (log: Log) => void) => void
+    subscribeDirectories: (callback: (directories: DirectorySettings[]) => void) => () => void
+    subscribeWorkflows: (callback: (flows: Workflow[]) => void) => () => void
+    subscribeUpdateNotificationSettings: (callback: (flows: UpdateNotificationSettings) => void) => () => void
+    subscribeLogs: (callback: (log: Log) => void) => () => void
     addDirectoriesFromFolder: () => Promise<void>
     updateDirectory: (id: string, data: DataToUpdate) => void
     removeDirectory: (id?: string) => void
@@ -331,9 +331,9 @@ interface Window {
     openProjectInBrowser: (id: string) => void
     stopService: (id: string) => void
     checkServiceState: (id: string) => Promise<DirectoryState>
-    subscribeDirectoriesState: (callback: (statesMap: DirectoryMapByState) => void) => void
-    subscribeQueuesList: (callback: (list: string[]) => void) => void
-    subscribeQueueData: (callback: (res: { queueUrl: string, data: QueueData }) => void) => void
+    subscribeDirectoriesState: (callback: (statesMap: DirectoryMapByState) => void) => () => void
+    subscribeQueuesList: (callback: (list: string[]) => void) => () => void
+    subscribeQueueData: (callback: (res: { queueUrl: string, data: QueueData }) => void) => () => void
     getQueues: (id: string) => Promise<QueueSettings[]>
     pollQueue: (urk: string) => void
     sendQueueMessage: (queueUrl: string, message: string) => void

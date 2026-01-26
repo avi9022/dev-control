@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, type FC, type PropsWithChildren } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type FC, type PropsWithChildren } from 'react'
 
 const MAX_CACHE_SIZE = 1000
 
@@ -43,11 +43,17 @@ function truncateCache(logs: string[], maxSize: number): string[] {
 export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
   // Cache with metadata for each directory
   const [logsCacheByDirId, setLogsCacheByDirId] = useState<Record<string, LogCacheEntry>>({})
-  console.log(logsCacheByDirId);
+  // Ref to access cache in callbacks without triggering re-renders
+  const cacheRef = useRef<Record<string, LogCacheEntry>>({})
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    cacheRef.current = logsCacheByDirId
+  }, [logsCacheByDirId])
 
 
   const subscribeToLogs = () => {
-    window.electron.subscribeLogs((log) => {
+    return window.electron.subscribeLogs((log) => {
       setLogsCacheByDirId((prev) => {
         const existing = prev[log.dirId]
 
@@ -102,9 +108,9 @@ export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
       return logs
     } catch (error) {
       console.error(`Failed to load logs tail for ${id}:`, error)
-      return logsCacheByDirId[id]?.logs || []
+      return cacheRef.current[id]?.logs || []
     }
-  }, [logsCacheByDirId])
+  }, [])
 
   const getTotalLineCount = useCallback(async (id: string): Promise<number> => {
     try {
@@ -128,9 +134,9 @@ export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
       return count
     } catch (error) {
       console.error(`Failed to get line count for ${id}:`, error)
-      return logsCacheByDirId[id]?.totalLines || 0
+      return cacheRef.current[id]?.totalLines || 0
     }
-  }, [logsCacheByDirId])
+  }, [])
 
   const loadLogsChunk = useCallback(async (id: string, offset: number, limit: number): Promise<string[]> => {
     try {
@@ -217,7 +223,7 @@ export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
       })
 
       // Update totalLines separately for new entries
-      const existing = logsCacheByDirId[id]
+      const existing = cacheRef.current[id]
       if (!existing) {
         const totalLines = await window.electron.getLogFileLineCount(id)
         setLogsCacheByDirId((prev) => {
@@ -237,7 +243,7 @@ export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
       console.error(`Failed to load logs chunk for ${id}:`, error)
       return []
     }
-  }, [logsCacheByDirId])
+  }, [])
 
   const getLogsByDirId = useCallback(async (id: string, offset?: number, limit?: number): Promise<string[]> => {
     // If no offset/limit specified, use default behavior (get tail)
@@ -246,7 +252,7 @@ export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
     }
 
     // Check if requested range is in cache
-    const cached = logsCacheByDirId[id]
+    const cached = cacheRef.current[id]
     if (cached && offset >= cached.startLine && offset + limit <= cached.endLine + 1) {
       const cacheStart = offset - cached.startLine
       const cacheEnd = cacheStart + limit
@@ -255,7 +261,7 @@ export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
 
     // Load from file
     return loadLogsChunk(id, offset, limit)
-  }, [logsCacheByDirId, getLogsTail, loadLogsChunk])
+  }, [getLogsTail, loadLogsChunk])
 
   const searchLogs = useCallback(async (id: string, searchTerm: string): Promise<Array<{ lineNumber: number, line: string }>> => {
     try {
@@ -289,7 +295,11 @@ export const LoggerProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   useEffect(() => {
-    subscribeToLogs()
+    const unsubscribe = subscribeToLogs()
+
+    return () => {
+      unsubscribe?.()
+    }
   }, [])
 
   return <loggerContext.Provider value={{

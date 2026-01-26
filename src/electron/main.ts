@@ -6,7 +6,7 @@ import { ipcMainHandle, ipcWebContentsSend } from './utils/ipc-handle.js'
 import { store } from './storage/store.js'
 import { addDirectoriesFromFolder } from './functions/add-directories-from-folder.js'
 import { updateDirectoryData } from './functions/update-directory-data.js'
-import { runService, stopProcess } from './functions/run-service.js'
+import { runService, stopProcess, stopAllProcesses } from './functions/run-service.js'
 import { isServiceRunning } from './functions/is-service-running.js'
 import { pollPorts } from './functions/poll-ports.js'
 import { removeDirectory } from './functions/remove-directory.js'
@@ -37,6 +37,11 @@ const queuePollIntervals = new Map<string, NodeJS.Timeout>();
 
 let tray: Tray | null = null
 let overlayWindow: BrowserWindow | null = null
+
+// Track intervals and watchers for cleanup
+let portPollingInterval: NodeJS.Timeout | null = null
+let queuePollingInterval: NodeJS.Timeout | null = null
+let todoFolderWatcher: fs.FSWatcher | null = null
 
 const createTrayIcon = (): Electron.NativeImage => {
   try {
@@ -187,8 +192,8 @@ app.on("ready", async () => {
   // Ensure logs directory exists
   ensureLogsDirectory()
 
-  pollPorts(mainWindow)
-  pollQueues(mainWindow)
+  portPollingInterval = pollPorts(mainWindow)
+  queuePollingInterval = pollQueues(mainWindow)
   // pollUpdates()
 
   // Setup tray (overlay window is created on-demand to appear on current space)
@@ -209,7 +214,7 @@ app.on("ready", async () => {
   let debounceTimer: NodeJS.Timeout | null = null
   let importantValuesDebounceTimer: NodeJS.Timeout | null = null
   ensureTodoFolder().then(() => {
-    fs.watch(todoFolder, (eventType, filename) => {
+    todoFolderWatcher = fs.watch(todoFolder, (eventType, filename) => {
       if (filename?.startsWith('TODOS-') && filename.endsWith('.json')) {
         // Debounce to avoid multiple rapid events
         if (debounceTimer) clearTimeout(debounceTimer)
@@ -395,10 +400,48 @@ app.on("ready", async () => {
   });
 })
 
+// Cleanup all resources when app quits
+app.on('before-quit', async (event) => {
+  // Prevent immediate quit to allow cleanup
+  event.preventDefault()
+
+  // Stop all running service processes
+  await stopAllProcesses()
+
+  // Clear polling intervals
+  if (portPollingInterval) {
+    clearInterval(portPollingInterval)
+    portPollingInterval = null
+  }
+  if (queuePollingInterval) {
+    clearInterval(queuePollingInterval)
+    queuePollingInterval = null
+  }
+
+  // Clear queue polling intervals
+  for (const interval of queuePollIntervals.values()) {
+    clearInterval(interval)
+  }
+  queuePollIntervals.clear()
+
+  // Close file watcher
+  if (todoFolderWatcher) {
+    todoFolderWatcher.close()
+    todoFolderWatcher = null
+  }
+
+  // Now allow the app to quit
+  app.exit(0)
+})
+
 // Cleanup global shortcuts when app quits
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
 })
+
+// Handle SIGTERM/SIGINT for graceful shutdown
+process.on('SIGTERM', () => app.quit())
+process.on('SIGINT', () => app.quit())
 
 // Keep app running when all windows are closed (tray remains active)
 app.on('window-all-closed', () => {

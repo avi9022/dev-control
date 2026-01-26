@@ -7,7 +7,34 @@ import { getDirectoryById } from '../storage/get-directory-by-id.js';
 import { updateDirectoryData } from './update-directory-data.js';
 import { appendLogToFile } from '../utils/log-file-manager.js';
 
-const runningProcesses = new Map<string, ChildProcess>();
+export const runningProcesses = new Map<string, ChildProcess>();
+
+/**
+ * Stops all running service processes - call this on app quit
+ */
+export const stopAllProcesses = (): Promise<void[]> => {
+  const stopPromises: Promise<void>[] = [];
+
+  for (const [id, process] of runningProcesses.entries()) {
+    if (process && process.pid !== undefined) {
+      stopPromises.push(
+        new Promise<void>((resolve) => {
+          treeKill(process.pid!, 'SIGTERM', (err) => {
+            if (err) {
+              // Force kill if SIGTERM fails
+              treeKill(process.pid!, 'SIGKILL', () => resolve());
+            } else {
+              resolve();
+            }
+            runningProcesses.delete(id);
+          });
+        })
+      );
+    }
+  }
+
+  return Promise.all(stopPromises);
+};
 
 export const runService = (
   id: string,

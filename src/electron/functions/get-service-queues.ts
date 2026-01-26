@@ -3,12 +3,12 @@ import fs from 'fs';
 import yaml from 'js-yaml';
 import { getDirectoryById } from '../storage/get-directory-by-id.js';
 
-export const getServiceQueues = (id: string): QueueSettings[] => {
+export const getServiceQueues = async (id: string): Promise<QueueSettings[]> => {
   const directory = getDirectoryById(id)
   if (!directory) return []
   let file: string = ''
   try {
-    file = fs.readFileSync(`${directory.path}/serverless.yml`, 'utf8');
+    file = await fs.promises.readFile(`${directory.path}/serverless.yml`, 'utf8');
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (err) {
     return []

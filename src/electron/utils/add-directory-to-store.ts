@@ -17,28 +17,25 @@ export const addDirectoryToStore = async (dirPath: string) => {
   let packageJsonExists = false;
   let runCommand: string | undefined = undefined;
 
-  if (fs.existsSync(packageJsonPath)) {
+  try {
+    const packageJsonContent = await fs.promises.readFile(packageJsonPath, "utf-8");
     packageJsonExists = true;
+    const packageJson = JSON.parse(packageJsonContent);
 
-    try {
-      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
-
-
-      if (packageJson.scripts) {
-        const script = localScriptsPriority.find((script) => packageJson.scripts[script])
-        runCommand = script ? `npm run ${script}` : undefined;
-      }
-    } catch (error) {
-      console.warn(`Failed to parse package.json in ${dirPath}:`, error);
-      runCommand = `npm run dev`;
+    if (packageJson.scripts) {
+      const script = localScriptsPriority.find((script) => packageJson.scripts[script])
+      runCommand = script ? `npm run ${script}` : undefined;
     }
+  } catch {
+    // Package.json doesn't exist or can't be parsed
+    packageJsonExists = false;
   }
 
   const id = Buffer.from(dirPath).toString('base64');
   const nameToSave = name.replaceAll('-', ' ').replace(name.charAt(0), name.charAt(0).toUpperCase())
   let isFrontendProj = false
   if (packageJsonExists) {
-    isFrontendProj = isFrontendProject(dirPath)
+    isFrontendProj = await isFrontendProject(dirPath)
   }
 
   const newDirectory: DirectorySettings = {

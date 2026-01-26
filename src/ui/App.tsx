@@ -20,11 +20,13 @@ function App() {
   const [updateSettings, setUpdateSettings] = useState<UpdateNotificationSettings>()
 
   useEffect(() => {
-    window.electron.subscribeUpdateNotificationSettings((settings) => {
-      console.log(settings);
-
+    const unsubscribe = window.electron.subscribeUpdateNotificationSettings((settings) => {
       setUpdateSettings(settings)
     })
+
+    return () => {
+      unsubscribe?.()
+    }
   }, [])
 
   return (

@@ -6,8 +6,8 @@ import { updateDirectoryData } from "./update-directory-data.js";
 
 const POLLING_INTERVAL = 500;
 
-export const pollPorts = (mainWindow: BrowserWindow) => {
-  setInterval(async () => {
+export const pollPorts = (mainWindow: BrowserWindow): NodeJS.Timeout => {
+  return setInterval(async () => {
     const directories = store.get('directories')
     const stateMap: DirectoryMapByState = {}
 

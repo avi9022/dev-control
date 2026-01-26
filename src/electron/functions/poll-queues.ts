@@ -4,8 +4,8 @@ import { BrowserWindow } from "electron";
 
 const POLLING_INTERVAL = 500;
 
-export const pollQueues = (mainWindow: BrowserWindow) => {
-  setInterval(async () => {
+export const pollQueues = (mainWindow: BrowserWindow): NodeJS.Timeout => {
+  return setInterval(async () => {
     const queues = await listQueues()
     ipcWebContentsSend('queuesList', mainWindow.webContents, queues || []);
   }, POLLING_INTERVAL);
