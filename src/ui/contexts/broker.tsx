@@ -32,6 +32,8 @@ export const BrokerProvider: FC<PropsWithChildren> = ({ children }) => {
     ]).then(([broker, brokerConfigs]) => {
       setActiveBrokerState(broker)
       setConfigs(brokerConfigs)
+      // Test connection for active broker on initial load
+      window.electron.testBrokerConnection(broker)
     })
 
     const unsubscribe = window.electron.subscribeBrokerConnectionState((state) => {
@@ -44,8 +46,8 @@ export const BrokerProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   const setActiveBroker = async (type: BrokerType) => {
+    setActiveBrokerState(type)  // Update local state first to avoid race condition
     await window.electron.setActiveBroker(type)
-    setActiveBrokerState(type)
   }
 
   const saveBrokerConfig = async (config: BrokerConfig) => {

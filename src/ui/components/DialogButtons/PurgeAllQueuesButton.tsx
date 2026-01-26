@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog"
-import { Trash2, Loader2 } from "lucide-react"
+import { Eraser, Loader2 } from "lucide-react"
 import { useState, type FC } from "react"
 import { useBroker } from "@/ui/contexts/broker"
 import { useQueues } from "@/ui/contexts/queues"
@@ -37,7 +37,7 @@ export const PurgeAllQueuesButton: FC = () => {
           disabled={!isConnected || queues.length === 0}
           className="flex-shrink-0"
         >
-          <Trash2 className="h-4 w-4" />
+          <Eraser className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
