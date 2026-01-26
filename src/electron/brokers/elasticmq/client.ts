@@ -9,7 +9,7 @@ import {
   GetQueueAttributesCommand,
   QueueAttributeName
 } from "@aws-sdk/client-sqs"
-import { BrokerClient } from "../types.js"
+import type { BrokerClient } from "../types.js"
 import { store } from "../../storage/store.js"
 
 export class ElasticMQClient implements BrokerClient {
@@ -19,24 +19,24 @@ export class ElasticMQClient implements BrokerClient {
 
   constructor(config: BrokerConfig) {
     this.config = config
-    this.client = this.createSQSClient(config)
+    this.client = this.createSQSClient()
   }
 
-  private createSQSClient(config: BrokerConfig): SQSClient {
-    const protocol = config.useHttps ? 'https' : 'http'
+  private createSQSClient(): SQSClient {
+    const protocol = this.config.useHttps ? 'https' : 'http'
     return new SQSClient({
       region: "eu-west-1",
-      endpoint: `${protocol}://${config.host}:${config.port}`,
+      endpoint: `${protocol}://${this.config.host}:${this.config.port}`,
       credentials: {
-        accessKeyId: config.username,
-        secretAccessKey: config.password,
+        accessKeyId: this.config.username,
+        secretAccessKey: this.config.password,
       },
     })
   }
 
   updateConfig(config: BrokerConfig): void {
     this.config = config
-    this.client = this.createSQSClient(config)
+    this.client = this.createSQSClient()
   }
 
   async testConnection(): Promise<BrokerConnectionState> {

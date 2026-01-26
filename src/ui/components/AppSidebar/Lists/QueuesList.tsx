@@ -2,10 +2,12 @@ import { type FC } from "react";
 import { Separator } from "@/components/ui/separator";
 import { useQueues } from "@/ui/contexts/queues";
 import { useViews } from "@/ui/contexts/views";
+import { useBroker } from "@/ui/contexts/broker";
 import { DeleteQueueButton } from "../../DialogButtons/DeleteQueueButton";
 import { OpenItemViewButton } from "../../OpenItemViewButton";
 import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
 import { TooltipTrigger } from "@radix-ui/react-tooltip";
+import { BrokerEmptyState } from "../../BrokerEmptyState";
 
 interface QueuesListProps {
   searchTerm: string
@@ -16,8 +18,13 @@ export const QueuesList: FC<QueuesListProps> = ({
 }) => {
   const { queues, onChooseQueue } = useQueues()
   const { views } = useViews()
+  const { isConnected } = useBroker()
 
   const filteredList = searchTerm ? queues.filter((url) => url.includes(searchTerm)) : queues
+
+  if (!isConnected) {
+    return <BrokerEmptyState />
+  }
 
   return <div>
     {queues.length ? filteredList.length ? filteredList.map((url) => {

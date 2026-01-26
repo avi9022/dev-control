@@ -1,5 +1,6 @@
 import { BrowserWindow } from "electron"
-import { BrokerClient, BrokerConfig, BrokerConnectionState, BrokerType, DEFAULT_BROKER_CONFIGS } from "./types.js"
+import type { BrokerClient, BrokerConfig, BrokerConnectionState, BrokerType } from "./types.js"
+import { DEFAULT_BROKER_CONFIGS } from "./types.js"
 import { ElasticMQClient } from "./elasticmq/client.js"
 import { RabbitMQClient } from "./rabbitmq/client.js"
 import { store } from "../storage/store.js"

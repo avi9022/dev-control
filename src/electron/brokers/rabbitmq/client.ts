@@ -1,4 +1,4 @@
-import { BrokerClient, BrokerConfig, BrokerConnectionState } from "../types.js"
+import type { BrokerClient, BrokerConfig, BrokerConnectionState } from "../types.js"
 import { store } from "../../storage/store.js"
 
 export class RabbitMQClient implements BrokerClient {
@@ -31,26 +31,60 @@ export class RabbitMQClient implements BrokerClient {
   private async fetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
     const url = `${this.baseUrl}${endpoint}`
 
-    const fetchOptions: RequestInit = {
-      ...options,
-      headers: {
-        'Authorization': this.authHeader,
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+    const headers = {
+      'Authorization': this.authHeader,
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> || {}),
     }
 
     if (this.config.useHttps) {
-      const https = await import('https')
-      const agent = new https.Agent({ rejectUnauthorized: false })
-      return fetch(url, {
-        ...fetchOptions,
-        // @ts-expect-error - Node.js specific option for self-signed certs
-        agent
+      // Use https module for self-signed certificate support
+      return this.httpsRequest(url, {
+        method: options.method || 'GET',
+        headers,
+        body: options.body as string | undefined
       })
     }
 
-    return fetch(url, fetchOptions)
+    return fetch(url, {
+      ...options,
+      headers,
+    })
+  }
+
+  private httpsRequest(url: string, options: { method: string; headers: Record<string, string>; body?: string }): Promise<Response> {
+    return new Promise((resolve, reject) => {
+      import('https').then((https) => {
+        const urlObj = new URL(url)
+        const req = https.request({
+          hostname: urlObj.hostname,
+          port: urlObj.port,
+          path: urlObj.pathname + urlObj.search,
+          method: options.method,
+          headers: options.headers,
+          rejectUnauthorized: false
+        }, (res) => {
+          let data = ''
+          res.on('data', (chunk) => { data += chunk })
+          res.on('end', () => {
+            resolve({
+              ok: res.statusCode !== undefined && res.statusCode >= 200 && res.statusCode < 300,
+              status: res.statusCode || 0,
+              statusText: res.statusMessage || '',
+              json: () => Promise.resolve(JSON.parse(data)),
+              text: () => Promise.resolve(data),
+            } as Response)
+          })
+        })
+
+        req.on('error', reject)
+
+        if (options.body) {
+          req.write(options.body)
+        }
+        req.end()
+      })
+    })
   }
 
   async testConnection(): Promise<BrokerConnectionState> {
