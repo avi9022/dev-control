@@ -28,6 +28,7 @@ export const TOOLS: Tool[] = [
   { id: 'json-diff', name: 'JSON Diff', description: 'Compare two JSON objects', icon: 'GitCompare', category: 'formatting' },
   { id: 'xml-json', name: 'XML ↔ JSON', description: 'Convert between XML and JSON', icon: 'FileJson', category: 'formatting' },
   { id: 'yaml-json', name: 'YAML ↔ JSON', description: 'Convert between YAML and JSON', icon: 'FileCode', category: 'formatting' },
+  { id: 'json-xlsx', name: 'JSON to XLSX', description: 'Convert JSON data to Excel spreadsheet', icon: 'FileSpreadsheet', category: 'formatting' },
 
   // Generators
   { id: 'uuid-generator', name: 'UUID Generator', description: 'Generate UUID v4/v7, bulk generation', icon: 'Fingerprint', category: 'generators' },

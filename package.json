@@ -48,6 +48,7 @@
     "tailwindcss": "^4.1.7",
     "tree-kill": "^1.2.2",
     "uuid": "^11.1.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.31"
   },
   "devDependencies": {

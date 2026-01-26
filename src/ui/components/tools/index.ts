@@ -8,6 +8,7 @@ import { JsonFormatter } from './JsonFormatter'
 import { JsonDiff } from './JsonDiff'
 import { XmlJsonConverter } from './XmlJsonConverter'
 import { YamlJsonConverter } from './YamlJsonConverter'
+import { JsonToXlsxConverter } from './JsonToXlsxConverter'
 import { UuidGenerator } from './UuidGenerator'
 import { HashGenerator } from './HashGenerator'
 import { PasswordGenerator } from './PasswordGenerator'
@@ -30,6 +31,7 @@ export const toolComponents: Record<string, FC> = {
   'json-diff': JsonDiff,
   'xml-json': XmlJsonConverter,
   'yaml-json': YamlJsonConverter,
+  'json-xlsx': JsonToXlsxConverter,
   'uuid-generator': UuidGenerator,
   'hash-generator': HashGenerator,
   'password-generator': PasswordGenerator,
