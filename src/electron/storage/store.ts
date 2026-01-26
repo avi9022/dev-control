@@ -13,7 +13,29 @@ type Schema = {
   todoSettings: {
     autoHide: boolean
   }
+  // Broker settings
+  activeBroker: BrokerType
+  brokerConfigs: Record<BrokerType, BrokerConfig>
 };
+
+const DEFAULT_BROKER_CONFIGS: Record<BrokerType, BrokerConfig> = {
+  elasticmq: {
+    type: 'elasticmq',
+    host: 'localhost',
+    port: 9324,
+    username: 'root',
+    password: 'root',
+    useHttps: false
+  },
+  rabbitmq: {
+    type: 'rabbitmq',
+    host: 'localhost',
+    port: 15671,
+    username: 'user',
+    password: 'bitnami',
+    useHttps: true
+  }
+}
 
 export const store = new Store<Schema>({
   defaults: {
@@ -29,6 +51,10 @@ export const store = new Store<Schema>({
     todoFolderPath: undefined,
     todoSettings: {
       autoHide: false
-    }
+    },
+    activeBroker: 'elasticmq',
+    brokerConfigs: DEFAULT_BROKER_CONFIGS
   },
 });
+
+export { DEFAULT_BROKER_CONFIGS }
