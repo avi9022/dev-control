@@ -1,3 +1,21 @@
+export type BrokerType = 'elasticmq' | 'rabbitmq'
+
+export interface BrokerConfig {
+  type: BrokerType
+  host: string
+  port: number
+  username: string
+  password: string
+  useHttps: boolean
+}
+
+export interface BrokerConnectionState {
+  type: BrokerType
+  isConnected: boolean
+  lastError?: string
+  lastChecked?: number
+}
+
 export interface BrokerClient {
   readonly type: BrokerType
 

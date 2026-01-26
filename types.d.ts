@@ -168,6 +168,25 @@ interface DynamoDBScanResult {
   scannedCount: number
 }
 
+// Broker Types
+type BrokerType = 'elasticmq' | 'rabbitmq'
+
+interface BrokerConfig {
+  type: BrokerType
+  host: string
+  port: number
+  username: string
+  password: string
+  useHttps: boolean
+}
+
+interface BrokerConnectionState {
+  type: BrokerType
+  isConnected: boolean
+  lastError?: string
+  lastChecked?: number
+}
+
 type EventPayloadMapping = {
   getDirectories: {
     return: DirectorySettings[];
@@ -408,6 +427,35 @@ type EventPayloadMapping = {
     return: void;
     args: [string, Record<string, unknown>]
   }
+  // Broker handlers
+  getBrokerConfigs: {
+    return: BrokerConfig[];
+    args: [];
+  }
+  saveBrokerConfig: {
+    return: void;
+    args: [BrokerConfig];
+  }
+  getActiveBroker: {
+    return: BrokerType;
+    args: [];
+  }
+  setActiveBroker: {
+    return: void;
+    args: [BrokerType];
+  }
+  testBrokerConnection: {
+    return: BrokerConnectionState;
+    args: [BrokerType];
+  }
+  brokerConnectionState: {
+    return: BrokerConnectionState;
+    args: [BrokerConnectionState];
+  }
+  purgeAllQueues: {
+    return: void;
+    args: [];
+  }
 };
 
 interface Window {
@@ -474,5 +522,13 @@ interface Window {
     dynamodbGetItem: (tableName: string, key: Record<string, unknown>) => Promise<Record<string, unknown> | null>
     dynamodbPutItem: (tableName: string, item: Record<string, unknown>) => Promise<void>
     dynamodbDeleteItem: (tableName: string, key: Record<string, unknown>) => Promise<void>
+    // Broker API
+    getBrokerConfigs: () => Promise<BrokerConfig[]>
+    saveBrokerConfig: (config: BrokerConfig) => Promise<void>
+    getActiveBroker: () => Promise<BrokerType>
+    setActiveBroker: (type: BrokerType) => Promise<void>
+    testBrokerConnection: (type: BrokerType) => Promise<BrokerConnectionState>
+    subscribeBrokerConnectionState: (callback: (state: BrokerConnectionState) => void) => () => void
+    purgeAllQueues: () => Promise<void>
   }
 }

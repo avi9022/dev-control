@@ -89,6 +89,17 @@ electron.contextBridge.exposeInMainWorld("electron", {
   dynamodbGetItem: (tableName: string, key: Record<string, unknown>) => ipcInvoke('dynamodbGetItem', tableName, key),
   dynamodbPutItem: (tableName: string, item: Record<string, unknown>) => ipcInvoke('dynamodbPutItem', tableName, item),
   dynamodbDeleteItem: (tableName: string, key: Record<string, unknown>) => ipcInvoke('dynamodbDeleteItem', tableName, key),
+  // Broker API
+  getBrokerConfigs: () => ipcInvoke('getBrokerConfigs'),
+  saveBrokerConfig: (config: BrokerConfig) => ipcInvoke('saveBrokerConfig', config),
+  getActiveBroker: () => ipcInvoke('getActiveBroker'),
+  setActiveBroker: (type: BrokerType) => ipcInvoke('setActiveBroker', type),
+  testBrokerConnection: (type: BrokerType) => ipcInvoke('testBrokerConnection', type),
+  purgeAllQueues: () => ipcInvoke('purgeAllQueues'),
+  subscribeBrokerConnectionState: (callback) =>
+    ipcOn('brokerConnectionState', (state) => {
+      callback(state);
+    })
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

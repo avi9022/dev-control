@@ -12,12 +12,7 @@ import { pollPorts } from './functions/poll-ports.js'
 import { removeDirectory } from './functions/remove-directory.js'
 import { openProjectInBrowser } from './functions/open-project-in-browser.js'
 import { getServiceQueues } from './functions/get-service-queues.js'
-import { sendSqsMessage } from './sqs/send-queue-message.js'
-import { purgeQueue } from './sqs/purge-queue.js'
-import { getQueueData } from './functions/get-queue-data.js'
-import { pollQueues } from './functions/poll-queues.js'
-import { deleteQueue } from './sqs/delete-queue.js'
-import { createQueue } from './sqs/create-queue.js'
+import { brokerManager } from './brokers/index.js'
 import { createWorkflow } from './functions/create-workflow.js'
 import { removeWorkflow } from './functions/remove-workflow.js'
 import { updateWorkflow } from './functions/update-workflow.js'
@@ -199,8 +194,18 @@ app.on("ready", async () => {
   // Ensure logs directory exists
   ensureLogsDirectory()
 
+  // Initialize broker manager
+  brokerManager.setMainWindow(mainWindow)
+  brokerManager.testConnection()
+
   portPollingInterval = pollPorts(mainWindow)
-  queuePollingInterval = pollQueues(mainWindow)
+
+  // Queue polling using broker manager
+  queuePollingInterval = setInterval(async () => {
+    if (!brokerManager.isConnected()) return
+    const queues = await brokerManager.listQueues()
+    ipcWebContentsSend('queuesList', mainWindow.webContents, queues)
+  }, 500)
   // pollUpdates()
 
   // Setup tray (overlay window is created on-demand to appear on current space)
@@ -304,7 +309,7 @@ app.on("ready", async () => {
     }
 
     const getData = async () => {
-      const data = await getQueueData(queueUrl);
+      const data = await brokerManager.getQueueData(queueUrl);
       ipcWebContentsSend('queueData', mainWindow.webContents, { queueUrl, data });
     }
     getData()
@@ -343,11 +348,19 @@ app.on("ready", async () => {
   ipcMainHandle('openProjectInBrowser', (_event, id: string) => openProjectInBrowser(id))
   ipcMainHandle('openInVSCode', (_event, id: string) => openInVSCode(id))
   ipcMainHandle('getQueues', (_event, id: string) => getServiceQueues(id))
-  ipcMainHandle('sendQueueMessage', (_event, queueUrl: string, message: string) => sendSqsMessage(queueUrl, message))
-  ipcMainHandle('createQueue', (_event, name: string, options: CreateQueueOptions) => createQueue(name, options))
-  ipcMainHandle('deleteQueue', (_event, queueUrl: string) => deleteQueue(queueUrl))
-  ipcMainHandle('purgeQueue', (_event, queueUrl: string) => purgeQueue(queueUrl))
-  ipcMainHandle('getQueueData', (_event, queueUrl: string) => getQueueData(queueUrl))
+  ipcMainHandle('sendQueueMessage', (_event, queueUrl: string, message: string) => brokerManager.sendMessage(queueUrl, message))
+  ipcMainHandle('createQueue', (_event, name: string, options: CreateQueueOptions) => brokerManager.createQueue(name, options))
+  ipcMainHandle('deleteQueue', (_event, queueUrl: string) => brokerManager.deleteQueue(queueUrl))
+  ipcMainHandle('purgeQueue', (_event, queueUrl: string) => brokerManager.purgeQueue(queueUrl))
+  ipcMainHandle('purgeAllQueues', () => brokerManager.purgeAllQueues())
+  ipcMainHandle('getQueueData', (_event, queueUrl: string) => brokerManager.getQueueData(queueUrl))
+
+  // Broker handlers
+  ipcMainHandle('getBrokerConfigs', () => brokerManager.getBrokerConfigs())
+  ipcMainHandle('saveBrokerConfig', (_event, config: BrokerConfig) => brokerManager.saveBrokerConfig(config))
+  ipcMainHandle('getActiveBroker', () => brokerManager.getActiveBrokerType())
+  ipcMainHandle('setActiveBroker', (_event, type: BrokerType) => brokerManager.setActiveBroker(type))
+  ipcMainHandle('testBrokerConnection', (_event, type: BrokerType) => brokerManager.testConnection(type))
 
   // Workflows
   ipcMainHandle('createWorkflow', (_event, name: string, services: string[]) => createWorkflow(name, services))
