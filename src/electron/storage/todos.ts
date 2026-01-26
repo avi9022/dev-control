@@ -15,7 +15,7 @@ export interface TodoFile {
   todos: Todo[]
 }
 
-const DEFAULT_TODO_FOLDER = path.join(app.getPath('documents'), 'TodoWidget')
+const DEFAULT_TODO_FOLDER = path.join(app.getPath('documents'), 'clawdbot-access/TodoWidget')
 
 export const getTodoFolderPath = (): string => {
   return store.get('todoFolderPath') || DEFAULT_TODO_FOLDER

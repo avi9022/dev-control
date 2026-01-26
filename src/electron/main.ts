@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, globalShortcut, nativeImage, screen } from 'electron'
 import { isDev } from './utils/is-dev.js'
-import { getPreloadPath, getUIPath, getOverlayUIPath } from './pathResolver.js'
+import { getPreloadPath, getUIPath, getOverlayUIPath, getAssetsPath } from './pathResolver.js'
+import path from 'path'
 import { ipcMainHandle, ipcWebContentsSend } from './utils/ipc-handle.js'
 import { store } from './storage/store.js'
 import { addDirectoriesFromFolder } from './functions/add-directories-from-folder.js'
@@ -22,12 +23,13 @@ import { removeWorkflow } from './functions/remove-workflow.js'
 import { updateWorkflow } from './functions/update-workflow.js'
 import { startWorkflow } from './functions/start-workflow.js'
 import { openInVSCode } from './functions/open-in-vscode.js'
-import { pollUpdates } from './functions/poll-updates.js'
+// import { pollUpdates } from './functions/poll-updates.js'
 import { markUserAsPrompted } from './functions/markUserAsPrompted.js'
 import { refuseUpdates } from './functions/refuse-updates.js'
 import { updateSystem } from './functions/update-system.js'
 import { readLogFile, clearLogFile, ensureLogsDirectory, readLogFileChunk, readLogFileTail, getLogFileLineCount, searchLogFile, readLogFileRange } from './utils/log-file-manager.js'
 import { getTodosForDate, saveTodosForDate, getTodoFolderPath, setTodoFolderPath, getAvailableDates, ensureTodoFolder } from './storage/todos.js'
+import { getImportantValues, saveImportantValues } from './storage/important-values.js'
 import type { Todo } from './storage/todos.js'
 import fs from 'fs'
 
@@ -37,13 +39,23 @@ let tray: Tray | null = null
 let overlayWindow: BrowserWindow | null = null
 
 const createTrayIcon = (): Electron.NativeImage => {
-  // Create a simple checkmark icon for the tray (16x16 for macOS menu bar)
-  // Using a template image for proper dark/light mode support
-  const icon = nativeImage.createFromDataURL(
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAADGSURBVDiNpdMxTsNAEIXhf8YOdJQICUQ6CgoEHYfgAFwiN0jHCTgBR+AEdEhIlJQ0QDqKSGwwBckijz3sNLOa3W/fzswKM6OJlBr1rkZEDALUNvMJuI8IC2BtZq8Rwao0sxMR+aiqW2AdEe6A88g5ExHZm9kj8AB8VNUbEXFcq9ozc6iqFyLyBFxHxFNV3RGRFxHxUlXXw+IvcAvcmdkOuBeRFxFZVdV9Lx76pS9m9g6cVdV17WvPzM4ioh8R1ar6U6bN7C8A/AFU7V1mAntL8gAAAABJRU5ErkJggg=='
-  )
-  icon.setTemplateImage(true)
-  return icon
+  try {
+    const iconPath = path.join(getAssetsPath(), 'trayTemplate.png')
+    const icon = nativeImage.createFromPath(iconPath)
+    if (icon.isEmpty()) {
+      throw new Error('Failed to load tray icon from path: ' + iconPath)
+    }
+    icon.setTemplateImage(true)
+    return icon
+  } catch (error) {
+    console.error('Failed to load tray icon, using fallback:', error)
+    // Fallback: create a simple 16x16 checkmark icon from base64
+    const fallbackIcon = nativeImage.createFromDataURL(
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAADGSURBVDiNpdMxTsNAEIXhf8YOdJQICUQ6CgoEHYfgAFwiN0jHCTgBR+AEdEhIlJQ0QDqKSGwwBckijz3sNLOa3W/fzswKM6OJlBr1rkZEDALUNvMJuI8IC2BtZq8Rwao0sxMR+aiqW2AdEe6A88g5ExHZm9kj8AB8VNUbEXFcq9ozc6iqFyLyBFxHxFNV3RGRFxHxUlXXw+IvcAvcmdkOuBeRFxFZVdV9Lx76pS9m9g6cVdV17WvPzM4ioh8R1ar6U6bN7C8A/AFU7V1mAntL8gAAAABJRU5ErkJggg=='
+    )
+    fallbackIcon.setTemplateImage(true)
+    return fallbackIcon
+  }
 }
 
 const showOverlay = () => {
@@ -177,7 +189,7 @@ app.on("ready", async () => {
 
   pollPorts(mainWindow)
   pollQueues(mainWindow)
-  pollUpdates()
+  // pollUpdates()
 
   // Setup tray (overlay window is created on-demand to appear on current space)
   tray = createTray()
@@ -195,6 +207,7 @@ app.on("ready", async () => {
   // Watch todos folder for external file changes
   const todoFolder = getTodoFolderPath()
   let debounceTimer: NodeJS.Timeout | null = null
+  let importantValuesDebounceTimer: NodeJS.Timeout | null = null
   ensureTodoFolder().then(() => {
     fs.watch(todoFolder, (eventType, filename) => {
       if (filename?.startsWith('TODOS-') && filename.endsWith('.json')) {
@@ -204,6 +217,14 @@ app.on("ready", async () => {
           const date = filename.replace('TODOS-', '').replace('.json', '')
           if (overlayWindow && !overlayWindow.isDestroyed()) {
             overlayWindow.webContents.send('todosFileChanged', { date })
+          }
+        }, 100)
+      } else if (filename === 'IMPORTANT_VALUES.json') {
+        // Watch for important values file changes
+        if (importantValuesDebounceTimer) clearTimeout(importantValuesDebounceTimer)
+        importantValuesDebounceTimer = setTimeout(() => {
+          if (overlayWindow && !overlayWindow.isDestroyed()) {
+            overlayWindow.webContents.send('importantValuesFileChanged')
           }
         }, 100)
       }
@@ -254,6 +275,15 @@ app.on("ready", async () => {
       return result.filePaths[0]
     }
     return null
+  })
+
+  // Important Values IPC handlers
+  ipcMainHandle('getImportantValues', async () => {
+    return await getImportantValues()
+  })
+
+  ipcMainHandle('saveImportantValues', async (_event, values: ImportantValue[]) => {
+    await saveImportantValues(values)
   })
 
   ipcMainHandle('pollQueue', (_event, queueUrl: string) => {
@@ -331,7 +361,7 @@ app.on("ready", async () => {
       return false
     }
   })
-  
+
   // Pagination and search operations
   ipcMainHandle('getLogsChunk', async (_event, dirId: string, offset: number, limit: number) => {
     return await readLogFileChunk(dirId, offset, limit)

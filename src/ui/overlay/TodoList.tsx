@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, Trash2 } from 'lucide-react'
+import { PrioritySelector } from './PrioritySelector'
 
 interface TodoListProps {
   todos: Todo[]
@@ -23,13 +24,6 @@ const priorityColors: Record<TodoPriority, string> = {
   none: 'bg-neutral-600'
 }
 
-const nextPriority: Record<TodoPriority, TodoPriority> = {
-  none: 'low',
-  low: 'medium',
-  medium: 'high',
-  high: 'none'
-}
-
 export const TodoList = ({ todos, onToggle, onDelete, onPriorityChange, onTextChange }: TodoListProps) => {
   const [editingId, setEditingId] = useState<string | null>(null)
   // Sort: incomplete first, then by priority (high to none), then by creation time
@@ -48,13 +42,6 @@ export const TodoList = ({ todos, onToggle, onDelete, onPriorityChange, onTextCh
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   })
 
-  const handlePriorityClick = (todo: Todo) => {
-    if (onPriorityChange) {
-      const currentPriority = todo.priority || 'none'
-      onPriorityChange(todo.id, nextPriority[currentPriority])
-    }
-  }
-
   return (
     <ul className="space-y-1">
       {sortedTodos.map(todo => (
@@ -62,17 +49,22 @@ export const TodoList = ({ todos, onToggle, onDelete, onPriorityChange, onTextCh
           key={todo.id}
           className="group flex items-center gap-2 py-2 px-2 rounded-md hover:bg-white/5 transition-colors"
         >
-          {/* Priority indicator */}
-          <button
-            onClick={() => handlePriorityClick(todo)}
-            className={`
-              flex-shrink-0 w-2.5 h-2.5 rounded-full transition-all hover:scale-125
-              ${priorityColors[todo.priority || 'none']}
-              ${!onPriorityChange ? 'cursor-default' : 'cursor-pointer'}
-            `}
-            title={`Priority: ${todo.priority || 'none'} (click to cycle)`}
-            disabled={!onPriorityChange}
-          />
+          {/* Priority selector */}
+          {onPriorityChange ? (
+            <PrioritySelector
+              currentPriority={todo.priority || 'none'}
+              onSelect={(priority) => onPriorityChange(todo.id, priority)}
+              disabled={false}
+            />
+          ) : (
+            <div
+              className={`
+                flex-shrink-0 w-2.5 h-2.5 rounded-full
+                ${priorityColors[todo.priority || 'none']}
+              `}
+              title={`Priority: ${todo.priority || 'none'}`}
+            />
+          )}
           <button
             onClick={() => onToggle?.(todo.id)}
             className={`

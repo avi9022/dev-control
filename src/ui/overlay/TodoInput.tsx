@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
 import { Plus } from 'lucide-react'
+import { PrioritySelector } from './PrioritySelector'
 
 interface TodoInputProps {
-  onAdd: (text: string) => void
+  onAdd: (text: string, priority: TodoPriority) => void
   autoFocus?: boolean
 }
 
 export const TodoInput = ({ onAdd, autoFocus }: TodoInputProps) => {
   const [text, setText] = useState('')
+  const [priority, setPriority] = useState<TodoPriority>('none')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -31,13 +33,19 @@ export const TodoInput = ({ onAdd, autoFocus }: TodoInputProps) => {
     e.preventDefault()
     const trimmed = text.trim()
     if (trimmed) {
-      onAdd(trimmed)
+      onAdd(trimmed, priority)
       setText('')
+      setPriority('none')
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2">
+      <PrioritySelector
+        currentPriority={priority}
+        onSelect={setPriority}
+        disabled={false}
+      />
       <input
         ref={inputRef}
         type="text"

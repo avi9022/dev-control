@@ -98,6 +98,12 @@ interface TodoSettings {
   autoHide: boolean
 }
 
+interface ImportantValue {
+  id: string
+  key: string
+  value: string
+}
+
 type EventPayloadMapping = {
   getDirectories: {
     return: DirectorySettings[];
@@ -296,6 +302,19 @@ type EventPayloadMapping = {
     return: { date: string };
     args: [{ date: string }];
   }
+  // Important Values handlers
+  getImportantValues: {
+    return: ImportantValue[];
+    args: []
+  }
+  saveImportantValues: {
+    return: void;
+    args: [ImportantValue[]]
+  }
+  importantValuesFileChanged: {
+    return: void;
+    args: []
+  }
 };
 
 interface Window {
@@ -350,5 +369,9 @@ interface Window {
     hideOverlay: () => Promise<void>
     selectTodoFolder: () => Promise<string | null>
     subscribeTodosFileChanged: (callback: (data: { date: string }) => void) => () => void
+    // Important Values API
+    getImportantValues: () => Promise<ImportantValue[]>
+    saveImportantValues: (values: ImportantValue[]) => Promise<void>
+    subscribeImportantValuesFileChanged: (callback: () => void) => () => void
   }
 }

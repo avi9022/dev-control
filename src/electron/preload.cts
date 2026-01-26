@@ -73,6 +73,13 @@ electron.contextBridge.exposeInMainWorld("electron", {
   subscribeTodosFileChanged: (callback) =>
     ipcOn('todosFileChanged', (data) => {
       callback(data);
+    }),
+  // Important Values API
+  getImportantValues: () => ipcInvoke('getImportantValues'),
+  saveImportantValues: (values: ImportantValue[]) => ipcInvoke('saveImportantValues', values),
+  subscribeImportantValuesFileChanged: (callback) =>
+    ipcOn('importantValuesFileChanged', () => {
+      callback();
     })
 } satisfies Window['electron'])
 
