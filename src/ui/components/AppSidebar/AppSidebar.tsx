@@ -6,6 +6,7 @@ import { ServicesMenu } from "./ServicesMenu"
 import { QueuesMenu } from "./QueuesMenu"
 import { WorkflowsMenu } from "./WorkflowsMenu"
 import { ToolsMenu } from "./ToolsMenu"
+import { DynamoDBMenu } from "./DynamoDBMenu"
 
 export const AppSidebar: FC = () => {
   const [tab, setTab] = useState('services')
@@ -17,9 +18,10 @@ export const AppSidebar: FC = () => {
         </SidebarHeader>
 
         <Tabs defaultValue="services" value={tab} className="flex-1 h-[calc(100vh-80px)]">
-          <TabsList className={`w-full flex gap-2 h-[40px]`}>
+          <TabsList className={`w-full flex gap-1 h-[40px]`}>
             <TabsTrigger onClick={() => setTab('services')} value="services">Services</TabsTrigger>
             <TabsTrigger onClick={() => setTab('queues')} value="queues">Queues</TabsTrigger>
+            <TabsTrigger onClick={() => setTab('dynamodb')} value="dynamodb">DynamoDB</TabsTrigger>
             <TabsTrigger onClick={() => setTab('workflows')} value="workflows">Workflows</TabsTrigger>
             <TabsTrigger onClick={() => setTab('tools')} value="tools">Tools</TabsTrigger>
           </TabsList>
@@ -28,6 +30,9 @@ export const AppSidebar: FC = () => {
           </TabsContent>
           <TabsContent value="queues">
             <QueuesMenu />
+          </TabsContent>
+          <TabsContent value="dynamodb">
+            <DynamoDBMenu />
           </TabsContent>
           <TabsContent value="workflows">
             <WorkflowsMenu onStartWorkflow={() => setTab('services')} />

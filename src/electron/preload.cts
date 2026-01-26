@@ -80,7 +80,15 @@ electron.contextBridge.exposeInMainWorld("electron", {
   subscribeImportantValuesFileChanged: (callback) =>
     ipcOn('importantValuesFileChanged', () => {
       callback();
-    })
+    }),
+  // DynamoDB API
+  dynamodbListTables: () => ipcInvoke('dynamodbListTables'),
+  dynamodbDescribeTable: (tableName: string) => ipcInvoke('dynamodbDescribeTable', tableName),
+  dynamodbScanTable: (tableName: string, options?: DynamoDBScanOptions) => ipcInvoke('dynamodbScanTable', tableName, options || {}),
+  dynamodbQueryTable: (tableName: string, options: DynamoDBQueryOptions) => ipcInvoke('dynamodbQueryTable', tableName, options),
+  dynamodbGetItem: (tableName: string, key: Record<string, unknown>) => ipcInvoke('dynamodbGetItem', tableName, key),
+  dynamodbPutItem: (tableName: string, item: Record<string, unknown>) => ipcInvoke('dynamodbPutItem', tableName, item),
+  dynamodbDeleteItem: (tableName: string, key: Record<string, unknown>) => ipcInvoke('dynamodbDeleteItem', tableName, key),
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

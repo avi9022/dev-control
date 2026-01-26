@@ -32,6 +32,13 @@ import { getTodosForDate, saveTodosForDate, getTodoFolderPath, setTodoFolderPath
 import { getImportantValues, saveImportantValues } from './storage/important-values.js'
 import type { Todo } from './storage/todos.js'
 import fs from 'fs'
+import { listTables } from './dynamodb/list-tables.js'
+import { describeTable } from './dynamodb/describe-table.js'
+import { scanTable } from './dynamodb/scan-table.js'
+import { queryTable, type QueryOptions } from './dynamodb/query-table.js'
+import { putItem } from './dynamodb/put-item.js'
+import { deleteItem } from './dynamodb/delete-item.js'
+import { getItem } from './dynamodb/get-item.js'
 
 const queuePollIntervals = new Map<string, NodeJS.Timeout>();
 
@@ -384,6 +391,28 @@ app.on("ready", async () => {
     return await readLogFileRange(dirId, startLine, endLine)
   })
 
+  // DynamoDB handlers
+  ipcMainHandle('dynamodbListTables', async () => {
+    return await listTables()
+  })
+  ipcMainHandle('dynamodbDescribeTable', async (_event, tableName: string) => {
+    return await describeTable(tableName)
+  })
+  ipcMainHandle('dynamodbScanTable', async (_event, tableName: string, options: DynamoDBScanOptions) => {
+    return await scanTable(tableName, options)
+  })
+  ipcMainHandle('dynamodbQueryTable', async (_event, tableName: string, options: QueryOptions) => {
+    return await queryTable(tableName, options)
+  })
+  ipcMainHandle('dynamodbGetItem', async (_event, tableName: string, key: Record<string, unknown>) => {
+    return await getItem(tableName, key)
+  })
+  ipcMainHandle('dynamodbPutItem', async (_event, tableName: string, item: Record<string, unknown>) => {
+    return await putItem(tableName, item)
+  })
+  ipcMainHandle('dynamodbDeleteItem', async (_event, tableName: string, key: Record<string, unknown>) => {
+    return await deleteItem(tableName, key)
+  })
 
   store.onDidChange('directories', (newVal) => {
     ipcWebContentsSend('directories', mainWindow.webContents, newVal || []);

@@ -43,7 +43,7 @@ export const Tool: FC<ToolProps> = ({ id }) => {
   }
 
   return (
-    <div className="p-5 h-full">
+    <div className="p-5 h-full overflow-hidden">
       <ToolComponent />
     </div>
   )

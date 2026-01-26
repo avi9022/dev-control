@@ -13,6 +13,7 @@ import { MainContent } from './components/MainContent'
 import { SplitScreenChoice } from './components/SplitScreenChoice'
 import { WorkflowsProvider } from './contexts/workflows'
 import { ToolsProvider } from './contexts/tools'
+import { DynamoDBProvider } from './contexts/dynamodb'
 
 
 function App() {
@@ -43,11 +44,11 @@ function App() {
             <DirectoriesProvider>
               <LoggerProvider>
                 <QueuesProvider>
-                  <TooltipProvider>
-                    <AppSidebar />
-                    <main className={`flex w-full relative h-screen`}>
-                      <div className='w-full'>
-                        <div className='h-[40px] flex justify-between items-center'>
+                  <DynamoDBProvider>
+                    <TooltipProvider>
+                      <AppSidebar />
+                      <main className="flex-1 min-w-0 h-screen overflow-hidden flex flex-col">
+                        <div className='h-[40px] flex-shrink-0 flex justify-between items-center'>
                           <Button className='bg-transparent hover:bg-neutral-500 text-white' onClick={() => setOpen(!open)}>
                             {open ?
                               <div className='flex gap-1 items-center'>
@@ -63,13 +64,12 @@ function App() {
                             <SplitScreenChoice />
                           </div>
                         </div>
-                        <div className='h-[calc(100vh-40px)]'>
+                        <div className='flex-1 min-h-0 overflow-hidden'>
                           <MainContent />
                         </div>
-                      </div>
-
-                    </main>
-                  </TooltipProvider>
+                      </main>
+                    </TooltipProvider>
+                  </DynamoDBProvider>
                 </QueuesProvider>
                 <Toaster />
               </LoggerProvider>
