@@ -27,6 +27,7 @@ import { getTodosForDate, saveTodosForDate, getTodoFolderPath, setTodoFolderPath
 import { getImportantValues, saveImportantValues } from './storage/important-values.js'
 import type { Todo } from './storage/todos.js'
 import fs from 'fs'
+import { dynamoDBManager } from './dynamodb/dynamodb-manager.js'
 import { listTables } from './dynamodb/list-tables.js'
 import { describeTable } from './dynamodb/describe-table.js'
 import { scanTable } from './dynamodb/scan-table.js'
@@ -197,6 +198,10 @@ app.on("ready", async () => {
   // Initialize broker manager
   brokerManager.setMainWindow(mainWindow)
   brokerManager.testConnection()
+
+  // Initialize DynamoDB manager
+  dynamoDBManager.setMainWindow(mainWindow)
+  dynamoDBManager.testConnection()
 
   portPollingInterval = pollPorts(mainWindow)
 
@@ -403,6 +408,14 @@ app.on("ready", async () => {
   ipcMainHandle('getLogsRange', async (_event, dirId: string, startLine: number, endLine: number) => {
     return await readLogFileRange(dirId, startLine, endLine)
   })
+
+  // DynamoDB connection handlers
+  ipcMainHandle('getDynamoDBConnections', () => dynamoDBManager.getConnections())
+  ipcMainHandle('saveDynamoDBConnection', (_event, config: DynamoDBConnectionConfig) => dynamoDBManager.saveConnection(config))
+  ipcMainHandle('deleteDynamoDBConnection', (_event, id: string) => dynamoDBManager.deleteConnection(id))
+  ipcMainHandle('getActiveDynamoDBConnection', () => dynamoDBManager.getActiveConnectionId())
+  ipcMainHandle('setActiveDynamoDBConnection', (_event, id: string) => dynamoDBManager.setActiveConnection(id))
+  ipcMainHandle('testDynamoDBConnection', (_event, id: string) => dynamoDBManager.testConnection(id))
 
   // DynamoDB handlers
   ipcMainHandle('dynamodbListTables', async () => {

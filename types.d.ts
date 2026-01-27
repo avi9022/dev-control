@@ -168,6 +168,27 @@ interface DynamoDBScanResult {
   scannedCount: number
 }
 
+// DynamoDB Connection Types
+type DynamoDBConnectionMethod = 'custom-endpoint' | 'aws-credentials' | 'aws-profile'
+
+interface DynamoDBConnectionConfig {
+  id: string
+  name: string
+  connectionMethod: DynamoDBConnectionMethod
+  region: string
+  endpoint?: string
+  accessKeyId?: string
+  secretAccessKey?: string
+  profileName?: string
+}
+
+interface DynamoDBConnectionState {
+  connectionId: string
+  isConnected: boolean
+  lastError?: string
+  lastChecked?: number
+}
+
 // Broker Types
 type BrokerType = 'elasticmq' | 'rabbitmq'
 
@@ -398,6 +419,35 @@ type EventPayloadMapping = {
     return: void;
     args: []
   }
+  // DynamoDB connection handlers
+  getDynamoDBConnections: {
+    return: DynamoDBConnectionConfig[];
+    args: [];
+  }
+  saveDynamoDBConnection: {
+    return: void;
+    args: [DynamoDBConnectionConfig];
+  }
+  deleteDynamoDBConnection: {
+    return: void;
+    args: [string];
+  }
+  getActiveDynamoDBConnection: {
+    return: string | null;
+    args: [];
+  }
+  setActiveDynamoDBConnection: {
+    return: void;
+    args: [string];
+  }
+  testDynamoDBConnection: {
+    return: DynamoDBConnectionState;
+    args: [string];
+  }
+  dynamodbConnectionState: {
+    return: DynamoDBConnectionState;
+    args: [DynamoDBConnectionState];
+  }
   // DynamoDB handlers
   dynamodbListTables: {
     return: string[];
@@ -514,6 +564,14 @@ interface Window {
     getImportantValues: () => Promise<ImportantValue[]>
     saveImportantValues: (values: ImportantValue[]) => Promise<void>
     subscribeImportantValuesFileChanged: (callback: () => void) => () => void
+    // DynamoDB Connection API
+    getDynamoDBConnections: () => Promise<DynamoDBConnectionConfig[]>
+    saveDynamoDBConnection: (config: DynamoDBConnectionConfig) => Promise<void>
+    deleteDynamoDBConnection: (id: string) => Promise<void>
+    getActiveDynamoDBConnection: () => Promise<string | null>
+    setActiveDynamoDBConnection: (id: string) => Promise<void>
+    testDynamoDBConnection: (id: string) => Promise<DynamoDBConnectionState>
+    subscribeDynamoDBConnectionState: (callback: (state: DynamoDBConnectionState) => void) => () => void
     // DynamoDB API
     dynamodbListTables: () => Promise<string[]>
     dynamodbDescribeTable: (tableName: string) => Promise<DynamoDBTableInfo>

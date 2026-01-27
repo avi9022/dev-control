@@ -1,5 +1,5 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { docClient } from "../utils/dynamodb.js";
+import { dynamoDBManager } from "./dynamodb-manager.js";
 
 export type SKOperator = "=" | "<" | "<=" | ">" | ">=" | "begins_with" | "between";
 
@@ -92,7 +92,7 @@ export async function queryTable(
     ScanIndexForward: options.scanIndexForward ?? true,
   });
 
-  const response = await docClient.send(command);
+  const response = await dynamoDBManager.getDocClient().send(command);
 
   return {
     items: (response.Items || []) as Record<string, unknown>[],

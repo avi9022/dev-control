@@ -81,6 +81,17 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('importantValuesFileChanged', () => {
       callback();
     }),
+  // DynamoDB Connection API
+  getDynamoDBConnections: () => ipcInvoke('getDynamoDBConnections'),
+  saveDynamoDBConnection: (config: DynamoDBConnectionConfig) => ipcInvoke('saveDynamoDBConnection', config),
+  deleteDynamoDBConnection: (id: string) => ipcInvoke('deleteDynamoDBConnection', id),
+  getActiveDynamoDBConnection: () => ipcInvoke('getActiveDynamoDBConnection'),
+  setActiveDynamoDBConnection: (id: string) => ipcInvoke('setActiveDynamoDBConnection', id),
+  testDynamoDBConnection: (id: string) => ipcInvoke('testDynamoDBConnection', id),
+  subscribeDynamoDBConnectionState: (callback) =>
+    ipcOn('dynamodbConnectionState', (state) => {
+      callback(state);
+    }),
   // DynamoDB API
   dynamodbListTables: () => ipcInvoke('dynamodbListTables'),
   dynamodbDescribeTable: (tableName: string) => ipcInvoke('dynamodbDescribeTable', tableName),

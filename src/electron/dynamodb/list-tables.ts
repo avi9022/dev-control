@@ -1,5 +1,5 @@
 import { ListTablesCommand } from "@aws-sdk/client-dynamodb";
-import { dynamoDBClient } from "../utils/dynamodb.js";
+import { dynamoDBManager } from "./dynamodb-manager.js";
 
 export async function listTables(): Promise<string[]> {
   const tables: string[] = [];
@@ -11,7 +11,7 @@ export async function listTables(): Promise<string[]> {
       Limit: 100,
     });
 
-    const response = await dynamoDBClient.send(command);
+    const response = await dynamoDBManager.getRawClient().send(command);
 
     if (response.TableNames) {
       tables.push(...response.TableNames);

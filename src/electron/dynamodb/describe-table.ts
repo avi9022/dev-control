@@ -1,5 +1,5 @@
 import { DescribeTableCommand } from "@aws-sdk/client-dynamodb";
-import { dynamoDBClient } from "../utils/dynamodb.js";
+import { dynamoDBManager } from "./dynamodb-manager.js";
 
 export interface DynamoDBTableInfo {
   tableName: string;
@@ -33,7 +33,7 @@ export interface DynamoDBTableInfo {
 
 export async function describeTable(tableName: string): Promise<DynamoDBTableInfo> {
   const command = new DescribeTableCommand({ TableName: tableName });
-  const response = await dynamoDBClient.send(command);
+  const response = await dynamoDBManager.getRawClient().send(command);
 
   if (!response.Table) {
     throw new Error(`Table ${tableName} not found`);

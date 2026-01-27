@@ -1,5 +1,5 @@
 import { PutCommand } from "@aws-sdk/lib-dynamodb";
-import { docClient } from "../utils/dynamodb.js";
+import { dynamoDBManager } from "./dynamodb-manager.js";
 
 export async function putItem(
   tableName: string,
@@ -10,5 +10,5 @@ export async function putItem(
     Item: item,
   });
 
-  await docClient.send(command);
+  await dynamoDBManager.getDocClient().send(command);
 }

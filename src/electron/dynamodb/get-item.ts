@@ -1,5 +1,5 @@
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
-import { docClient } from "../utils/dynamodb.js";
+import { dynamoDBManager } from "./dynamodb-manager.js";
 
 export async function getItem(
   tableName: string,
@@ -10,6 +10,6 @@ export async function getItem(
     Key: key,
   });
 
-  const response = await docClient.send(command);
+  const response = await dynamoDBManager.getDocClient().send(command);
   return (response.Item as Record<string, unknown>) || null;
 }

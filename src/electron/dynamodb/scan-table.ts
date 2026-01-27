@@ -1,5 +1,5 @@
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { docClient } from "../utils/dynamodb.js";
+import { dynamoDBManager } from "./dynamodb-manager.js";
 
 export interface ScanOptions {
   limit?: number;
@@ -29,7 +29,7 @@ export async function scanTable(
     ExpressionAttributeValues: options.expressionAttributeValues,
   });
 
-  const response = await docClient.send(command);
+  const response = await dynamoDBManager.getDocClient().send(command);
 
   return {
     items: (response.Items || []) as Record<string, unknown>[],

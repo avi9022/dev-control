@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type FC, type PropsWithChildren } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type FC, type PropsWithChildren } from 'react'
 import { useViews } from '@/ui/contexts/views'
 
 interface DynamoDBContextValue {
@@ -14,6 +14,14 @@ interface DynamoDBContextValue {
   getItem: (tableName: string, key: Record<string, unknown>) => Promise<Record<string, unknown> | null>
   putItem: (tableName: string, item: Record<string, unknown>) => Promise<void>
   deleteItem: (tableName: string, key: Record<string, unknown>) => Promise<void>
+  connections: DynamoDBConnectionConfig[]
+  activeConnectionId: string | null
+  connectionState: DynamoDBConnectionState | null
+  isConnected: boolean
+  setActiveConnection: (id: string) => Promise<void>
+  saveConnection: (config: DynamoDBConnectionConfig) => Promise<void>
+  deleteConnection: (id: string) => Promise<void>
+  testConnection: (id?: string) => Promise<DynamoDBConnectionState>
 }
 
 export const DynamoDBContext = createContext<DynamoDBContextValue>({
@@ -29,6 +37,14 @@ export const DynamoDBContext = createContext<DynamoDBContextValue>({
   getItem: async () => null,
   putItem: async () => {},
   deleteItem: async () => {},
+  connections: [],
+  activeConnectionId: null,
+  connectionState: null,
+  isConnected: false,
+  setActiveConnection: async () => {},
+  saveConnection: async () => {},
+  deleteConnection: async () => {},
+  testConnection: async () => ({ connectionId: '', isConnected: false }),
 })
 
 export function useDynamoDB() {
@@ -40,9 +56,21 @@ export const DynamoDBProvider: FC<PropsWithChildren> = ({ children }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
+  const [connections, setConnections] = useState<DynamoDBConnectionConfig[]>([])
+  const [activeConnectionId, setActiveConnectionId] = useState<string | null>(null)
+  const [connectionState, setConnectionState] = useState<DynamoDBConnectionState | null>(null)
   const { updateView } = useViews()
 
-  const refreshTables = async () => {
+  const isConnected = connectionState?.isConnected ?? false
+
+  const loadConnections = useCallback(async () => {
+    const conns = await window.electron.getDynamoDBConnections()
+    setConnections(conns)
+    const activeId = await window.electron.getActiveDynamoDBConnection()
+    setActiveConnectionId(activeId)
+  }, [])
+
+  const refreshTables = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -54,41 +82,80 @@ export const DynamoDBProvider: FC<PropsWithChildren> = ({ children }) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const selectTable = (tableName: string | null) => {
+  const selectTable = useCallback((tableName: string | null) => {
     setSelectedTable(tableName)
     updateView('dynamodb', tableName)
-  }
+  }, [updateView])
 
-  const getTableInfo = async (tableName: string) => {
-    return await window.electron.dynamodbDescribeTable(tableName)
-  }
-
-  const scanTable = async (tableName: string, options?: DynamoDBScanOptions) => {
-    return await window.electron.dynamodbScanTable(tableName, options)
-  }
-
-  const queryTable = async (tableName: string, options: DynamoDBQueryOptions) => {
-    return await window.electron.dynamodbQueryTable(tableName, options)
-  }
-
-  const getItem = async (tableName: string, key: Record<string, unknown>) => {
-    return await window.electron.dynamodbGetItem(tableName, key)
-  }
-
-  const putItem = async (tableName: string, item: Record<string, unknown>) => {
-    return await window.electron.dynamodbPutItem(tableName, item)
-  }
-
-  const deleteItem = async (tableName: string, key: Record<string, unknown>) => {
-    return await window.electron.dynamodbDeleteItem(tableName, key)
-  }
-
-  // Load tables on mount
-  useEffect(() => {
-    refreshTables()
+  const setActiveConnection = useCallback(async (id: string) => {
+    await window.electron.setActiveDynamoDBConnection(id)
+    setActiveConnectionId(id)
   }, [])
+
+  const saveConnection = useCallback(async (config: DynamoDBConnectionConfig) => {
+    await window.electron.saveDynamoDBConnection(config)
+    await loadConnections()
+  }, [loadConnections])
+
+  const deleteConnection = useCallback(async (id: string) => {
+    await window.electron.deleteDynamoDBConnection(id)
+    await loadConnections()
+  }, [loadConnections])
+
+  const testConnection = useCallback(async (id?: string) => {
+    const targetId = id || activeConnectionId
+    if (!targetId) {
+      return { connectionId: '', isConnected: false, lastError: 'No connection', lastChecked: Date.now() }
+    }
+    return await window.electron.testDynamoDBConnection(targetId)
+  }, [activeConnectionId])
+
+  const getTableInfo = useCallback(async (tableName: string) => {
+    return await window.electron.dynamodbDescribeTable(tableName)
+  }, [])
+
+  const scanTable = useCallback(async (tableName: string, options?: DynamoDBScanOptions) => {
+    return await window.electron.dynamodbScanTable(tableName, options)
+  }, [])
+
+  const queryTable = useCallback(async (tableName: string, options: DynamoDBQueryOptions) => {
+    return await window.electron.dynamodbQueryTable(tableName, options)
+  }, [])
+
+  const getItem = useCallback(async (tableName: string, key: Record<string, unknown>) => {
+    return await window.electron.dynamodbGetItem(tableName, key)
+  }, [])
+
+  const putItem = useCallback(async (tableName: string, item: Record<string, unknown>) => {
+    return await window.electron.dynamodbPutItem(tableName, item)
+  }, [])
+
+  const deleteItem = useCallback(async (tableName: string, key: Record<string, unknown>) => {
+    return await window.electron.dynamodbDeleteItem(tableName, key)
+  }, [])
+
+  // Subscribe to connection state changes
+  useEffect(() => {
+    return window.electron.subscribeDynamoDBConnectionState((state) => {
+      setConnectionState(state)
+    })
+  }, [])
+
+  // Load connections on mount
+  useEffect(() => {
+    loadConnections()
+  }, [loadConnections])
+
+  // Refresh tables when connection state changes to connected
+  useEffect(() => {
+    if (isConnected) {
+      refreshTables()
+    } else {
+      setTables([])
+    }
+  }, [isConnected, activeConnectionId, refreshTables])
 
   return (
     <DynamoDBContext.Provider
@@ -105,6 +172,14 @@ export const DynamoDBProvider: FC<PropsWithChildren> = ({ children }) => {
         getItem,
         putItem,
         deleteItem,
+        connections,
+        activeConnectionId,
+        connectionState,
+        isConnected,
+        setActiveConnection,
+        saveConnection,
+        deleteConnection,
+        testConnection,
       }}
     >
       {children}

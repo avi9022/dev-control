@@ -16,7 +16,20 @@ type Schema = {
   // Broker settings
   activeBroker: BrokerType
   brokerConfigs: Record<BrokerType, BrokerConfig>
+  // DynamoDB connection settings
+  dynamodbConnections: DynamoDBConnectionConfig[]
+  activeDynamoDBConnection: string | null
 };
+
+const DEFAULT_DYNAMODB_CONNECTION: DynamoDBConnectionConfig = {
+  id: 'default-local',
+  name: 'Local',
+  connectionMethod: 'custom-endpoint',
+  region: 'eu-west-1',
+  endpoint: 'http://localhost:8000',
+  accessKeyId: 'root',
+  secretAccessKey: 'root'
+}
 
 const DEFAULT_BROKER_CONFIGS: Record<BrokerType, BrokerConfig> = {
   elasticmq: {
@@ -53,8 +66,10 @@ export const store = new Store<Schema>({
       autoHide: false
     },
     activeBroker: 'elasticmq',
-    brokerConfigs: DEFAULT_BROKER_CONFIGS
+    brokerConfigs: DEFAULT_BROKER_CONFIGS,
+    dynamodbConnections: [DEFAULT_DYNAMODB_CONNECTION],
+    activeDynamoDBConnection: 'default-local'
   },
 });
 
-export { DEFAULT_BROKER_CONFIGS }
+export { DEFAULT_BROKER_CONFIGS, DEFAULT_DYNAMODB_CONNECTION }

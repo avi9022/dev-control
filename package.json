@@ -17,6 +17,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.975.0",
     "@aws-sdk/client-sqs": "^3.823.0",
+    "@aws-sdk/credential-providers": "^3.975.0",
     "@aws-sdk/lib-dynamodb": "^3.975.0",
     "@hookform/resolvers": "^5.0.1",
     "@monaco-editor/react": "^4.7.0",

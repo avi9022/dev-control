@@ -1,5 +1,5 @@
 import { DeleteCommand } from "@aws-sdk/lib-dynamodb";
-import { docClient } from "../utils/dynamodb.js";
+import { dynamoDBManager } from "./dynamodb-manager.js";
 
 export async function deleteItem(
   tableName: string,
@@ -10,5 +10,5 @@ export async function deleteItem(
     Key: key,
   });
 
-  await docClient.send(command);
+  await dynamoDBManager.getDocClient().send(command);
 }
