@@ -35,6 +35,20 @@ import { queryTable, type QueryOptions } from './dynamodb/query-table.js'
 import { putItem } from './dynamodb/put-item.js'
 import { deleteItem } from './dynamodb/delete-item.js'
 import { getItem } from './dynamodb/get-item.js'
+// API Client
+import { apiClientManager } from './api-client/api-client-manager.js'
+import { executeRequest, cancelActiveRequest } from './api-client/request-executor.js'
+import { importPostmanCollection, importPostmanEnvironment } from './api-client/postman-importer.js'
+// Docker
+import { dockerManager } from './docker/docker-manager.js'
+// MongoDB
+import { mongoManager } from './mongodb/mongo-manager.js'
+import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
+import { getCollections, createCollection as mongoCreateCol, dropCollection, renameCollection, getCollectionStats } from './mongodb/collection-operations.js'
+import { findDocuments, findDocumentById, insertDocument, updateDocument, deleteDocument as mongoDeleteDoc, insertMany, deleteMany } from './mongodb/document-operations.js'
+import { explainQuery, runAggregation } from './mongodb/query-executor.js'
+import { getIndexes, createIndex, dropIndex } from './mongodb/index-operations.js'
+import { analyzeSchema } from './mongodb/schema-analyzer.js'
 
 const queuePollIntervals = new Map<string, NodeJS.Timeout>();
 
@@ -440,6 +454,139 @@ app.on("ready", async () => {
     return await deleteItem(tableName, key)
   })
 
+  // ─── API Client handlers ───
+  apiClientManager.setMainWindow(mainWindow)
+
+  ipcMainHandle('apiGetWorkspaces', () => apiClientManager.getWorkspaces())
+  ipcMainHandle('apiCreateWorkspace', (_event, name: string) => apiClientManager.createWorkspace(name))
+  ipcMainHandle('apiDeleteWorkspace', (_event, id: string) => apiClientManager.deleteWorkspace(id))
+  ipcMainHandle('apiSetActiveWorkspace', (_event, id: string) => apiClientManager.setActiveWorkspace(id))
+  ipcMainHandle('apiImportPostmanCollection', async (_event, workspaceId: string) => {
+    const collection = await importPostmanCollection(workspaceId)
+    apiClientManager.addCollectionToWorkspace(workspaceId, collection)
+    return collection
+  })
+  ipcMainHandle('apiImportPostmanEnvironment', async (_event, workspaceId: string) => {
+    const env = await importPostmanEnvironment(workspaceId)
+    apiClientManager.addEnvironmentToWorkspace(workspaceId, env)
+    return env
+  })
+  ipcMainHandle('apiCreateCollection', (_event, workspaceId: string, name: string) => apiClientManager.createCollection(workspaceId, name))
+  ipcMainHandle('apiDeleteCollection', (_event, workspaceId: string, collectionId: string) => apiClientManager.deleteCollection(workspaceId, collectionId))
+  ipcMainHandle('apiUpdateCollection', (_event, workspaceId: string, collectionId: string, data: Partial<ApiCollection>) => apiClientManager.updateCollection(workspaceId, collectionId, data))
+  ipcMainHandle('apiAddRequest', (_event, workspaceId: string, collectionId: string, parentFolderId: string | null, config: ApiRequestConfig) => apiClientManager.addRequest(workspaceId, collectionId, parentFolderId, config))
+  ipcMainHandle('apiAddFolder', (_event, workspaceId: string, collectionId: string, parentFolderId: string | null, name: string) => apiClientManager.addFolder(workspaceId, collectionId, parentFolderId, name))
+  ipcMainHandle('apiUpdateRequest', (_event, workspaceId: string, collectionId: string, itemId: string, config: ApiRequestConfig) => apiClientManager.updateRequest(workspaceId, collectionId, itemId, config))
+  ipcMainHandle('apiDeleteItem', (_event, workspaceId: string, collectionId: string, itemId: string) => apiClientManager.deleteItem(workspaceId, collectionId, itemId))
+  ipcMainHandle('apiGetEnvironments', (_event, workspaceId: string) => apiClientManager.getEnvironments(workspaceId))
+  ipcMainHandle('apiCreateEnvironment', (_event, workspaceId: string, name: string) => apiClientManager.createEnvironment(workspaceId, name))
+  ipcMainHandle('apiUpdateEnvironment', (_event, workspaceId: string, envId: string, env: ApiEnvironment) => apiClientManager.updateEnvironment(workspaceId, envId, env))
+  ipcMainHandle('apiDeleteEnvironment', (_event, workspaceId: string, envId: string) => apiClientManager.deleteEnvironment(workspaceId, envId))
+  ipcMainHandle('apiSetActiveEnvironment', (_event, workspaceId: string, envId: string | null) => apiClientManager.setActiveEnvironment(workspaceId, envId))
+  ipcMainHandle('apiSendRequest', async (_event, workspaceId: string, config: ApiRequestConfig) => {
+    const response = await executeRequest(workspaceId, config)
+    apiClientManager.addHistory(workspaceId, config, response)
+    return response
+  })
+  ipcMainHandle('apiCancelRequest', () => cancelActiveRequest())
+  ipcMainHandle('apiGetHistory', (_event, workspaceId: string) => apiClientManager.getHistory(workspaceId))
+  ipcMainHandle('apiClearHistory', (_event, workspaceId: string) => apiClientManager.clearHistory(workspaceId))
+
+  // ─── Docker handlers ───
+  dockerManager.setMainWindow(mainWindow)
+  dockerManager.startPolling()
+
+  ipcMainHandle('dockerGetContexts', () => dockerManager.getContexts())
+  ipcMainHandle('dockerSwitchContext', (_event, name: string) => dockerManager.switchContext(name))
+  ipcMainHandle('dockerGetActiveContext', () => dockerManager.getActiveContext())
+  ipcMainHandle('dockerIsAvailable', () => dockerManager.isAvailable())
+  ipcMainHandle('dockerGetContainers', (_event, filters?: DockerContainerFilters) => dockerManager.getContainers(filters))
+  ipcMainHandle('dockerGetContainer', (_event, id: string) => dockerManager.getContainer(id))
+  ipcMainHandle('dockerStartContainer', (_event, id: string, dockerContext?: string) => dockerManager.startContainer(id, dockerContext))
+  ipcMainHandle('dockerStopContainer', (_event, id: string, dockerContext?: string) => dockerManager.stopContainer(id, dockerContext))
+  ipcMainHandle('dockerRestartContainer', (_event, id: string, dockerContext?: string) => dockerManager.restartContainer(id, dockerContext))
+  ipcMainHandle('dockerPauseContainer', (_event, id: string, dockerContext?: string) => dockerManager.pauseContainer(id, dockerContext))
+  ipcMainHandle('dockerUnpauseContainer', (_event, id: string, dockerContext?: string) => dockerManager.unpauseContainer(id, dockerContext))
+  ipcMainHandle('dockerRemoveContainer', (_event, id: string, force: boolean, dockerContext?: string) => dockerManager.removeContainer(id, force, dockerContext))
+  ipcMainHandle('dockerExecInContainer', (_event, id: string, command: string[]) => dockerManager.execInContainer(id, command))
+  ipcMainHandle('dockerInspectContainer', (_event, id: string) => dockerManager.inspectContainer(id))
+  ipcMainHandle('dockerGetContainerLogs', (_event, id: string, options: DockerLogOptions) => dockerManager.getContainerLogs(id, options))
+  ipcMainHandle('dockerStreamContainerLogs', (_event, id: string, options: DockerLogOptions) => dockerManager.streamContainerLogs(id, options))
+  ipcMainHandle('dockerStopLogStream', (_event, id: string) => dockerManager.stopLogStream(id))
+  ipcMainHandle('dockerGetContainerStats', (_event, id: string) => dockerManager.getContainerStats(id))
+  ipcMainHandle('dockerGetAllStats', () => dockerManager.getAllStats())
+  ipcMainHandle('dockerGetImages', () => dockerManager.getImages())
+  ipcMainHandle('dockerPullImage', (_event, name: string) => dockerManager.pullImage(name))
+  ipcMainHandle('dockerRemoveImage', (_event, id: string, force: boolean, dockerContext?: string) => dockerManager.removeImage(id, force, dockerContext))
+  ipcMainHandle('dockerInspectImage', (_event, id: string) => dockerManager.inspectImage(id))
+  ipcMainHandle('dockerGetImageHistory', (_event, id: string) => dockerManager.getImageHistory(id))
+  ipcMainHandle('dockerPruneImages', (_event, danglingOnly: boolean) => dockerManager.pruneImages(danglingOnly))
+  ipcMainHandle('dockerGetVolumes', () => dockerManager.getVolumes())
+  ipcMainHandle('dockerCreateVolume', (_event, name: string, labels?: Record<string, string>) => dockerManager.createVolume(name, labels))
+  ipcMainHandle('dockerRemoveVolume', (_event, name: string, dockerContext?: string) => dockerManager.removeVolume(name, dockerContext))
+  ipcMainHandle('dockerPruneVolumes', () => dockerManager.pruneVolumes())
+  ipcMainHandle('dockerGetNetworks', () => dockerManager.getNetworks())
+  ipcMainHandle('dockerCreateNetwork', (_event, name: string, driver: string) => dockerManager.createNetwork(name, driver))
+  ipcMainHandle('dockerRemoveNetwork', (_event, id: string, dockerContext?: string) => dockerManager.removeNetwork(id, dockerContext))
+  ipcMainHandle('dockerInspectNetwork', (_event, id: string) => dockerManager.inspectNetwork(id))
+  ipcMainHandle('dockerGetComposeProjects', () => dockerManager.getComposeProjects())
+  ipcMainHandle('dockerComposeUp', (_event, project: string) => dockerManager.composeUp(project))
+  ipcMainHandle('dockerComposeDown', (_event, project: string) => dockerManager.composeDown(project))
+  ipcMainHandle('dockerComposeRestart', (_event, project: string) => dockerManager.composeRestart(project))
+  ipcMainHandle('dockerGetDashboardStats', () => dockerManager.getDashboardStats())
+  ipcMainHandle('dockerGetSystemInfo', () => dockerManager.getSystemInfo())
+  ipcMainHandle('dockerSystemPrune', (_event, includeVolumes: boolean) => dockerManager.systemPrune(includeVolumes))
+
+  // ─── MongoDB handlers ───
+  mongoManager.setMainWindow(mainWindow)
+  mongoManager.autoReconnect()
+
+  ipcMainHandle('mongoGetConnections', () => mongoManager.getConnections())
+  ipcMainHandle('mongoGetActiveConnectionId', () => mongoManager.getActiveConnectionId())
+  ipcMainHandle('mongoSaveConnection', (_event, config: MongoConnectionConfig) => mongoManager.saveConnection(config))
+  ipcMainHandle('mongoDeleteConnection', (_event, id: string) => mongoManager.deleteConnection(id))
+  ipcMainHandle('mongoTestConnection', (_event, id: string) => mongoManager.testConnection(id))
+  ipcMainHandle('mongoSetActiveConnection', (_event, id: string) => mongoManager.setActiveConnection(id))
+  ipcMainHandle('mongoDisconnect', () => mongoManager.disconnect())
+  ipcMainHandle('mongoGetDatabases', async () => getDatabases())
+  ipcMainHandle('mongoCreateDatabase', async (_event, dbName: string, collectionName: string) => createDatabase(dbName, collectionName))
+  ipcMainHandle('mongoDropDatabase', async (_event, dbName: string) => dropDatabase(dbName))
+  ipcMainHandle('mongoGetCollections', async (_event, database: string) => getCollections(database))
+  ipcMainHandle('mongoCreateCollection', async (_event, database: string, name: string) => mongoCreateCol(database, name))
+  ipcMainHandle('mongoDropCollection', async (_event, database: string, name: string) => dropCollection(database, name))
+  ipcMainHandle('mongoRenameCollection', async (_event, database: string, oldName: string, newName: string) => renameCollection(database, oldName, newName))
+  ipcMainHandle('mongoGetCollectionStats', async (_event, database: string, collection: string) => getCollectionStats(database, collection))
+  ipcMainHandle('mongoFindDocuments', async (_event, database: string, collection: string, options: MongoQueryOptions) => findDocuments(database, collection, options))
+  ipcMainHandle('mongoFindDocumentById', async (_event, database: string, collection: string, id: string) => findDocumentById(database, collection, id))
+  ipcMainHandle('mongoInsertDocument', async (_event, database: string, collection: string, document: Record<string, unknown>) => insertDocument(database, collection, document))
+  ipcMainHandle('mongoUpdateDocument', async (_event, database: string, collection: string, id: string, update: Record<string, unknown>) => updateDocument(database, collection, id, update))
+  ipcMainHandle('mongoDeleteDocument', async (_event, database: string, collection: string, id: string) => mongoDeleteDoc(database, collection, id))
+  ipcMainHandle('mongoInsertMany', async (_event, database: string, collection: string, documents: Record<string, unknown>[]) => insertMany(database, collection, documents))
+  ipcMainHandle('mongoDeleteMany', async (_event, database: string, collection: string, filter: Record<string, unknown>) => deleteMany(database, collection, filter))
+  ipcMainHandle('mongoExplainQuery', async (_event, database: string, collection: string, options: MongoQueryOptions) => explainQuery(database, collection, options))
+  ipcMainHandle('mongoRunAggregation', async (_event, database: string, collection: string, pipeline: MongoAggregationStage[]) => runAggregation(database, collection, pipeline))
+  ipcMainHandle('mongoAnalyzeSchema', async (_event, database: string, collection: string, sampleSize?: number) => analyzeSchema(database, collection, sampleSize))
+  ipcMainHandle('mongoGetIndexes', async (_event, database: string, collection: string) => getIndexes(database, collection))
+  ipcMainHandle('mongoCreateIndex', async (_event, database: string, collection: string, options: MongoCreateIndexOptions) => createIndex(database, collection, options))
+  ipcMainHandle('mongoDropIndex', async (_event, database: string, collection: string, indexName: string) => dropIndex(database, collection, indexName))
+  ipcMainHandle('mongoGetValidationRules', async (_event, _database: string, _collection: string) => null)
+  ipcMainHandle('mongoSetValidationRules', async () => {})
+  ipcMainHandle('mongoExportCollection', async () => {})
+  ipcMainHandle('mongoImportDocuments', async () => 0)
+  ipcMainHandle('mongoGetSavedQueries', () => store.get('mongoSavedQueries'))
+  ipcMainHandle('mongoSaveQuery', (_event, query: MongoSavedQuery) => {
+    const queries = store.get('mongoSavedQueries')
+    const existing = queries.findIndex(q => q.id === query.id)
+    if (existing >= 0) {
+      store.set('mongoSavedQueries', queries.map((q, i) => i === existing ? query : q))
+    } else {
+      store.set('mongoSavedQueries', [...queries, query])
+    }
+  })
+  ipcMainHandle('mongoDeleteSavedQuery', (_event, id: string) => {
+    store.set('mongoSavedQueries', store.get('mongoSavedQueries').filter(q => q.id !== id))
+  })
+
   store.onDidChange('directories', (newVal) => {
     ipcWebContentsSend('directories', mainWindow.webContents, newVal || []);
   });
@@ -478,6 +625,12 @@ app.on('before-quit', async (event) => {
     clearInterval(interval)
   }
   queuePollIntervals.clear()
+
+  // Stop Docker polling
+  dockerManager.stopPolling()
+
+  // Disconnect MongoDB
+  mongoManager.disconnect()
 
   // Close file watcher
   if (todoFolderWatcher) {

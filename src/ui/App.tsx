@@ -15,6 +15,9 @@ import { WorkflowsProvider } from './contexts/workflows'
 import { ToolsProvider } from './contexts/tools'
 import { DynamoDBProvider } from './contexts/dynamodb'
 import { BrokerProvider } from './contexts/broker'
+import { ApiClientProvider } from './contexts/api-client'
+import { DockerProvider } from './contexts/docker'
+import { MongoDBProvider } from './contexts/mongodb'
 
 
 function App() {
@@ -47,30 +50,36 @@ function App() {
                 <BrokerProvider>
                   <QueuesProvider>
                     <DynamoDBProvider>
-                      <TooltipProvider>
-                        <AppSidebar />
-                        <main className="flex-1 min-w-0 h-screen overflow-hidden flex flex-col">
-                          <div className='h-[40px] flex-shrink-0 flex justify-between items-center'>
-                            <Button className='bg-transparent hover:bg-neutral-500 text-white' onClick={() => setOpen(!open)}>
-                              {open ?
-                                <div className='flex gap-1 items-center'>
-                                  <PanelRightOpen />
-                                  <p className='text-sm'>Close sidebar</p>
-                                </div> :
-                                <div className='flex gap-1 items-center'>
-                                  <PanelLeftOpen />
-                                  <p className='text-sm'>Open sidebar</p>
-                                </div>}
-                            </Button>
-                            <div className='pr-5'>
-                              <SplitScreenChoice />
-                            </div>
-                          </div>
-                          <div className='flex-1 min-h-0 overflow-hidden'>
-                            <MainContent />
-                          </div>
-                        </main>
-                      </TooltipProvider>
+                      <ApiClientProvider>
+                        <DockerProvider>
+                          <MongoDBProvider>
+                            <TooltipProvider>
+                              <AppSidebar />
+                              <main className="flex-1 min-w-0 h-screen overflow-hidden flex flex-col">
+                                <div className='h-[40px] flex-shrink-0 flex justify-between items-center'>
+                                  <Button className='bg-transparent hover:bg-neutral-500 text-white' onClick={() => setOpen(!open)}>
+                                    {open ?
+                                      <div className='flex gap-1 items-center'>
+                                        <PanelRightOpen />
+                                        <p className='text-sm'>Close sidebar</p>
+                                      </div> :
+                                      <div className='flex gap-1 items-center'>
+                                        <PanelLeftOpen />
+                                        <p className='text-sm'>Open sidebar</p>
+                                      </div>}
+                                  </Button>
+                                  <div className='pr-5'>
+                                    <SplitScreenChoice />
+                                  </div>
+                                </div>
+                                <div className='flex-1 min-h-0 overflow-hidden'>
+                                  <MainContent />
+                                </div>
+                              </main>
+                            </TooltipProvider>
+                          </MongoDBProvider>
+                        </DockerProvider>
+                      </ApiClientProvider>
                     </DynamoDBProvider>
                   </QueuesProvider>
                 </BrokerProvider>

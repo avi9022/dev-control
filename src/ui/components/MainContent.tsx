@@ -4,11 +4,37 @@ import { Service } from "../views/Service"
 import { Queue } from "../views/Queue"
 import { Tool } from "../views/Tool"
 import { DynamoDBView } from "../views/DynamoDB"
+import { ApiClientView } from "../views/ApiClient"
+import { DockerView } from "../views/Docker"
+import { MongoDBView } from "../views/MongoDB"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
+const OVERFLOW_VIEWS = new Set(['dynamodb', 'tool', 'api-client', 'docker', 'mongodb'])
+
 export const MainContent: FC = () => {
   const { views, setCurrentViewIndex, currentViewIndex, closeView } = useViews()
+
+  const renderView = (type: string, itemId: string | null, index: number) => {
+    switch (type) {
+      case 'dynamodb':
+        return <DynamoDBView key={index} tableName={itemId} />
+      case 'tool':
+        return <Tool key={index} id={itemId} />
+      case 'api-client':
+        return <ApiClientView key={index} itemId={itemId} />
+      case 'docker':
+        return <DockerView key={index} itemId={itemId} />
+      case 'mongodb':
+        return <MongoDBView key={index} itemId={itemId} />
+      case 'directory':
+        return <Service key={index} id={itemId} />
+      case 'queue':
+        return <Queue key={index} id={itemId} />
+      default:
+        return null
+    }
+  }
 
   return (
     <div className={`flex flex-row w-full h-full ${views.length > 1 ? 'px-3' : ''} gap-2 flex-1`}>
@@ -23,21 +49,13 @@ export const MainContent: FC = () => {
               <p className="text-xs">Close</p>
             </Button>
           </div>}
-          {type === 'dynamodb' || type === 'tool' ? (
+          {OVERFLOW_VIEWS.has(type) ? (
             <div className="flex-1 min-h-0 overflow-hidden">
-              {type === 'dynamodb' ? (
-                <DynamoDBView key={index} tableName={itemId} />
-              ) : (
-                <Tool key={index} id={itemId} />
-              )}
+              {renderView(type, itemId, index)}
             </div>
           ) : (
             <ScrollArea className="flex-1 min-h-0">
-              {type === 'directory' ? (
-                <Service key={index} id={itemId} />
-              ) : (
-                <Queue key={index} id={itemId} />
-              )}
+              {renderView(type, itemId, index)}
             </ScrollArea>
           )}
         </div>

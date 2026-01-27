@@ -19,6 +19,33 @@ type Schema = {
   // DynamoDB connection settings
   dynamodbConnections: DynamoDBConnectionConfig[]
   activeDynamoDBConnection: string | null
+  // API Client settings
+  apiWorkspaces: ApiWorkspace[]
+  activeApiWorkspaceId: string | null
+  apiHistory: ApiHistoryEntry[]
+  apiGlobalVariables: ApiVariable[]
+  // Docker settings
+  dockerSettings: {
+    refreshInterval: number
+    showAllContainers: boolean
+    defaultContext: string | null
+    statsEnabled: boolean
+    logTimestamps: boolean
+    pruneConfirmation: boolean
+  }
+  dockerFavoriteContainers: string[]
+  // MongoDB settings
+  mongoConnections: MongoConnectionConfig[]
+  activeMongoConnectionId: string | null
+  mongoSavedQueries: MongoSavedQuery[]
+  mongoSettings: {
+    maxDocumentsPerPage: number
+    defaultView: 'list' | 'json' | 'table'
+    autoSchema: boolean
+    maxSchemaAnalysisDocs: number
+    queryTimeout: number
+  }
+  mongoRecentDatabases: Record<string, string>
 };
 
 const DEFAULT_DYNAMODB_CONNECTION: DynamoDBConnectionConfig = {
@@ -68,7 +95,34 @@ export const store = new Store<Schema>({
     activeBroker: 'elasticmq',
     brokerConfigs: DEFAULT_BROKER_CONFIGS,
     dynamodbConnections: [DEFAULT_DYNAMODB_CONNECTION],
-    activeDynamoDBConnection: 'default-local'
+    activeDynamoDBConnection: 'default-local',
+    // API Client defaults
+    apiWorkspaces: [],
+    activeApiWorkspaceId: null,
+    apiHistory: [],
+    apiGlobalVariables: [],
+    // Docker defaults
+    dockerSettings: {
+      refreshInterval: 3000,
+      showAllContainers: true,
+      defaultContext: null,
+      statsEnabled: true,
+      logTimestamps: true,
+      pruneConfirmation: true
+    },
+    dockerFavoriteContainers: [],
+    // MongoDB defaults
+    mongoConnections: [],
+    activeMongoConnectionId: null,
+    mongoSavedQueries: [],
+    mongoSettings: {
+      maxDocumentsPerPage: 50,
+      defaultView: 'list',
+      autoSchema: true,
+      maxSchemaAnalysisDocs: 1000,
+      queryTimeout: 30000
+    },
+    mongoRecentDatabases: {}
   },
 });
 
