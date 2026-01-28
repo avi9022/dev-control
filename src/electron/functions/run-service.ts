@@ -6,6 +6,11 @@ import { exec } from 'child_process';
 import { getDirectoryById } from '../storage/get-directory-by-id.js';
 import { updateDirectoryData } from './update-directory-data.js';
 import { appendLogToFile } from '../utils/log-file-manager.js';
+import os from 'os';
+
+const getUserShell = (): string => {
+  return process.env.SHELL || os.userInfo().shell || '/bin/zsh';
+};
 
 export const runningProcesses = new Map<string, ChildProcess>();
 
@@ -52,9 +57,9 @@ export const runService = (
 
   updateDirectoryData(id, { isInitializing: true })
 
-  const child = spawn(currDirectory.runCommand || '', [], {
+  const userShell = getUserShell();
+  const child = spawn(userShell, ['-l', '-c', currDirectory.runCommand || ''], {
     cwd: currDirectory.path,
-    shell: true,
     env: process.env,
   });
 
