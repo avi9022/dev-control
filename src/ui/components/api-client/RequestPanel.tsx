@@ -137,6 +137,8 @@ export const RequestPanel: FC<RequestPanelProps> = ({ requestId }) => {
           method={method}
           url={url}
           isSending={isSending}
+          headers={headers}
+          body={body}
           onMethodChange={setMethod}
           onUrlChange={setUrl}
           onSend={handleSend}

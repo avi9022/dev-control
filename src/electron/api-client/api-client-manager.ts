@@ -68,6 +68,60 @@ function updateItemInTree(
   })
 }
 
+function renameItemInTree(
+  items: ApiCollectionItem[],
+  itemId: string,
+  name: string
+): ApiCollectionItem[] {
+  return items.map((item) => {
+    if (item.id === itemId) {
+      return { ...item, name }
+    }
+    if (item.items) {
+      return { ...item, items: renameItemInTree(item.items, itemId, name) }
+    }
+    return item
+  })
+}
+
+function deepCloneItem(
+  item: ApiCollectionItem,
+  newName: string
+): ApiCollectionItem {
+  const cloned: ApiCollectionItem = {
+    ...item,
+    id: crypto.randomUUID(),
+    name: newName,
+    request: item.request ? { ...item.request } : undefined,
+    items: item.items?.map((child) =>
+      deepCloneItem(child, child.name)
+    ),
+  }
+  return cloned
+}
+
+function insertAfterItem(
+  items: ApiCollectionItem[],
+  afterId: string,
+  newItem: ApiCollectionItem
+): ApiCollectionItem[] {
+  const result: ApiCollectionItem[] = []
+  for (const item of items) {
+    if (item.items) {
+      result.push({
+        ...item,
+        items: insertAfterItem(item.items, afterId, newItem),
+      })
+    } else {
+      result.push(item)
+    }
+    if (item.id === afterId) {
+      result.push(newItem)
+    }
+  }
+  return result
+}
+
 function deleteItemFromTree(
   items: ApiCollectionItem[],
   itemId: string
@@ -328,6 +382,70 @@ class ApiClientManager {
 
     store.set('apiWorkspaces', workspaces)
     this.emitWorkspaces(workspaces)
+  }
+
+  renameItem(
+    workspaceId: string,
+    collectionId: string,
+    itemId: string,
+    name: string
+  ): void {
+    const now = Date.now()
+    const workspaces = this.getWorkspaces().map((w) => {
+      if (w.id !== workspaceId) return w
+      return {
+        ...w,
+        collections: w.collections.map((c) => {
+          if (c.id !== collectionId) return c
+          return {
+            ...c,
+            items: renameItemInTree(c.items, itemId, name),
+            updatedAt: now,
+          }
+        }),
+        updatedAt: now,
+      }
+    })
+
+    store.set('apiWorkspaces', workspaces)
+    this.emitWorkspaces(workspaces)
+  }
+
+  duplicateItem(
+    workspaceId: string,
+    collectionId: string,
+    itemId: string
+  ): ApiCollectionItem | null {
+    const workspace = this.getWorkspaces().find((w) => w.id === workspaceId)
+    if (!workspace) return null
+    const collection = workspace.collections.find((c) => c.id === collectionId)
+    if (!collection) return null
+
+    const original = findItemInTree(collection.items, itemId)
+    if (!original) return null
+
+    const cloned = deepCloneItem(original, `Copy of ${original.name}`)
+
+    const now = Date.now()
+    const workspaces = this.getWorkspaces().map((w) => {
+      if (w.id !== workspaceId) return w
+      return {
+        ...w,
+        collections: w.collections.map((c) => {
+          if (c.id !== collectionId) return c
+          return {
+            ...c,
+            items: insertAfterItem(c.items, itemId, cloned),
+            updatedAt: now,
+          }
+        }),
+        updatedAt: now,
+      }
+    })
+
+    store.set('apiWorkspaces', workspaces)
+    this.emitWorkspaces(workspaces)
+    return cloned
   }
 
   deleteItem(

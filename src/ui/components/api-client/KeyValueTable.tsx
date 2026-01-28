@@ -1,8 +1,8 @@
 import type { FC } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
+import { VariableInput } from './VariableInput'
 
 interface KeyValueTableProps {
   items: ApiKeyValue[]
@@ -82,26 +82,24 @@ export const KeyValueTable: FC<KeyValueTableProps> = ({
               handleToggle(index, checked === true)
             }
           />
-          <Input
+          <VariableInput
             placeholder="Key"
             value={item.key}
-            onChange={(e) => handleChange(index, 'key', e.target.value)}
-            className="h-8 text-sm"
+            onChange={(val) => handleChange(index, 'key', val)}
+            className="[&_input]:h-8 [&_input]:text-sm [&>div]:h-8 [&>div]:text-sm"
           />
-          <Input
+          <VariableInput
             placeholder="Value"
             value={item.value}
-            onChange={(e) => handleChange(index, 'value', e.target.value)}
-            className="h-8 text-sm"
+            onChange={(val) => handleChange(index, 'value', val)}
+            className="[&_input]:h-8 [&_input]:text-sm [&>div]:h-8 [&>div]:text-sm"
           />
           {showDescription && (
-            <Input
+            <VariableInput
               placeholder="Description"
               value={item.description ?? ''}
-              onChange={(e) =>
-                handleChange(index, 'description', e.target.value)
-              }
-              className="h-8 text-sm"
+              onChange={(val) => handleChange(index, 'description', val)}
+              className="[&_input]:h-8 [&_input]:text-sm [&>div]:h-8 [&>div]:text-sm"
             />
           )}
           <Button

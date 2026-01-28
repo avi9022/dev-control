@@ -943,12 +943,16 @@ type EventPayloadMapping = {
     return: void;
     args: [string];
   }
+  apiGetActiveWorkspaceId: {
+    return: string | null;
+    args: [];
+  }
   apiImportPostmanCollection: {
-    return: ApiCollection;
+    return: ApiCollection | null;
     args: [string];
   }
   apiImportPostmanEnvironment: {
-    return: ApiEnvironment;
+    return: ApiEnvironment | null;
     args: [string];
   }
   apiCreateCollection: {
@@ -974,6 +978,14 @@ type EventPayloadMapping = {
   apiUpdateRequest: {
     return: void;
     args: [string, string, string, ApiRequestConfig];
+  }
+  apiRenameItem: {
+    return: void;
+    args: [string, string, string, string];
+  }
+  apiDuplicateItem: {
+    return: ApiCollectionItem | null;
+    args: [string, string, string];
   }
   apiDeleteItem: {
     return: void;
@@ -1014,6 +1026,14 @@ type EventPayloadMapping = {
   apiClearHistory: {
     return: void;
     args: [string];
+  }
+  apiImportPostmanCollectionFromPath: {
+    return: ApiCollection;
+    args: [string, string];
+  }
+  apiExportPostmanCollection: {
+    return: void;
+    args: [string, string];
   }
   subscribeApiWorkspaces: {
     return: ApiWorkspace[];
@@ -1424,14 +1444,17 @@ interface Window {
     apiCreateWorkspace: (name: string) => Promise<ApiWorkspace>
     apiDeleteWorkspace: (id: string) => Promise<void>
     apiSetActiveWorkspace: (id: string) => Promise<void>
-    apiImportPostmanCollection: (workspaceId: string) => Promise<ApiCollection>
-    apiImportPostmanEnvironment: (workspaceId: string) => Promise<ApiEnvironment>
+    apiGetActiveWorkspaceId: () => Promise<string | null>
+    apiImportPostmanCollection: (workspaceId: string) => Promise<ApiCollection | null>
+    apiImportPostmanEnvironment: (workspaceId: string) => Promise<ApiEnvironment | null>
     apiCreateCollection: (workspaceId: string, name: string) => Promise<ApiCollection>
     apiDeleteCollection: (workspaceId: string, collectionId: string) => Promise<void>
     apiUpdateCollection: (workspaceId: string, collectionId: string, data: Partial<ApiCollection>) => Promise<void>
     apiAddRequest: (workspaceId: string, collectionId: string, parentFolderId: string | null, config: ApiRequestConfig) => Promise<ApiCollectionItem>
     apiAddFolder: (workspaceId: string, collectionId: string, parentFolderId: string | null, name: string) => Promise<ApiCollectionItem>
     apiUpdateRequest: (workspaceId: string, collectionId: string, itemId: string, config: ApiRequestConfig) => Promise<void>
+    apiRenameItem: (workspaceId: string, collectionId: string, itemId: string, name: string) => Promise<void>
+    apiDuplicateItem: (workspaceId: string, collectionId: string, itemId: string) => Promise<ApiCollectionItem | null>
     apiDeleteItem: (workspaceId: string, collectionId: string, itemId: string) => Promise<void>
     apiGetEnvironments: (workspaceId: string) => Promise<ApiEnvironment[]>
     apiCreateEnvironment: (workspaceId: string, name: string) => Promise<ApiEnvironment>
@@ -1442,6 +1465,8 @@ interface Window {
     apiCancelRequest: () => Promise<void>
     apiGetHistory: (workspaceId: string) => Promise<ApiHistoryEntry[]>
     apiClearHistory: (workspaceId: string) => Promise<void>
+    apiImportPostmanCollectionFromPath: (workspaceId: string, filePath: string) => Promise<ApiCollection>
+    apiExportPostmanCollection: (workspaceId: string, collectionId: string) => Promise<void>
     subscribeApiWorkspaces: (callback: (workspaces: ApiWorkspace[]) => void) => () => void
     // Docker API
     dockerGetContexts: () => Promise<DockerContext[]>

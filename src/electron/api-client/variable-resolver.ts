@@ -76,9 +76,20 @@ export function resolveRequestConfig(
   }
 
   // Collection variables (highest priority)
+  // If not explicitly provided, gather from all collections in the workspace
   if (collectionVariables) {
     for (const v of collectionVariables) {
       if (v.enabled) variableMap.set(v.key, v.value)
+    }
+  } else if (workspace) {
+    for (const col of workspace.collections) {
+      if (col.variables) {
+        for (const v of col.variables) {
+          if (v.enabled && !variableMap.has(v.key)) {
+            variableMap.set(v.key, v.value)
+          }
+        }
+      }
     }
   }
 

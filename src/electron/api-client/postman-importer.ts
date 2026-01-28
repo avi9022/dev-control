@@ -104,33 +104,39 @@ interface PostmanEnvironmentValue {
 
 function mapPostmanItems(items: PostmanItem[]): ApiCollectionItem[] {
   return items.map((item) => {
-    const isFolder = Array.isArray(item.item)
-
-    if (isFolder) {
+    // Folders have a nested `item` array
+    if (Array.isArray(item.item)) {
       return {
         id: crypto.randomUUID(),
         type: 'folder' as const,
-        name: item.name,
-        items: mapPostmanItems(item.item ?? []),
+        name: item.name || 'Unnamed Folder',
+        items: mapPostmanItems(item.item),
       }
     }
 
     return {
       id: crypto.randomUUID(),
       type: 'request' as const,
-      name: item.name,
-      request: item.request ? mapPostmanRequest(item.request) : undefined,
+      name: item.name || 'Unnamed Request',
+      request: item.request ? mapPostmanRequest(item.request) : {
+        method: 'GET' as ApiHttpMethod,
+        url: '',
+        headers: [],
+        params: [],
+        body: { type: 'none', content: '' },
+        auth: { type: 'none' },
+      },
     }
   })
 }
 
 function mapPostmanRequest(req: PostmanRequest): ApiRequestConfig {
-  const url = typeof req.url === 'string' ? req.url : req.url.raw
-  const query = typeof req.url === 'string' ? [] : (req.url.query ?? [])
+  const url = !req.url ? '' : typeof req.url === 'string' ? req.url : (req.url.raw ?? '')
+  const query = !req.url || typeof req.url === 'string' ? [] : (req.url.query ?? [])
 
   return {
     method: (req.method || 'GET').toUpperCase() as ApiHttpMethod,
-    url: url || '',
+    url,
     headers: mapPostmanHeaders(req.header ?? []),
     params: mapPostmanQueryParams(query),
     auth: req.auth ? mapPostmanAuth(req.auth) : undefined,
@@ -260,20 +266,7 @@ function mapPostmanEnvironmentValues(values: PostmanEnvironmentValue[]): ApiVari
 
 // --- Public API ---
 
-export async function importPostmanCollection(workspaceId: string): Promise<ApiCollection> {
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: [{ name: 'JSON', extensions: ['json'] }],
-    title: 'Import Postman Collection',
-  })
-
-  if (result.canceled || !result.filePaths[0]) {
-    throw new Error('Import cancelled')
-  }
-
-  const content = await readFile(result.filePaths[0], 'utf-8')
-  const data: PostmanCollection = JSON.parse(content)
-
+function parsePostmanCollection(data: PostmanCollection): ApiCollection {
   if (!data.info || !data.item) {
     throw new Error('Invalid Postman Collection format: missing "info" or "item" fields')
   }
@@ -291,7 +284,41 @@ export async function importPostmanCollection(workspaceId: string): Promise<ApiC
   }
 }
 
-export async function importPostmanEnvironment(workspaceId: string): Promise<ApiEnvironment> {
+export async function importPostmanCollection(workspaceId: string): Promise<ApiCollection | null> {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+    title: 'Import Postman Collection',
+  })
+
+  if (result.canceled || !result.filePaths[0]) {
+    return null
+  }
+
+  const content = await readFile(result.filePaths[0], 'utf-8')
+  const data = JSON.parse(content)
+
+  // Support both Postman collection format and raw JSON
+  if (data.info && Array.isArray(data.item)) {
+    return parsePostmanCollection(data as PostmanCollection)
+  }
+
+  // If it's a JSON object but not a Postman collection, wrap it as a single-request collection
+  throw new Error('Invalid format: expected a Postman collection JSON with "info" and "item" fields')
+}
+
+export async function importPostmanCollectionFromPath(filePath: string): Promise<ApiCollection> {
+  const content = await readFile(filePath, 'utf-8')
+  const data = JSON.parse(content)
+
+  if (data.info && Array.isArray(data.item)) {
+    return parsePostmanCollection(data as PostmanCollection)
+  }
+
+  throw new Error('File is not a valid Postman collection format. Expected "info" and "item" fields.')
+}
+
+export async function importPostmanEnvironment(workspaceId: string): Promise<ApiEnvironment | null> {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
     filters: [{ name: 'JSON', extensions: ['json'] }],
@@ -299,7 +326,7 @@ export async function importPostmanEnvironment(workspaceId: string): Promise<Api
   })
 
   if (result.canceled || !result.filePaths[0]) {
-    throw new Error('Import cancelled')
+    return null
   }
 
   const content = await readFile(result.filePaths[0], 'utf-8')

@@ -1,5 +1,5 @@
-import { useState, useMemo, type FC } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { useState, useMemo, useCallback, type FC } from 'react'
+import { AlertCircle, Copy, Check } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
@@ -21,10 +21,18 @@ const tryFormatJson = (body: string): { formatted: string; isJson: boolean } => 
 
 export const ResponsePanel: FC<ResponsePanelProps> = ({ response, error }) => {
   const [viewMode, setViewMode] = useState<'pretty' | 'raw'>('pretty')
+  const [copied, setCopied] = useState(false)
 
   const parsedBody = useMemo(() => {
     if (!response) return { formatted: '', isJson: false }
     return tryFormatJson(response.body)
+  }, [response])
+
+  const handleCopy = useCallback(() => {
+    if (!response) return
+    navigator.clipboard.writeText(response.body)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }, [response])
 
   if (error) {
@@ -90,6 +98,15 @@ export const ResponsePanel: FC<ResponsePanelProps> = ({ response, error }) => {
               onClick={() => setViewMode('raw')}
             >
               Raw
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={handleCopy}
+            >
+              {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+              {copied ? 'Copied' : 'Copy'}
             </Button>
           </div>
         </div>

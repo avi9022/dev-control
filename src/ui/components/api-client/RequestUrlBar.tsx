@@ -1,7 +1,6 @@
 import type { FC } from 'react'
-import { Loader2, Send, X } from 'lucide-react'
+import { Loader2, Send, X, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -9,11 +8,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { VariableInput } from './VariableInput'
 
 interface RequestUrlBarProps {
   method: ApiHttpMethod
   url: string
   isSending: boolean
+  headers?: ApiKeyValue[]
+  body?: ApiRequestBody
   onMethodChange: (method: ApiHttpMethod) => void
   onUrlChange: (url: string) => void
   onSend: () => void
@@ -44,6 +46,8 @@ export const RequestUrlBar: FC<RequestUrlBarProps> = ({
   method,
   url,
   isSending,
+  headers,
+  body,
   onMethodChange,
   onUrlChange,
   onSend,
@@ -53,6 +57,25 @@ export const RequestUrlBar: FC<RequestUrlBarProps> = ({
     if (e.key === 'Enter' && !isSending) {
       onSend()
     }
+  }
+
+  const handleCopyCurl = () => {
+    const parts = ['curl']
+    if (method !== 'GET') parts.push(`-X ${method}`)
+    parts.push(`'${url}'`)
+
+    for (const h of (headers ?? []).filter(h => h.enabled && h.key)) {
+      parts.push(`-H '${h.key}: ${h.value}'`)
+    }
+
+    if (body && body.type === 'json' && body.content) {
+      parts.push(`-H 'Content-Type: application/json'`)
+      parts.push(`-d '${body.content}'`)
+    } else if (body && body.type === 'raw' && body.content) {
+      parts.push(`--data-raw '${body.content}'`)
+    }
+
+    navigator.clipboard.writeText(parts.join(' \\\n  '))
   }
 
   return (
@@ -73,12 +96,11 @@ export const RequestUrlBar: FC<RequestUrlBarProps> = ({
         </SelectContent>
       </Select>
 
-      <Input
+      <VariableInput
         placeholder="Enter request URL..."
         value={url}
-        onChange={(e) => onUrlChange(e.target.value)}
+        onChange={onUrlChange}
         onKeyDown={handleKeyDown}
-        className="flex-1 font-mono text-sm"
       />
 
       {isSending ? (
@@ -92,6 +114,10 @@ export const RequestUrlBar: FC<RequestUrlBarProps> = ({
           Send
         </Button>
       )}
+
+      <Button variant="ghost" size="icon" className="size-8" onClick={handleCopyCurl} title="Copy as cURL">
+        <Copy className="size-4" />
+      </Button>
 
       {isSending && (
         <Loader2 className="size-4 animate-spin text-muted-foreground" />

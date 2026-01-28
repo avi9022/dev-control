@@ -38,7 +38,8 @@ import { getItem } from './dynamodb/get-item.js'
 // API Client
 import { apiClientManager } from './api-client/api-client-manager.js'
 import { executeRequest, cancelActiveRequest } from './api-client/request-executor.js'
-import { importPostmanCollection, importPostmanEnvironment } from './api-client/postman-importer.js'
+import { importPostmanCollection, importPostmanEnvironment, importPostmanCollectionFromPath } from './api-client/postman-importer.js'
+import { exportPostmanCollection } from './api-client/postman-exporter.js'
 // Docker
 import { dockerManager } from './docker/docker-manager.js'
 // MongoDB
@@ -461,14 +462,19 @@ app.on("ready", async () => {
   ipcMainHandle('apiCreateWorkspace', (_event, name: string) => apiClientManager.createWorkspace(name))
   ipcMainHandle('apiDeleteWorkspace', (_event, id: string) => apiClientManager.deleteWorkspace(id))
   ipcMainHandle('apiSetActiveWorkspace', (_event, id: string) => apiClientManager.setActiveWorkspace(id))
+  ipcMainHandle('apiGetActiveWorkspaceId', () => store.get('activeApiWorkspaceId') ?? null)
   ipcMainHandle('apiImportPostmanCollection', async (_event, workspaceId: string) => {
     const collection = await importPostmanCollection(workspaceId)
-    apiClientManager.addCollectionToWorkspace(workspaceId, collection)
+    if (collection) {
+      apiClientManager.addCollectionToWorkspace(workspaceId, collection)
+    }
     return collection
   })
   ipcMainHandle('apiImportPostmanEnvironment', async (_event, workspaceId: string) => {
     const env = await importPostmanEnvironment(workspaceId)
-    apiClientManager.addEnvironmentToWorkspace(workspaceId, env)
+    if (env) {
+      apiClientManager.addEnvironmentToWorkspace(workspaceId, env)
+    }
     return env
   })
   ipcMainHandle('apiCreateCollection', (_event, workspaceId: string, name: string) => apiClientManager.createCollection(workspaceId, name))
@@ -477,6 +483,8 @@ app.on("ready", async () => {
   ipcMainHandle('apiAddRequest', (_event, workspaceId: string, collectionId: string, parentFolderId: string | null, config: ApiRequestConfig) => apiClientManager.addRequest(workspaceId, collectionId, parentFolderId, config))
   ipcMainHandle('apiAddFolder', (_event, workspaceId: string, collectionId: string, parentFolderId: string | null, name: string) => apiClientManager.addFolder(workspaceId, collectionId, parentFolderId, name))
   ipcMainHandle('apiUpdateRequest', (_event, workspaceId: string, collectionId: string, itemId: string, config: ApiRequestConfig) => apiClientManager.updateRequest(workspaceId, collectionId, itemId, config))
+  ipcMainHandle('apiRenameItem', (_event, workspaceId: string, collectionId: string, itemId: string, name: string) => apiClientManager.renameItem(workspaceId, collectionId, itemId, name))
+  ipcMainHandle('apiDuplicateItem', (_event, workspaceId: string, collectionId: string, itemId: string) => apiClientManager.duplicateItem(workspaceId, collectionId, itemId))
   ipcMainHandle('apiDeleteItem', (_event, workspaceId: string, collectionId: string, itemId: string) => apiClientManager.deleteItem(workspaceId, collectionId, itemId))
   ipcMainHandle('apiGetEnvironments', (_event, workspaceId: string) => apiClientManager.getEnvironments(workspaceId))
   ipcMainHandle('apiCreateEnvironment', (_event, workspaceId: string, name: string) => apiClientManager.createEnvironment(workspaceId, name))
@@ -491,6 +499,18 @@ app.on("ready", async () => {
   ipcMainHandle('apiCancelRequest', () => cancelActiveRequest())
   ipcMainHandle('apiGetHistory', (_event, workspaceId: string) => apiClientManager.getHistory(workspaceId))
   ipcMainHandle('apiClearHistory', (_event, workspaceId: string) => apiClientManager.clearHistory(workspaceId))
+  ipcMainHandle('apiImportPostmanCollectionFromPath', async (_event, workspaceId: string, filePath: string) => {
+    const collection = await importPostmanCollectionFromPath(filePath)
+    apiClientManager.addCollectionToWorkspace(workspaceId, collection)
+    return collection
+  })
+  ipcMainHandle('apiExportPostmanCollection', (_event, workspaceId: string, collectionId: string) => {
+    const workspaces = apiClientManager.getWorkspaces()
+    const workspace = workspaces.find((w) => w.id === workspaceId)
+    const collection = workspace?.collections.find((c) => c.id === collectionId)
+    if (!collection) throw new Error('Collection not found')
+    return exportPostmanCollection(collection)
+  })
 
   // ─── Docker handlers ───
   dockerManager.setMainWindow(mainWindow)

@@ -1,4 +1,4 @@
-import { resolveVariables } from './variable-resolver.js'
+import { resolveRequestConfig } from './variable-resolver.js'
 
 let activeAbortController: AbortController | null = null
 
@@ -10,17 +10,20 @@ export async function executeRequest(
 
   activeAbortController = new AbortController()
 
-  const url = buildUrl(config.url, config.params)
-  const headers = buildHeaders(config.headers, config.auth)
-  const body = buildBody(config.body, headers)
+  // Resolve {{variables}} from active environment and collection variables
+  const { config: resolvedConfig } = resolveRequestConfig(config, workspaceId)
+
+  const url = buildUrl(resolvedConfig.url, resolvedConfig.params)
+  const headers = buildHeaders(resolvedConfig.headers, resolvedConfig.auth)
+  const body = buildBody(resolvedConfig.body, headers)
 
   const startTime = performance.now()
 
   try {
     const response = await fetch(url, {
-      method: config.method,
+      method: resolvedConfig.method,
       headers: headers.resolved,
-      body: config.method !== 'GET' && config.method !== 'HEAD' ? body : undefined,
+      body: resolvedConfig.method !== 'GET' && resolvedConfig.method !== 'HEAD' ? body : undefined,
       signal: activeAbortController.signal,
       // @ts-expect-error - Electron supports this for local dev self-signed certs
       rejectUnauthorized: false,

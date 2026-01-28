@@ -116,6 +116,7 @@ electron.contextBridge.exposeInMainWorld("electron", {
   apiCreateWorkspace: (name: string) => ipcInvoke('apiCreateWorkspace', name),
   apiDeleteWorkspace: (id: string) => ipcInvoke('apiDeleteWorkspace', id),
   apiSetActiveWorkspace: (id: string) => ipcInvoke('apiSetActiveWorkspace', id),
+  apiGetActiveWorkspaceId: () => ipcInvoke('apiGetActiveWorkspaceId'),
   apiImportPostmanCollection: (workspaceId: string) => ipcInvoke('apiImportPostmanCollection', workspaceId),
   apiImportPostmanEnvironment: (workspaceId: string) => ipcInvoke('apiImportPostmanEnvironment', workspaceId),
   apiCreateCollection: (workspaceId: string, name: string) => ipcInvoke('apiCreateCollection', workspaceId, name),
@@ -124,6 +125,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
   apiAddRequest: (workspaceId: string, collectionId: string, parentFolderId: string | null, config: ApiRequestConfig) => ipcInvoke('apiAddRequest', workspaceId, collectionId, parentFolderId, config),
   apiAddFolder: (workspaceId: string, collectionId: string, parentFolderId: string | null, name: string) => ipcInvoke('apiAddFolder', workspaceId, collectionId, parentFolderId, name),
   apiUpdateRequest: (workspaceId: string, collectionId: string, itemId: string, config: ApiRequestConfig) => ipcInvoke('apiUpdateRequest', workspaceId, collectionId, itemId, config),
+  apiRenameItem: (workspaceId: string, collectionId: string, itemId: string, name: string) => ipcInvoke('apiRenameItem', workspaceId, collectionId, itemId, name),
+  apiDuplicateItem: (workspaceId: string, collectionId: string, itemId: string) => ipcInvoke('apiDuplicateItem', workspaceId, collectionId, itemId),
   apiDeleteItem: (workspaceId: string, collectionId: string, itemId: string) => ipcInvoke('apiDeleteItem', workspaceId, collectionId, itemId),
   apiGetEnvironments: (workspaceId: string) => ipcInvoke('apiGetEnvironments', workspaceId),
   apiCreateEnvironment: (workspaceId: string, name: string) => ipcInvoke('apiCreateEnvironment', workspaceId, name),
@@ -134,6 +137,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
   apiCancelRequest: () => ipcInvoke('apiCancelRequest'),
   apiGetHistory: (workspaceId: string) => ipcInvoke('apiGetHistory', workspaceId),
   apiClearHistory: (workspaceId: string) => ipcInvoke('apiClearHistory', workspaceId),
+  apiImportPostmanCollectionFromPath: (workspaceId: string, filePath: string) => ipcInvoke('apiImportPostmanCollectionFromPath', workspaceId, filePath),
+  apiExportPostmanCollection: (workspaceId: string, collectionId: string) => ipcInvoke('apiExportPostmanCollection', workspaceId, collectionId),
   subscribeApiWorkspaces: (callback) =>
     ipcOn('subscribeApiWorkspaces', (workspaces) => {
       callback(workspaces);

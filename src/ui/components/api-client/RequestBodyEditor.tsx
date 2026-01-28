@@ -1,5 +1,4 @@
 import type { FC } from 'react'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -9,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { KeyValueTable } from './KeyValueTable'
+import { VariableTextarea } from './VariableTextarea'
 
 interface RequestBodyEditorProps {
   body: ApiRequestBody
@@ -76,15 +76,14 @@ export const RequestBodyEditor: FC<RequestBodyEditorProps> = ({
       )}
 
       {(body.type === 'json' || body.type === 'raw') && (
-        <Textarea
+        <VariableTextarea
           placeholder={
             body.type === 'json'
               ? '{\n  "key": "value"\n}'
               : 'Enter raw text...'
           }
           value={body.content}
-          onChange={(e) => handleContentChange(e.target.value)}
-          className="min-h-48 font-mono text-sm"
+          onChange={handleContentChange}
         />
       )}
 
@@ -107,24 +106,20 @@ export const RequestBodyEditor: FC<RequestBodyEditorProps> = ({
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground">Query</Label>
-            <Textarea
+            <VariableTextarea
               placeholder={'query {\n  users {\n    id\n    name\n  }\n}'}
               value={body.graphql?.query ?? ''}
-              onChange={(e) => handleGraphqlChange('query', e.target.value)}
-              className="min-h-40 font-mono text-sm"
+              onChange={(val) => handleGraphqlChange('query', val)}
             />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground">
               Variables (JSON)
             </Label>
-            <Textarea
+            <VariableTextarea
               placeholder={'{\n  "id": "1"\n}'}
               value={body.graphql?.variables ?? ''}
-              onChange={(e) =>
-                handleGraphqlChange('variables', e.target.value)
-              }
-              className="min-h-24 font-mono text-sm"
+              onChange={(val) => handleGraphqlChange('variables', val)}
             />
           </div>
         </div>
