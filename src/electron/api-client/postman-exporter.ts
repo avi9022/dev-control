@@ -16,6 +16,7 @@ interface PostmanExportItem {
   name: string
   item?: PostmanExportItem[]
   request?: PostmanExportRequest
+  auth?: PostmanExportAuth
 }
 
 interface PostmanExportRequest {
@@ -61,6 +62,11 @@ interface PostmanExportAuth {
   bearer?: { key: string; value: string; type: string }[]
   basic?: { key: string; value: string; type: string }[]
   apikey?: { key: string; value: string; type: string }[]
+  oauth2?: { key: string; value: string; type: string }[]
+  digest?: { key: string; value: string; type: string }[]
+  hawk?: { key: string; value: string; type: string }[]
+  awsv4?: { key: string; value: string; type: string }[]
+  ntlm?: { key: string; value: string; type: string }[]
 }
 
 interface PostmanExportVariable {
@@ -73,10 +79,14 @@ interface PostmanExportVariable {
 function mapItemsToPostman(items: ApiCollectionItem[]): PostmanExportItem[] {
   return items.map((item) => {
     if (item.type === 'folder') {
-      return {
+      const folderItem: PostmanExportItem = {
         name: item.name,
         item: mapItemsToPostman(item.items ?? []),
       }
+      if (item.auth && item.auth.type !== 'none' && item.auth.type !== 'inherit') {
+        folderItem.auth = mapAuthToPostman(item.auth)
+      }
+      return folderItem
     }
 
     return {
@@ -169,6 +179,57 @@ function mapAuthToPostman(auth: ApiAuth): PostmanExportAuth {
           { key: 'key', value: auth.apiKey?.key ?? '', type: 'string' },
           { key: 'value', value: auth.apiKey?.value ?? '', type: 'string' },
           { key: 'in', value: auth.apiKey?.addTo ?? 'header', type: 'string' },
+        ],
+      }
+    case 'oauth2':
+      return {
+        type: 'oauth2',
+        oauth2: [
+          { key: 'accessToken', value: auth.oauth2?.accessToken ?? '', type: 'string' },
+          { key: 'accessTokenUrl', value: auth.oauth2?.tokenUrl ?? '', type: 'string' },
+          { key: 'clientId', value: auth.oauth2?.clientId ?? '', type: 'string' },
+          { key: 'clientSecret', value: auth.oauth2?.clientSecret ?? '', type: 'string' },
+          { key: 'grant_type', value: auth.oauth2?.grantType ?? 'client_credentials', type: 'string' },
+          { key: 'scope', value: auth.oauth2?.scope ?? '', type: 'string' },
+        ],
+      }
+    case 'digest':
+      return {
+        type: 'digest',
+        digest: [
+          { key: 'username', value: auth.digest?.username ?? '', type: 'string' },
+          { key: 'password', value: auth.digest?.password ?? '', type: 'string' },
+          { key: 'realm', value: auth.digest?.realm ?? '', type: 'string' },
+          { key: 'algorithm', value: auth.digest?.algorithm ?? 'MD5', type: 'string' },
+        ],
+      }
+    case 'hawk':
+      return {
+        type: 'hawk',
+        hawk: [
+          { key: 'authId', value: auth.hawk?.authId ?? '', type: 'string' },
+          { key: 'authKey', value: auth.hawk?.authKey ?? '', type: 'string' },
+          { key: 'algorithm', value: auth.hawk?.algorithm ?? 'sha256', type: 'string' },
+        ],
+      }
+    case 'aws-sig-v4':
+      return {
+        type: 'awsv4',
+        awsv4: [
+          { key: 'accessKey', value: auth.awsSigV4?.accessKey ?? '', type: 'string' },
+          { key: 'secretKey', value: auth.awsSigV4?.secretKey ?? '', type: 'string' },
+          { key: 'region', value: auth.awsSigV4?.region ?? '', type: 'string' },
+          { key: 'service', value: auth.awsSigV4?.service ?? '', type: 'string' },
+          { key: 'sessionToken', value: auth.awsSigV4?.sessionToken ?? '', type: 'string' },
+        ],
+      }
+    case 'ntlm':
+      return {
+        type: 'ntlm',
+        ntlm: [
+          { key: 'username', value: auth.ntlm?.username ?? '', type: 'string' },
+          { key: 'password', value: auth.ntlm?.password ?? '', type: 'string' },
+          { key: 'domain', value: auth.ntlm?.domain ?? '', type: 'string' },
         ],
       }
     default:

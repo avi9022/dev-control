@@ -486,13 +486,24 @@ app.on("ready", async () => {
   ipcMainHandle('apiRenameItem', (_event, workspaceId: string, collectionId: string, itemId: string, name: string) => apiClientManager.renameItem(workspaceId, collectionId, itemId, name))
   ipcMainHandle('apiDuplicateItem', (_event, workspaceId: string, collectionId: string, itemId: string) => apiClientManager.duplicateItem(workspaceId, collectionId, itemId))
   ipcMainHandle('apiDeleteItem', (_event, workspaceId: string, collectionId: string, itemId: string) => apiClientManager.deleteItem(workspaceId, collectionId, itemId))
+  ipcMainHandle('apiUpdateFolderAuth', (_event, workspaceId: string, collectionId: string, folderId: string, auth: ApiAuth) => apiClientManager.updateFolderAuth(workspaceId, collectionId, folderId, auth))
+  ipcMainHandle('apiUpdateCollectionAuth', (_event, workspaceId: string, collectionId: string, auth: ApiAuth) => apiClientManager.updateCollectionAuth(workspaceId, collectionId, auth))
+  ipcMainHandle('apiGetResolvedAuth', (_event, workspaceId: string, collectionId: string, requestId: string) => apiClientManager.getResolvedAuth(workspaceId, collectionId, requestId))
   ipcMainHandle('apiGetEnvironments', (_event, workspaceId: string) => apiClientManager.getEnvironments(workspaceId))
   ipcMainHandle('apiCreateEnvironment', (_event, workspaceId: string, name: string) => apiClientManager.createEnvironment(workspaceId, name))
   ipcMainHandle('apiUpdateEnvironment', (_event, workspaceId: string, envId: string, env: ApiEnvironment) => apiClientManager.updateEnvironment(workspaceId, envId, env))
   ipcMainHandle('apiDeleteEnvironment', (_event, workspaceId: string, envId: string) => apiClientManager.deleteEnvironment(workspaceId, envId))
   ipcMainHandle('apiSetActiveEnvironment', (_event, workspaceId: string, envId: string | null) => apiClientManager.setActiveEnvironment(workspaceId, envId))
-  ipcMainHandle('apiSendRequest', async (_event, workspaceId: string, config: ApiRequestConfig) => {
-    const response = await executeRequest(workspaceId, config)
+  ipcMainHandle('apiSendRequest', async (_event, workspaceId: string, config: ApiRequestConfig, requestId?: string, collectionId?: string) => {
+    // Resolve inherited auth if type is 'inherit'
+    let finalConfig = config
+    if (config.auth?.type === 'inherit' && requestId && collectionId) {
+      const resolvedAuthInfo = apiClientManager.getResolvedAuth(workspaceId, collectionId, requestId)
+      if (resolvedAuthInfo) {
+        finalConfig = { ...config, auth: resolvedAuthInfo.auth }
+      }
+    }
+    const response = await executeRequest(workspaceId, finalConfig)
     apiClientManager.addHistory(workspaceId, config, response)
     return response
   })

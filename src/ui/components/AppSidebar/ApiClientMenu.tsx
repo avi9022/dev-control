@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, CircleX, RefreshCw, Plus, Upload, FolderOpen, Globe, ChevronRight, ChevronDown, Settings2 } from "lucide-react"
+import { Search, CircleX, RefreshCw, Plus, Upload, FolderOpen, Globe, ChevronRight, ChevronDown, Settings2, Trash2, MoreVertical } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type FC, type MouseEvent } from "react"
 import { createPortal } from "react-dom"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useApiClient } from "@/ui/contexts/api-client"
 import { cn } from "@/lib/utils"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EnvironmentManager } from '../api-client/EnvironmentManager'
 
@@ -64,15 +64,15 @@ const RightClickMenu: FC<{
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-50 min-w-[160px] rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+      className="fixed z-50 min-w-[140px] rounded border bg-popover p-0.5 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
       style={{ left: menu.x, top: menu.y }}
     >
       {menu.actions.map((action, i) => (
         <div key={i}>
-          {action.separator && <div className="bg-border -mx-1 my-1 h-px" />}
+          {action.separator && <div className="bg-border -mx-0.5 my-0.5 h-px" />}
           <button
             className={cn(
-              "relative flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none select-none hover:bg-accent hover:text-accent-foreground",
+              "relative flex w-full cursor-default items-center rounded px-2 py-1 text-xs outline-none select-none hover:bg-accent hover:text-accent-foreground",
               action.variant === 'destructive' && "text-destructive hover:bg-destructive/10 hover:text-destructive",
               action.disabled && "pointer-events-none opacity-50",
             )}
@@ -142,7 +142,8 @@ const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
     const folderActions: ContextMenuAction[] = [
       { label: 'Add Request', onClick: () => onAddRequest(collectionId, item.id) },
       { label: 'Add Folder', onClick: () => onAddFolder(collectionId, item.id) },
-      { label: 'Rename', onClick: () => onStartRename(item.id, item.name), separator: true },
+      { label: 'Edit Authorization', onClick: () => onSelectRequest(`folder-settings:${collectionId}:${item.id}`), separator: true },
+      { label: 'Rename', onClick: () => onStartRename(item.id, item.name) },
       { label: 'Duplicate', onClick: () => onDuplicateItem(collectionId, item.id) },
       { label: 'Delete', onClick: () => onDeleteItem(collectionId, item.id), variant: 'destructive', separator: true },
     ]
@@ -151,12 +152,12 @@ const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
       <div>
         <div
           onContextMenu={(e) => onContextMenu(e, folderActions)}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-accent"
-          style={{ paddingLeft: `${12 + depth * 16}px` }}
+          className="w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent"
+          style={{ paddingLeft: `${8 + depth * 12}px` }}
         >
           {isEditing ? (
             <>
-              <FolderOpen className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <FolderOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               <input
                 autoFocus
                 value={editingValue}
@@ -166,20 +167,20 @@ const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
                   if (e.key === 'Escape') onCancelRename()
                 }}
                 onBlur={() => onCommitRename(collectionId, item.id)}
-                className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-sm outline-none"
+                className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-xs outline-none"
               />
             </>
           ) : (
             <button
               onClick={() => onToggleFolder(item.id)}
-              className="flex items-center gap-2 flex-1 text-left"
+              className="flex items-center gap-1.5 flex-1 text-left"
             >
               {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
               )}
-              <FolderOpen className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <FolderOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               <span className="truncate">{item.name}</span>
             </button>
           )}
@@ -224,12 +225,12 @@ const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
       onClick={() => { if (!isEditing) onSelectRequest(item.id) }}
       onContextMenu={(e) => onContextMenu(e, requestActions)}
       className={cn(
-        "w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-accent cursor-default",
+        "w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent cursor-default",
         selectedRequestId === item.id && "bg-accent",
       )}
-      style={{ paddingLeft: `${12 + depth * 16}px` }}
+      style={{ paddingLeft: `${8 + depth * 12}px` }}
     >
-      <span className={cn("text-[10px] font-bold uppercase flex-shrink-0 w-10", METHOD_COLORS[method])}>
+      <span className={cn("text-[9px] font-bold uppercase flex-shrink-0 w-9", METHOD_COLORS[method])}>
         {method}
       </span>
       {isEditing ? (
@@ -243,7 +244,7 @@ const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
           }}
           onBlur={() => onCommitRename(collectionId, item.id)}
           onClick={(e) => e.stopPropagation()}
-          className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-sm outline-none min-w-0"
+          className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-xs outline-none min-w-0"
         />
       ) : (
         <span className="truncate">{item.name}</span>
@@ -322,6 +323,7 @@ export const ApiClientMenu: FC = () => {
     selectedRequestId,
     history,
     createWorkspace,
+    deleteWorkspace,
     setActiveWorkspace,
     importPostmanCollection,
     importPostmanEnvironment,
@@ -458,9 +460,9 @@ export const ApiClientMenu: FC = () => {
   return (
     <div>
       {/* Workspace Selector */}
-      <div className="mb-3 px-5">
+      <div className="mb-2 px-4">
         {workspaces.length > 0 ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <select
               value={activeWorkspaceId ?? ''}
               onChange={(e) => {
@@ -468,29 +470,52 @@ export const ApiClientMenu: FC = () => {
                   setActiveWorkspace(e.target.value)
                 }
               }}
-              className="flex-1 h-8 rounded-md border bg-background px-2 text-sm"
+              className="flex-1 h-7 rounded border bg-background px-2 text-xs font-medium"
             >
               <option value="" disabled>Select workspace</option>
               {workspaces.map((ws) => (
                 <option key={ws.id} value={ws.id}>{ws.name}</option>
               ))}
             </select>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 flex-shrink-0"
-              onClick={() => {
-                openInputDialog('Workspace name', (name) => {
-                  createWorkspace(name)
-                })
-              }}
-              title="New workspace"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 flex-shrink-0"
+                >
+                  <MoreVertical className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => {
+                  openInputDialog('Workspace name', (name) => {
+                    createWorkspace(name)
+                  })
+                }}>
+                  <Plus className="h-3.5 w-3.5 mr-2" />
+                  New Workspace
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => {
+                    if (activeWorkspaceId && activeWorkspace) {
+                      openConfirmDialog(`Delete workspace "${activeWorkspace.name}"? This will remove all collections and requests.`, () => {
+                        deleteWorkspace(activeWorkspaceId)
+                      })
+                    }
+                  }}
+                  disabled={!activeWorkspaceId}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                  Delete Workspace
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Input
               placeholder="New workspace name..."
               value={newWorkspaceName}
@@ -500,16 +525,16 @@ export const ApiClientMenu: FC = () => {
                   handleCreateWorkspace()
                 }
               }}
-              className="h-8 text-sm"
+              className="h-7 text-xs"
             />
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 flex-shrink-0"
+              className="h-7 w-7 flex-shrink-0"
               onClick={handleCreateWorkspace}
               disabled={!newWorkspaceName.trim()}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
         )}
@@ -518,7 +543,7 @@ export const ApiClientMenu: FC = () => {
       {activeWorkspace && (
         <>
           {/* Environment Selector */}
-          <div className="flex items-center gap-2 mb-3 px-5">
+          <div className="flex items-center gap-1.5 mb-2 px-4">
             {environments.length > 0 ? (
               <select
                 value={activeWorkspace.activeEnvironmentId ?? ''}
@@ -526,41 +551,41 @@ export const ApiClientMenu: FC = () => {
                   const envId = e.target.value || null
                   window.electron.apiSetActiveEnvironment(activeWorkspace.id, envId)
                 }}
-                className="flex-1 h-8 rounded-md border bg-background px-2 text-sm"
+                className="flex-1 h-7 rounded border bg-background px-2 text-xs"
               >
                 <option value="">No environment</option>
                 {environments.map((env) => (
                   <option key={env.id} value={env.id}>
-                    <Globe className="h-3 w-3" /> {env.name}
+                    {env.name}
                   </option>
                 ))}
               </select>
             ) : (
-              <div className="flex-1 h-8 rounded-md border bg-muted px-2 text-sm flex items-center text-muted-foreground">
+              <div className="flex-1 h-7 rounded border bg-muted px-2 text-xs flex items-center text-muted-foreground">
                 No environments
               </div>
             )}
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 flex-shrink-0"
+              className="h-7 w-7 flex-shrink-0"
               onClick={() => setEnvManagerOpen(true)}
               title="Manage environments"
             >
-              <Settings2 className="h-4 w-4" />
+              <Settings2 className="h-3.5 w-3.5" />
             </Button>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 mb-3 px-5">
+          <div className="flex items-center gap-1.5 mb-2 px-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-1.5 text-xs"
+                  className="h-7 flex items-center gap-1 text-[11px] px-2"
                 >
-                  <Upload className="h-3.5 w-3.5" />
+                  <Upload className="h-3 w-3" />
                   Import
                 </Button>
               </DropdownMenuTrigger>
@@ -576,53 +601,57 @@ export const ApiClientMenu: FC = () => {
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-1.5 text-xs"
+              className="h-7 flex items-center gap-1 text-[11px] px-2"
               onClick={handleCreateCollection}
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-3 w-3" />
               Collection
             </Button>
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
-              className="flex items-center gap-1.5 text-xs"
+              className="h-7 flex items-center gap-1 text-[11px] px-2"
               onClick={createScratchRequest}
             >
-              <Plus className="h-3.5 w-3.5" />
-              Request
+              <Plus className="h-3 w-3" />
+              New
             </Button>
           </div>
 
           {/* Search Input */}
-          <div className="relative h-[35px] mb-4 px-5">
-            <Search className="absolute left-8 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative h-7 mb-3 px-4">
+            <Search className="absolute left-6 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search requests..."
-              className="pl-9"
+              placeholder="Filter..."
+              className="h-7 pl-7 pr-7 text-xs"
               value={searchTerm}
               onChange={(ev) => setSearchTerm(ev.target.value)}
             />
-            <Button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-8 top-1/2 h-4 w-4 -translate-y-1/2 bg-transparent hover:bg-transparent text-muted-foreground"
-            >
-              <CircleX />
-            </Button>
+            {searchTerm && (
+              <Button
+                onClick={() => setSearchTerm('')}
+                variant="ghost"
+                size="icon"
+                className="absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2"
+              >
+                <CircleX className="h-3 w-3" />
+              </Button>
+            )}
           </div>
 
           {/* Collection Tree */}
-          <ScrollArea className="h-[calc(100vh-80px-40px-80px-35px-20px-160px)]">
-            <div className="px-2">
+          <ScrollArea className="h-[calc(100vh-80px-40px-80px-35px-20px-140px)]">
+            <div className="px-1">
               {loading && (
-                <div className="flex items-center justify-center py-8 text-muted-foreground">
-                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                <div className="flex items-center justify-center py-6 text-muted-foreground text-xs">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin mr-2" />
                   Loading...
                 </div>
               )}
 
               {!loading && collections.length === 0 && (
-                <div className="px-3 py-8 text-sm text-muted-foreground text-center">
-                  No collections yet. Import from Postman or create a new collection.
+                <div className="px-3 py-6 text-xs text-muted-foreground text-center">
+                  No collections yet. Import or create one.
                 </div>
               )}
 
@@ -636,7 +665,8 @@ export const ApiClientMenu: FC = () => {
                 const collectionActions: ContextMenuAction[] = [
                   { label: 'Add Request', onClick: () => handleAddRequest(collection.id, null) },
                   { label: 'Add Folder', onClick: () => handleAddFolder(collection.id, null) },
-                  { label: 'Rename', onClick: () => handleStartCollectionRename(collection.id, collection.name), separator: true },
+                  { label: 'Edit Authorization', onClick: () => selectRequest(`collection-settings:${collection.id}`), separator: true },
+                  { label: 'Rename', onClick: () => handleStartCollectionRename(collection.id, collection.name) },
                   { label: 'Duplicate', onClick: () => {
                     createCollection(`Copy of ${collection.name}`)
                   } },
@@ -645,10 +675,10 @@ export const ApiClientMenu: FC = () => {
                 ]
 
                 return (
-                  <div key={collection.id} className="mb-1">
+                  <div key={collection.id} className="mb-0.5">
                     <div
                       onContextMenu={(e) => handleRightClick(e, collectionActions)}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md hover:bg-accent"
+                      className="w-full flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded hover:bg-accent"
                     >
                       {isEditingCollection ? (
                         <input
@@ -660,20 +690,20 @@ export const ApiClientMenu: FC = () => {
                             if (e.key === 'Escape') handleCancelCollectionRename()
                           }}
                           onBlur={() => handleCommitCollectionRename(collection.id)}
-                          className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-sm font-medium outline-none"
+                          className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-xs font-medium outline-none"
                         />
                       ) : (
                         <button
                           onClick={() => handleToggleCollection(collection.id)}
-                          className="flex items-center gap-2 flex-1 text-left"
+                          className="flex items-center gap-1.5 flex-1 text-left"
                         >
                           {isExpanded ? (
-                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                            <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                           ) : (
-                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                            <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                           )}
                           <span className="truncate">{collection.name}</span>
-                          <span className="ml-auto text-[10px] text-muted-foreground">
+                          <span className="ml-auto text-[9px] text-muted-foreground">
                             {collection.items.length}
                           </span>
                         </button>
@@ -712,23 +742,23 @@ export const ApiClientMenu: FC = () => {
           <div className="border-t">
             <button
               onClick={() => setHistoryExpanded((prev) => !prev)}
-              className="w-full flex items-center gap-2 px-5 py-2 text-sm font-medium hover:bg-accent text-left"
+              className="w-full flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium hover:bg-accent text-left"
             >
               {historyExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                <ChevronRight className="h-3 w-3 text-muted-foreground" />
               )}
               History
-              <span className="ml-auto text-[10px] text-muted-foreground">
+              <span className="ml-auto text-[9px] text-muted-foreground">
                 {history.length}
               </span>
             </button>
             {historyExpanded && (
-              <ScrollArea className="max-h-[200px]">
-                <div className="px-2 pb-2">
+              <ScrollArea className="max-h-[180px]">
+                <div className="px-1 pb-1">
                   {history.length === 0 && (
-                    <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                    <div className="px-2 py-3 text-[11px] text-muted-foreground text-center">
                       No history yet
                     </div>
                   )}
@@ -736,15 +766,15 @@ export const ApiClientMenu: FC = () => {
                     <button
                       key={entry.id}
                       onClick={() => selectRequest(entry.id)}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-accent text-left"
+                      className="w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent text-left"
                     >
                       <span className={cn(
-                        "text-[10px] font-bold uppercase flex-shrink-0 w-10",
+                        "text-[9px] font-bold uppercase flex-shrink-0 w-9",
                         METHOD_COLORS[entry.request.method],
                       )}>
                         {entry.request.method}
                       </span>
-                      <span className="truncate text-xs">{entry.request.url}</span>
+                      <span className="truncate text-[11px] text-muted-foreground">{entry.request.url}</span>
                     </button>
                   ))}
                 </div>

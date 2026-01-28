@@ -35,16 +35,16 @@ export const ResponseMeta: FC<ResponseMetaProps> = ({
   size,
 }) => {
   return (
-    <div className="flex items-center gap-2">
-      <Badge className={getStatusColor(status)}>
+    <div className="flex items-center gap-1.5">
+      <Badge className={`${getStatusColor(status)} text-[10px] h-5 px-1.5`}>
         {status} {statusText}
       </Badge>
-      <Badge variant="outline" className="gap-1 font-mono text-xs">
-        <Clock className="size-3" />
+      <Badge variant="outline" className="gap-1 font-mono text-[10px] h-5 px-1.5">
+        <Clock className="size-2.5" />
         {formatTime(time)}
       </Badge>
-      <Badge variant="outline" className="gap-1 font-mono text-xs">
-        <ArrowDownToLine className="size-3" />
+      <Badge variant="outline" className="gap-1 font-mono text-[10px] h-5 px-1.5">
+        <ArrowDownToLine className="size-2.5" />
         {formatSize(size)}
       </Badge>
     </div>

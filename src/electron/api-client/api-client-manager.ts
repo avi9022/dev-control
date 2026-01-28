@@ -54,7 +54,7 @@ function updateItemInTree(
     if (item.id === itemId) {
       return {
         ...item,
-        name: config.url || item.name,
+        // Preserve existing name - use renameItem to change name
         request: config,
       }
     }
@@ -595,6 +595,146 @@ class ApiClientManager {
       (h) => h.workspaceId !== workspaceId
     )
     store.set('apiHistory', updatedHistory)
+  }
+
+  // ─── Auth Management ───
+
+  updateFolderAuth(
+    workspaceId: string,
+    collectionId: string,
+    folderId: string,
+    auth: ApiAuth
+  ): void {
+    const now = Date.now()
+    const workspaces = this.getWorkspaces().map((w) => {
+      if (w.id !== workspaceId) return w
+      return {
+        ...w,
+        collections: w.collections.map((c) => {
+          if (c.id !== collectionId) return c
+          return {
+            ...c,
+            items: this.updateFolderAuthInTree(c.items, folderId, auth),
+            updatedAt: now,
+          }
+        }),
+        updatedAt: now,
+      }
+    })
+
+    store.set('apiWorkspaces', workspaces)
+    this.emitWorkspaces(workspaces)
+  }
+
+  private updateFolderAuthInTree(
+    items: ApiCollectionItem[],
+    folderId: string,
+    auth: ApiAuth
+  ): ApiCollectionItem[] {
+    return items.map((item) => {
+      if (item.id === folderId && item.type === 'folder') {
+        return { ...item, auth }
+      }
+      if (item.items) {
+        return {
+          ...item,
+          items: this.updateFolderAuthInTree(item.items, folderId, auth),
+        }
+      }
+      return item
+    })
+  }
+
+  updateCollectionAuth(
+    workspaceId: string,
+    collectionId: string,
+    auth: ApiAuth
+  ): void {
+    const now = Date.now()
+    const workspaces = this.getWorkspaces().map((w) => {
+      if (w.id !== workspaceId) return w
+      return {
+        ...w,
+        collections: w.collections.map((c) => {
+          if (c.id !== collectionId) return c
+          return { ...c, auth, updatedAt: now }
+        }),
+        updatedAt: now,
+      }
+    })
+
+    store.set('apiWorkspaces', workspaces)
+    this.emitWorkspaces(workspaces)
+  }
+
+  getResolvedAuth(
+    workspaceId: string,
+    collectionId: string,
+    requestId: string
+  ): ResolvedAuthInfo | null {
+    const workspace = this.getWorkspaces().find((w) => w.id === workspaceId)
+    if (!workspace) return null
+
+    const collection = workspace.collections.find((c) => c.id === collectionId)
+    if (!collection) return null
+
+    const path = this.findItemPath(collection.items, requestId)
+    if (!path) return null
+
+    const request = path[path.length - 1]
+    if (!request || request.type !== 'request') return null
+
+    // Check request's own auth first (if not inherit)
+    if (request.request?.auth && request.request.auth.type !== 'inherit' && request.request.auth.type !== 'none') {
+      return {
+        auth: request.request.auth,
+        source: 'request',
+        sourceId: request.id,
+        sourceName: request.name,
+      }
+    }
+
+    // Walk up through folders (reverse order, skip the request itself)
+    const folders = path.slice(0, -1).reverse()
+    for (const folder of folders) {
+      if (folder.auth && folder.auth.type !== 'inherit' && folder.auth.type !== 'none') {
+        return {
+          auth: folder.auth,
+          source: 'folder',
+          sourceId: folder.id,
+          sourceName: folder.name,
+        }
+      }
+    }
+
+    // Check collection auth
+    if (collection.auth && collection.auth.type !== 'inherit' && collection.auth.type !== 'none') {
+      return {
+        auth: collection.auth,
+        source: 'collection',
+        sourceId: collection.id,
+        sourceName: collection.name,
+      }
+    }
+
+    return null
+  }
+
+  private findItemPath(
+    items: ApiCollectionItem[],
+    targetId: string,
+    path: ApiCollectionItem[] = []
+  ): ApiCollectionItem[] | null {
+    for (const item of items) {
+      if (item.id === targetId) {
+        return [...path, item]
+      }
+      if (item.type === 'folder' && item.items) {
+        const found = this.findItemPath(item.items, targetId, [...path, item])
+        if (found) return found
+      }
+    }
+    return null
   }
 
   // ─── IPC Push ───

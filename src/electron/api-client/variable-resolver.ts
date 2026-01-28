@@ -8,6 +8,79 @@ interface ResolvedResult {
   unresolvedVars: string[]
 }
 
+// ─── Auth Inheritance Resolution ───
+
+function findItemPath(
+  items: ApiCollectionItem[],
+  targetId: string,
+  path: ApiCollectionItem[] = []
+): ApiCollectionItem[] | null {
+  for (const item of items) {
+    if (item.id === targetId) {
+      return [...path, item]
+    }
+    if (item.type === 'folder' && item.items) {
+      const found = findItemPath(item.items, targetId, [...path, item])
+      if (found) return found
+    }
+  }
+  return null
+}
+
+export function resolveInheritedAuth(
+  requestId: string,
+  collectionId: string,
+  workspaceId: string
+): ResolvedAuthInfo | null {
+  const workspaces = store.get('apiWorkspaces')
+  const workspace = workspaces.find(w => w.id === workspaceId)
+  if (!workspace) return null
+
+  const collection = workspace.collections.find(c => c.id === collectionId)
+  if (!collection) return null
+
+  const path = findItemPath(collection.items, requestId)
+  if (!path) return null
+
+  const request = path[path.length - 1]
+  if (!request || request.type !== 'request') return null
+
+  // Check request's own auth first (if not inherit)
+  if (request.request?.auth && request.request.auth.type !== 'inherit' && request.request.auth.type !== 'none') {
+    return {
+      auth: request.request.auth,
+      source: 'request',
+      sourceId: request.id,
+      sourceName: request.name,
+    }
+  }
+
+  // Walk up through folders (reverse order, skip the request itself)
+  const folders = path.slice(0, -1).reverse()
+  for (const folder of folders) {
+    if (folder.auth && folder.auth.type !== 'inherit' && folder.auth.type !== 'none') {
+      return {
+        auth: folder.auth,
+        source: 'folder',
+        sourceId: folder.id,
+        sourceName: folder.name,
+      }
+    }
+  }
+
+  // Check collection auth
+  if (collection.auth && collection.auth.type !== 'inherit' && collection.auth.type !== 'none') {
+    return {
+      auth: collection.auth,
+      source: 'collection',
+      sourceId: collection.id,
+      sourceName: collection.name,
+    }
+  }
+
+  return null
+}
+
 export function resolveVariables(
   text: string,
   workspaceId: string
@@ -153,7 +226,10 @@ function resolveAuth(
   return {
     type: auth.type,
     bearer: auth.bearer
-      ? { token: resolve(auth.bearer.token) }
+      ? {
+          token: resolve(auth.bearer.token),
+          prefix: auth.bearer.prefix,
+        }
       : undefined,
     basic: auth.basic
       ? {
@@ -179,6 +255,47 @@ function resolveAuth(
             : undefined,
           clientSecret: auth.oauth2.clientSecret
             ? resolve(auth.oauth2.clientSecret)
+            : undefined,
+          grantType: auth.oauth2.grantType,
+          scope: auth.oauth2.scope
+            ? resolve(auth.oauth2.scope)
+            : undefined,
+        }
+      : undefined,
+    digest: auth.digest
+      ? {
+          username: resolve(auth.digest.username),
+          password: resolve(auth.digest.password),
+          realm: auth.digest.realm
+            ? resolve(auth.digest.realm)
+            : undefined,
+          algorithm: auth.digest.algorithm,
+        }
+      : undefined,
+    hawk: auth.hawk
+      ? {
+          authId: resolve(auth.hawk.authId),
+          authKey: resolve(auth.hawk.authKey),
+          algorithm: auth.hawk.algorithm,
+        }
+      : undefined,
+    awsSigV4: auth.awsSigV4
+      ? {
+          accessKey: resolve(auth.awsSigV4.accessKey),
+          secretKey: resolve(auth.awsSigV4.secretKey),
+          region: resolve(auth.awsSigV4.region),
+          service: resolve(auth.awsSigV4.service),
+          sessionToken: auth.awsSigV4.sessionToken
+            ? resolve(auth.awsSigV4.sessionToken)
+            : undefined,
+        }
+      : undefined,
+    ntlm: auth.ntlm
+      ? {
+          username: resolve(auth.ntlm.username),
+          password: resolve(auth.ntlm.password),
+          domain: auth.ntlm.domain
+            ? resolve(auth.ntlm.domain)
             : undefined,
         }
       : undefined,

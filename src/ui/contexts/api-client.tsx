@@ -28,7 +28,7 @@ interface ApiClientContextValue {
   updateEnvironment: (envId: string, env: ApiEnvironment) => Promise<void>
   deleteEnvironment: (envId: string) => Promise<void>
   setActiveEnvironment: (envId: string | null) => Promise<void>
-  sendRequest: (config: ApiRequestConfig) => Promise<ApiResponse>
+  sendRequest: (config: ApiRequestConfig, requestId?: string, collectionId?: string) => Promise<ApiResponse>
   cancelRequest: () => Promise<void>
   loadHistory: () => Promise<void>
   clearHistory: () => Promise<void>
@@ -246,9 +246,9 @@ export const ApiClientProvider: FC<PropsWithChildren> = ({ children }) => {
     }
   }, [activeWorkspaceId])
 
-  const sendRequest = useCallback(async (config: ApiRequestConfig) => {
+  const sendRequest = useCallback(async (config: ApiRequestConfig, requestId?: string, collectionId?: string) => {
     if (!activeWorkspaceId) throw new Error('No active workspace')
-    const response = await window.electron.apiSendRequest(activeWorkspaceId, config)
+    const response = await window.electron.apiSendRequest(activeWorkspaceId, config, requestId, collectionId)
     await loadHistory()
     return response
   }, [activeWorkspaceId, loadHistory])

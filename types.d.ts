@@ -136,6 +136,7 @@ interface ApiCollectionItem {
   items?: ApiCollectionItem[]
   request?: ApiRequestConfig
   responses?: ApiSavedResponse[]
+  auth?: ApiAuth
 }
 
 interface ApiRequestConfig {
@@ -161,12 +162,53 @@ interface ApiRequestBody {
   graphql?: { query: string; variables: string }
 }
 
+type ApiAuthType =
+  | 'inherit' | 'none' | 'bearer' | 'basic' | 'api-key'
+  | 'oauth2' | 'digest' | 'hawk' | 'aws-sig-v4' | 'ntlm'
+
 interface ApiAuth {
-  type: 'none' | 'bearer' | 'basic' | 'api-key' | 'oauth2'
-  bearer?: { token: string }
+  type: ApiAuthType
+  bearer?: { token: string; prefix?: string }
   basic?: { username: string; password: string }
   apiKey?: { key: string; value: string; addTo: 'header' | 'query' }
-  oauth2?: { accessToken: string; tokenUrl?: string; clientId?: string; clientSecret?: string }
+  oauth2?: {
+    accessToken: string
+    tokenUrl?: string
+    clientId?: string
+    clientSecret?: string
+    grantType?: string
+    scope?: string
+  }
+  digest?: {
+    username: string
+    password: string
+    realm?: string
+    algorithm?: 'MD5' | 'SHA-256'
+  }
+  hawk?: {
+    authId: string
+    authKey: string
+    algorithm?: 'sha256' | 'sha1'
+  }
+  awsSigV4?: {
+    accessKey: string
+    secretKey: string
+    region: string
+    service: string
+    sessionToken?: string
+  }
+  ntlm?: {
+    username: string
+    password: string
+    domain?: string
+  }
+}
+
+interface ResolvedAuthInfo {
+  auth: ApiAuth
+  source: 'request' | 'folder' | 'collection'
+  sourceId: string
+  sourceName: string
 }
 
 interface ApiEnvironment {
@@ -991,6 +1033,18 @@ type EventPayloadMapping = {
     return: void;
     args: [string, string, string];
   }
+  apiUpdateFolderAuth: {
+    return: void;
+    args: [string, string, string, ApiAuth];
+  }
+  apiUpdateCollectionAuth: {
+    return: void;
+    args: [string, string, ApiAuth];
+  }
+  apiGetResolvedAuth: {
+    return: ResolvedAuthInfo | null;
+    args: [string, string, string];
+  }
   apiGetEnvironments: {
     return: ApiEnvironment[];
     args: [string];
@@ -1013,7 +1067,7 @@ type EventPayloadMapping = {
   }
   apiSendRequest: {
     return: ApiResponse;
-    args: [string, ApiRequestConfig];
+    args: [string, ApiRequestConfig, string?, string?]; // workspaceId, config, requestId?, collectionId?
   }
   apiCancelRequest: {
     return: void;
@@ -1456,12 +1510,15 @@ interface Window {
     apiRenameItem: (workspaceId: string, collectionId: string, itemId: string, name: string) => Promise<void>
     apiDuplicateItem: (workspaceId: string, collectionId: string, itemId: string) => Promise<ApiCollectionItem | null>
     apiDeleteItem: (workspaceId: string, collectionId: string, itemId: string) => Promise<void>
+    apiUpdateFolderAuth: (workspaceId: string, collectionId: string, folderId: string, auth: ApiAuth) => Promise<void>
+    apiUpdateCollectionAuth: (workspaceId: string, collectionId: string, auth: ApiAuth) => Promise<void>
+    apiGetResolvedAuth: (workspaceId: string, collectionId: string, requestId: string) => Promise<ResolvedAuthInfo | null>
     apiGetEnvironments: (workspaceId: string) => Promise<ApiEnvironment[]>
     apiCreateEnvironment: (workspaceId: string, name: string) => Promise<ApiEnvironment>
     apiUpdateEnvironment: (workspaceId: string, envId: string, env: ApiEnvironment) => Promise<void>
     apiDeleteEnvironment: (workspaceId: string, envId: string) => Promise<void>
     apiSetActiveEnvironment: (workspaceId: string, envId: string | null) => Promise<void>
-    apiSendRequest: (workspaceId: string, config: ApiRequestConfig) => Promise<ApiResponse>
+    apiSendRequest: (workspaceId: string, config: ApiRequestConfig, requestId?: string, collectionId?: string) => Promise<ApiResponse>
     apiCancelRequest: () => Promise<void>
     apiGetHistory: (workspaceId: string) => Promise<ApiHistoryEntry[]>
     apiClearHistory: (workspaceId: string) => Promise<void>

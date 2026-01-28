@@ -41,9 +41,8 @@ export const VariableTextarea: FC<VariableTextareaProps> = ({
         onScroll={handleScroll}
         placeholder={placeholder}
         className={cn(
-          "w-full min-h-48 rounded-md border border-input px-3 py-2 text-sm font-mono",
+          "w-full h-full rounded-md border border-input px-3 py-2 text-sm font-mono",
           "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          "resize-y",
           hasVars ? "text-transparent caret-foreground bg-transparent" : "bg-background",
         )}
       />
@@ -53,7 +52,7 @@ export const VariableTextarea: FC<VariableTextareaProps> = ({
         <div
           ref={overlayRef}
           aria-hidden
-          className="absolute inset-0 min-h-48 rounded-md px-3 py-2 text-sm font-mono overflow-hidden pointer-events-none z-20 whitespace-pre-wrap break-words"
+          className="absolute inset-0 rounded-md px-3 py-2 text-sm font-mono overflow-hidden pointer-events-none z-20 whitespace-pre-wrap break-words"
         >
           {lines.map((line, lineIdx) => {
             const segments = parseTextSegments(line, vars)

@@ -21,6 +21,7 @@ interface PostmanItem {
   item?: PostmanItem[]
   request?: PostmanRequest
   response?: unknown[]
+  auth?: PostmanAuth
 }
 
 interface PostmanRequest {
@@ -73,6 +74,11 @@ interface PostmanAuth {
   bearer?: PostmanAuthParam[]
   basic?: PostmanAuthParam[]
   apikey?: PostmanAuthParam[]
+  oauth2?: PostmanAuthParam[]
+  digest?: PostmanAuthParam[]
+  hawk?: PostmanAuthParam[]
+  awsv4?: PostmanAuthParam[]
+  ntlm?: PostmanAuthParam[]
 }
 
 interface PostmanAuthParam {
@@ -111,6 +117,7 @@ function mapPostmanItems(items: PostmanItem[]): ApiCollectionItem[] {
         type: 'folder' as const,
         name: item.name || 'Unnamed Folder',
         items: mapPostmanItems(item.item),
+        auth: item.auth ? mapPostmanAuth(item.auth) : undefined,
       }
     }
 
@@ -194,6 +201,88 @@ function mapPostmanAuth(auth: PostmanAuth): ApiAuth {
           key: keyParam?.value ?? '',
           value: valueParam?.value ?? '',
           addTo: (inParam?.value === 'query' ? 'query' : 'header') as 'header' | 'query',
+        },
+      }
+    }
+    case 'oauth2': {
+      const params = auth.oauth2 ?? []
+      const accessToken = params.find((p) => p.key === 'accessToken')
+      const tokenUrl = params.find((p) => p.key === 'accessTokenUrl')
+      const clientId = params.find((p) => p.key === 'clientId')
+      const clientSecret = params.find((p) => p.key === 'clientSecret')
+      const grantType = params.find((p) => p.key === 'grant_type')
+      const scope = params.find((p) => p.key === 'scope')
+      return {
+        type: 'oauth2',
+        oauth2: {
+          accessToken: accessToken?.value ?? '',
+          tokenUrl: tokenUrl?.value,
+          clientId: clientId?.value,
+          clientSecret: clientSecret?.value,
+          grantType: grantType?.value,
+          scope: scope?.value,
+        },
+      }
+    }
+    case 'digest': {
+      const params = auth.digest ?? []
+      const username = params.find((p) => p.key === 'username')
+      const password = params.find((p) => p.key === 'password')
+      const realm = params.find((p) => p.key === 'realm')
+      const algorithm = params.find((p) => p.key === 'algorithm')
+      return {
+        type: 'digest',
+        digest: {
+          username: username?.value ?? '',
+          password: password?.value ?? '',
+          realm: realm?.value,
+          algorithm: (algorithm?.value === 'SHA-256' ? 'SHA-256' : 'MD5') as 'MD5' | 'SHA-256',
+        },
+      }
+    }
+    case 'hawk': {
+      const params = auth.hawk ?? []
+      const authId = params.find((p) => p.key === 'authId')
+      const authKey = params.find((p) => p.key === 'authKey')
+      const algorithm = params.find((p) => p.key === 'algorithm')
+      return {
+        type: 'hawk',
+        hawk: {
+          authId: authId?.value ?? '',
+          authKey: authKey?.value ?? '',
+          algorithm: (algorithm?.value === 'sha1' ? 'sha1' : 'sha256') as 'sha256' | 'sha1',
+        },
+      }
+    }
+    case 'awsv4': {
+      const params = auth.awsv4 ?? []
+      const accessKey = params.find((p) => p.key === 'accessKey')
+      const secretKey = params.find((p) => p.key === 'secretKey')
+      const region = params.find((p) => p.key === 'region')
+      const service = params.find((p) => p.key === 'service')
+      const sessionToken = params.find((p) => p.key === 'sessionToken')
+      return {
+        type: 'aws-sig-v4',
+        awsSigV4: {
+          accessKey: accessKey?.value ?? '',
+          secretKey: secretKey?.value ?? '',
+          region: region?.value ?? '',
+          service: service?.value ?? '',
+          sessionToken: sessionToken?.value,
+        },
+      }
+    }
+    case 'ntlm': {
+      const params = auth.ntlm ?? []
+      const username = params.find((p) => p.key === 'username')
+      const password = params.find((p) => p.key === 'password')
+      const domain = params.find((p) => p.key === 'domain')
+      return {
+        type: 'ntlm',
+        ntlm: {
+          username: username?.value ?? '',
+          password: password?.value ?? '',
+          domain: domain?.value,
         },
       }
     }

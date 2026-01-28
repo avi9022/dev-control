@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/select'
 import { KeyValueTable } from './KeyValueTable'
 import { VariableTextarea } from './VariableTextarea'
+import { JsonEditor } from './JsonEditor'
 
 interface RequestBodyEditorProps {
   body: ApiRequestBody
@@ -52,16 +53,16 @@ export const RequestBodyEditor: FC<RequestBodyEditorProps> = ({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <Label className="text-xs text-muted-foreground">Body Type</Label>
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
+      <div className="flex flex-col gap-1 flex-shrink-0">
+        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Type</Label>
         <Select value={body.type} onValueChange={handleTypeChange}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-40 h-7 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {BODY_TYPES.map((bt) => (
-              <SelectItem key={bt.value} value={bt.value}>
+              <SelectItem key={bt.value} value={bt.value} className="text-xs">
                 {bt.label}
               </SelectItem>
             ))}
@@ -70,54 +71,66 @@ export const RequestBodyEditor: FC<RequestBodyEditorProps> = ({
       </div>
 
       {body.type === 'none' && (
-        <p className="text-sm text-muted-foreground">
-          This request does not have a body.
+        <p className="text-xs text-muted-foreground">
+          No body will be sent with this request.
         </p>
       )}
 
-      {(body.type === 'json' || body.type === 'raw') && (
-        <VariableTextarea
-          placeholder={
-            body.type === 'json'
-              ? '{\n  "key": "value"\n}'
-              : 'Enter raw text...'
-          }
-          value={body.content}
-          onChange={handleContentChange}
-        />
+      {body.type === 'json' && (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <JsonEditor
+            value={body.content}
+            onChange={handleContentChange}
+          />
+        </div>
+      )}
+
+      {body.type === 'raw' && (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <VariableTextarea
+            placeholder="Enter raw text..."
+            value={body.content}
+            onChange={handleContentChange}
+            className="text-xs flex-1 min-h-0 resize-none"
+          />
+        </div>
       )}
 
       {body.type === 'form-data' && (
-        <KeyValueTable
-          items={body.formData ?? []}
-          onChange={handleFormDataChange}
-          showDescription
-        />
+        <div className="flex-1 min-h-0 overflow-auto">
+          <KeyValueTable
+            items={body.formData ?? []}
+            onChange={handleFormDataChange}
+            showDescription
+          />
+        </div>
       )}
 
       {body.type === 'x-www-form-urlencoded' && (
-        <KeyValueTable
-          items={body.formData ?? []}
-          onChange={handleFormDataChange}
-        />
+        <div className="flex-1 min-h-0 overflow-auto">
+          <KeyValueTable
+            items={body.formData ?? []}
+            onChange={handleFormDataChange}
+          />
+        </div>
       )}
 
       {body.type === 'graphql' && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Query</Label>
+        <div className="flex flex-col gap-3 flex-1 min-h-0">
+          <div className="flex flex-col gap-1 flex-1 min-h-0">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground flex-shrink-0">Query</Label>
             <VariableTextarea
               placeholder={'query {\n  users {\n    id\n    name\n  }\n}'}
               value={body.graphql?.query ?? ''}
               onChange={(val) => handleGraphqlChange('query', val)}
+              className="text-xs flex-1 min-h-0 resize-none"
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">
+          <div className="flex flex-col gap-1 flex-shrink-0" style={{ maxHeight: '30%' }}>
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
               Variables (JSON)
             </Label>
-            <VariableTextarea
-              placeholder={'{\n  "id": "1"\n}'}
+            <JsonEditor
               value={body.graphql?.variables ?? ''}
               onChange={(val) => handleGraphqlChange('variables', val)}
             />
