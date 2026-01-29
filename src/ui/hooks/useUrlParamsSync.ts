@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 
 /**
  * Parse URL and extract query params (without encoding)
@@ -69,6 +69,13 @@ export function useUrlParamsSync(
 ) {
   const isUpdatingFromParams = useRef(false)
   const lastUrlRef = useRef(url)
+
+  // Keep lastUrlRef in sync when URL changes externally (e.g., loading a request)
+  useEffect(() => {
+    if (!isUpdatingFromParams.current) {
+      lastUrlRef.current = url
+    }
+  }, [url])
 
   /**
    * Handle URL change - extract params and sync to Params tab

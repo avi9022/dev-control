@@ -8,8 +8,11 @@ import {
 import { RequestUrlBar } from './RequestUrlBar'
 import { RequestTabs } from './RequestTabs'
 import { ResponsePanel } from './ResponsePanel'
+import { CodeSnippetPanel } from './CodeSnippetPanel'
 import { useUrlParamsSync } from '@/ui/hooks/useUrlParamsSync'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Code2, GripVertical } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { ParsedCurl } from '@/ui/utils/curl-parser'
 
@@ -128,6 +131,8 @@ export const RequestPanel: FC<RequestPanelProps> = ({ requestId }) => {
   const [isSending, setIsSending] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [renamingValue, setRenamingValue] = useState('')
+  const [showCodeSnippet, setShowCodeSnippet] = useState(false)
+  const [codeSnippetWidth, setCodeSnippetWidth] = useState(400)
   const renameInputRef = useRef<HTMLInputElement>(null)
 
   // Bidirectional URL-Params sync
@@ -227,6 +232,30 @@ export const RequestPanel: FC<RequestPanelProps> = ({ requestId }) => {
     setIsRenaming(false)
   }, [found, renamingValue, renameItem, requestId])
 
+  // Handle resize for code snippet panel
+  const handleCodeSnippetResize = useCallback((e: React.MouseEvent) => {
+    const startX = e.clientX
+    const startWidth = codeSnippetWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const diff = startX - e.clientX
+      const newWidth = Math.min(Math.max(startWidth + diff, 300), 700)
+      setCodeSnippetWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [codeSnippetWidth])
+
   if (!found) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -238,54 +267,73 @@ export const RequestPanel: FC<RequestPanelProps> = ({ requestId }) => {
   const requestName = found.item.name
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Breadcrumb Path */}
-      {requestPath && (
-        <div className="flex items-center gap-1 px-3 py-1.5 border-b bg-muted/30 min-w-0 overflow-hidden">
-          {requestPath.path.map((segment, index) => {
-            const isLast = index === requestPath.path.length - 1
-            return (
-              <div key={segment.id} className="flex items-center gap-1 min-w-0">
-                {index > 0 && (
-                  <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                )}
-                {isLast ? (
-                  // Editable request name
-                  isRenaming ? (
-                    <input
-                      ref={renameInputRef}
-                      value={renamingValue}
-                      onChange={(e) => setRenamingValue(e.target.value)}
-                      onBlur={handleRename}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRename()
-                        if (e.key === 'Escape') setIsRenaming(false)
-                      }}
-                      className="h-5 px-1.5 rounded border border-primary bg-background text-[11px] font-medium outline-none min-w-[60px]"
-                      autoFocus
-                    />
-                  ) : (
-                    <button
-                      onClick={handleStartRename}
-                      className={cn(
-                        "px-1.5 py-0.5 rounded text-[11px] font-medium truncate max-w-[200px]",
-                        "hover:bg-accent border border-transparent hover:border-border transition-colors"
-                      )}
-                      title="Click to rename"
-                    >
-                      {requestName}
-                    </button>
-                  )
-                ) : (
-                  <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">
-                    {segment.name}
-                  </span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+    <div className="flex h-full">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Breadcrumb Path with Code button */}
+        {requestPath && (
+          <div className="flex items-center gap-1 px-3 py-1.5 border-b bg-muted/30 min-w-0 overflow-hidden">
+            <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
+              {requestPath.path.map((segment, index) => {
+                const isLast = index === requestPath.path.length - 1
+                return (
+                  <div key={segment.id} className="flex items-center gap-1 min-w-0">
+                    {index > 0 && (
+                      <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                    )}
+                    {isLast ? (
+                      // Editable request name
+                      isRenaming ? (
+                        <input
+                          ref={renameInputRef}
+                          value={renamingValue}
+                          onChange={(e) => setRenamingValue(e.target.value)}
+                          onBlur={handleRename}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRename()
+                            if (e.key === 'Escape') setIsRenaming(false)
+                          }}
+                          className="h-5 px-1.5 rounded border border-primary bg-background text-[11px] font-medium outline-none min-w-[60px]"
+                          autoFocus
+                        />
+                      ) : (
+                        <button
+                          onClick={handleStartRename}
+                          className={cn(
+                            "px-1.5 py-0.5 rounded text-[11px] font-medium truncate max-w-[200px]",
+                            "hover:bg-accent border border-transparent hover:border-border transition-colors"
+                          )}
+                          title="Click to rename"
+                        >
+                          {requestName}
+                        </button>
+                      )
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">
+                        {segment.name}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {/* Code Snippet toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={showCodeSnippet ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-6 gap-1 text-[11px] px-2 flex-shrink-0"
+                  onClick={() => setShowCodeSnippet(v => !v)}
+                >
+                  <Code2 className="h-3 w-3" />
+                  Code
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-xs">Generate code snippet</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
 
       <div className="p-2 border-b min-w-0 overflow-hidden">
         <RequestUrlBar
@@ -325,6 +373,35 @@ export const RequestPanel: FC<RequestPanelProps> = ({ requestId }) => {
           <ResponsePanel response={response} error={responseError} />
         </ResizablePanel>
       </ResizablePanelGroup>
+      </div>
+
+      {/* Code Snippet Panel */}
+      {showCodeSnippet && (
+        <>
+          {/* Resize handle */}
+          <div
+            onMouseDown={handleCodeSnippetResize}
+            className="w-1 hover:w-1.5 bg-border hover:bg-primary/50 cursor-col-resize flex items-center justify-center group transition-all flex-shrink-0"
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
+          {/* Code snippet panel */}
+          <div style={{ width: codeSnippetWidth }} className="flex-shrink-0 h-full">
+            <CodeSnippetPanel
+              method={method}
+              url={url}
+              headers={headers}
+              params={params}
+              body={body}
+              auth={auth}
+              requestId={requestId}
+              collectionId={found?.collectionId}
+              onClose={() => setShowCodeSnippet(false)}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

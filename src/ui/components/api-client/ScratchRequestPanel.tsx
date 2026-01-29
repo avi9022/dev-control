@@ -1,15 +1,17 @@
 import { useState, useCallback, type FC } from 'react'
-import { Save, ChevronRight, FolderOpen } from 'lucide-react'
+import { Save, ChevronRight, FolderOpen, Code2, GripVertical } from 'lucide-react'
 import { useApiClient } from '@/ui/contexts/api-client'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { RequestUrlBar } from './RequestUrlBar'
 import { RequestTabs } from './RequestTabs'
 import { ResponsePanel } from './ResponsePanel'
+import { CodeSnippetPanel } from './CodeSnippetPanel'
 import { useUrlParamsSync } from '@/ui/hooks/useUrlParamsSync'
 import type { ParsedCurl } from '@/ui/utils/curl-parser'
 
@@ -39,6 +41,34 @@ export const ScratchRequestPanel: FC = () => {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({})
   const [newCollectionName, setNewCollectionName] = useState('')
+
+  // Code snippet state
+  const [showCodeSnippet, setShowCodeSnippet] = useState(false)
+  const [codeSnippetWidth, setCodeSnippetWidth] = useState(400)
+
+  // Handle resize for code snippet panel
+  const handleCodeSnippetResize = useCallback((e: React.MouseEvent) => {
+    const startX = e.clientX
+    const startWidth = codeSnippetWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const diff = startX - e.clientX
+      const newWidth = Math.min(Math.max(startWidth + diff, 300), 700)
+      setCodeSnippetWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [codeSnippetWidth])
 
   const buildConfig = useCallback((): ApiRequestConfig => ({
     method, url, params, headers, auth, body,
@@ -143,52 +173,96 @@ export const ScratchRequestPanel: FC = () => {
   const canSave = !!activeWorkspace
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-2 border-b flex items-center gap-2 min-w-0">
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <RequestUrlBar
-            method={method}
-            url={url}
-            isSending={isSending}
-            headers={headers}
-            body={body}
-            onMethodChange={setMethod}
-            onUrlChange={handleUrlChange}
-            onSend={handleSend}
-            onCancel={handleCancel}
-            onCurlImport={handleCurlImport}
-          />
-        </div>
-        {canSave && (
-          <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={handleOpenSaveDialog}>
-            <Save className="size-3.5 mr-1" />
-            Save
-          </Button>
-        )}
-      </div>
-      <ResizablePanelGroup direction="vertical" className="flex-1">
-        <ResizablePanel defaultSize={50} minSize={15}>
-          <div className="h-full overflow-hidden p-2 flex flex-col">
-            <RequestTabs
+    <div className="flex h-full">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="p-2 border-b flex items-center gap-2 min-w-0">
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <RequestUrlBar
               method={method}
-              params={params}
+              url={url}
+              isSending={isSending}
               headers={headers}
-              auth={auth}
               body={body}
-              onParamsChange={handleParamsChange}
-              onHeadersChange={setHeaders}
-              onAuthChange={setAuth}
-              onBodyChange={setBody}
+              onMethodChange={setMethod}
+              onUrlChange={handleUrlChange}
+              onSend={handleSend}
+              onCancel={handleCancel}
+              onCurlImport={handleCurlImport}
             />
           </div>
-        </ResizablePanel>
+          {/* Code Snippet toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={showCodeSnippet ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 gap-1 text-xs px-2 flex-shrink-0"
+                onClick={() => setShowCodeSnippet(v => !v)}
+              >
+                <Code2 className="h-3.5 w-3.5" />
+                Code
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">Generate code snippet</TooltipContent>
+          </Tooltip>
+          {canSave && (
+            <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={handleOpenSaveDialog}>
+              <Save className="size-3.5 mr-1" />
+              Save
+            </Button>
+          )}
+        </div>
+        <ResizablePanelGroup direction="vertical" className="flex-1">
+          <ResizablePanel defaultSize={50} minSize={15}>
+            <div className="h-full overflow-hidden p-2 flex flex-col">
+              <RequestTabs
+                method={method}
+                params={params}
+                headers={headers}
+                auth={auth}
+                body={body}
+                onParamsChange={handleParamsChange}
+                onHeadersChange={setHeaders}
+                onAuthChange={setAuth}
+                onBodyChange={setBody}
+              />
+            </div>
+          </ResizablePanel>
 
-        <ResizableHandle withHandle />
+          <ResizableHandle withHandle />
 
-        <ResizablePanel defaultSize={50} minSize={15}>
-          <ResponsePanel response={response} error={responseError} />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+          <ResizablePanel defaultSize={50} minSize={15}>
+            <ResponsePanel response={response} error={responseError} />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+
+      {/* Code Snippet Panel */}
+      {showCodeSnippet && (
+        <>
+          {/* Resize handle */}
+          <div
+            onMouseDown={handleCodeSnippetResize}
+            className="w-1 hover:w-1.5 bg-border hover:bg-primary/50 cursor-col-resize flex items-center justify-center group transition-all flex-shrink-0"
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
+          {/* Code snippet panel */}
+          <div style={{ width: codeSnippetWidth }} className="flex-shrink-0 h-full">
+            <CodeSnippetPanel
+              method={method}
+              url={url}
+              headers={headers}
+              params={params}
+              body={body}
+              auth={auth}
+              onClose={() => setShowCodeSnippet(false)}
+            />
+          </div>
+        </>
+      )}
 
       {/* Save Request Dialog */}
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>

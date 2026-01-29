@@ -141,11 +141,12 @@ export const ApiClientView: FC<ApiClientViewProps> = ({ itemId }) => {
   // Don't show variables panel for settings views
   const canShowVariables = viewInfo.type === 'request' || viewInfo.type === 'scratch'
 
-  // Get current request data for variables panel
+  // Get current request data for variables panel and code snippet
   const currentRequestContext = useMemo(() => {
     if (viewInfo.type === 'scratch' && scratchRequest) {
       return {
         data: {
+          method: scratchRequest.method,
           url: scratchRequest.url,
           params: scratchRequest.params,
           headers: scratchRequest.headers,
@@ -162,6 +163,7 @@ export const ApiClientView: FC<ApiClientViewProps> = ({ itemId }) => {
       if (found?.item.request) {
         return {
           data: {
+            method: found.item.request.method,
             url: found.item.request.url,
             params: found.item.request.params,
             headers: found.item.request.headers,
@@ -179,8 +181,8 @@ export const ApiClientView: FC<ApiClientViewProps> = ({ itemId }) => {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Top bar with variables toggle */}
-      <div className="flex items-center justify-end px-2 py-1 border-b bg-background">
+      {/* Top bar with Variables toggle */}
+      <div className="flex items-center justify-end gap-1 px-2 py-1 border-b bg-background">
         {canShowVariables && (
           <Tooltip>
             <TooltipTrigger asChild>
