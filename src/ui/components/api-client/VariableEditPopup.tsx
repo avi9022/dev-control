@@ -102,8 +102,8 @@ export const VariableEditPopup: FC<VariableEditPopupProps> = ({
       {/* Bridge area */}
       <div className="h-1" />
 
-      <div className="rounded-lg border bg-popover shadow-lg p-3 min-w-[280px] max-w-[400px]">
-        <div className="flex flex-col gap-2">
+      <div className="rounded border bg-popover shadow-md p-2 min-w-[260px] max-w-[400px]">
+        <div className="flex flex-col gap-1.5">
           {/* Editable value */}
           <input
             ref={inputRef}
@@ -116,15 +116,15 @@ export const VariableEditPopup: FC<VariableEditPopupProps> = ({
               }
             }}
             placeholder="Enter value..."
-            className="w-full rounded bg-muted px-3 py-2 font-mono text-sm border-0 outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded bg-muted px-2 py-1 font-mono text-xs border-0 outline-none focus:ring-1 focus:ring-ring"
           />
 
           {/* Environment info */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               {resolved ? (
                 <>
-                  <span className="inline-flex h-4 w-4 items-center justify-center rounded text-[9px] font-bold bg-emerald-600 text-white flex-shrink-0">
+                  <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded text-[8px] font-bold bg-emerald-600 text-white flex-shrink-0">
                     E
                   </span>
                   <span>{envName ?? 'Environment'}</span>
@@ -135,7 +135,7 @@ export const VariableEditPopup: FC<VariableEditPopupProps> = ({
             </div>
 
             {isSaving && (
-              <span className="text-xs text-muted-foreground">Saving...</span>
+              <span className="text-[10px] text-muted-foreground">Saving...</span>
             )}
           </div>
         </div>

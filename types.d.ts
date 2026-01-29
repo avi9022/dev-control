@@ -990,11 +990,11 @@ type EventPayloadMapping = {
     args: [];
   }
   apiImportPostmanCollection: {
-    return: ApiCollection | null;
+    return: ApiCollection[];
     args: [string];
   }
   apiImportPostmanEnvironment: {
-    return: ApiEnvironment | null;
+    return: ApiEnvironment[];
     args: [string];
   }
   apiCreateCollection: {
@@ -1499,8 +1499,8 @@ interface Window {
     apiDeleteWorkspace: (id: string) => Promise<void>
     apiSetActiveWorkspace: (id: string) => Promise<void>
     apiGetActiveWorkspaceId: () => Promise<string | null>
-    apiImportPostmanCollection: (workspaceId: string) => Promise<ApiCollection | null>
-    apiImportPostmanEnvironment: (workspaceId: string) => Promise<ApiEnvironment | null>
+    apiImportPostmanCollection: (workspaceId: string) => Promise<ApiCollection[]>
+    apiImportPostmanEnvironment: (workspaceId: string) => Promise<ApiEnvironment[]>
     apiCreateCollection: (workspaceId: string, name: string) => Promise<ApiCollection>
     apiDeleteCollection: (workspaceId: string, collectionId: string) => Promise<void>
     apiUpdateCollection: (workspaceId: string, collectionId: string, data: Partial<ApiCollection>) => Promise<void>

@@ -464,18 +464,18 @@ app.on("ready", async () => {
   ipcMainHandle('apiSetActiveWorkspace', (_event, id: string) => apiClientManager.setActiveWorkspace(id))
   ipcMainHandle('apiGetActiveWorkspaceId', () => store.get('activeApiWorkspaceId') ?? null)
   ipcMainHandle('apiImportPostmanCollection', async (_event, workspaceId: string) => {
-    const collection = await importPostmanCollection(workspaceId)
-    if (collection) {
+    const collections = await importPostmanCollection(workspaceId)
+    for (const collection of collections) {
       apiClientManager.addCollectionToWorkspace(workspaceId, collection)
     }
-    return collection
+    return collections
   })
   ipcMainHandle('apiImportPostmanEnvironment', async (_event, workspaceId: string) => {
-    const env = await importPostmanEnvironment(workspaceId)
-    if (env) {
+    const environments = await importPostmanEnvironment(workspaceId)
+    for (const env of environments) {
       apiClientManager.addEnvironmentToWorkspace(workspaceId, env)
     }
-    return env
+    return environments
   })
   ipcMainHandle('apiCreateCollection', (_event, workspaceId: string, name: string) => apiClientManager.createCollection(workspaceId, name))
   ipcMainHandle('apiDeleteCollection', (_event, workspaceId: string, collectionId: string) => apiClientManager.deleteCollection(workspaceId, collectionId))

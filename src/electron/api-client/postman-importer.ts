@@ -373,27 +373,29 @@ function parsePostmanCollection(data: PostmanCollection): ApiCollection {
   }
 }
 
-export async function importPostmanCollection(workspaceId: string): Promise<ApiCollection | null> {
+export async function importPostmanCollection(workspaceId: string): Promise<ApiCollection[]> {
   const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
+    properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'JSON', extensions: ['json'] }],
-    title: 'Import Postman Collection',
+    title: 'Import Postman Collection(s)',
   })
 
-  if (result.canceled || !result.filePaths[0]) {
-    return null
+  if (result.canceled || result.filePaths.length === 0) {
+    return []
   }
 
-  const content = await readFile(result.filePaths[0], 'utf-8')
-  const data = JSON.parse(content)
+  const collections: ApiCollection[] = []
 
-  // Support both Postman collection format and raw JSON
-  if (data.info && Array.isArray(data.item)) {
-    return parsePostmanCollection(data as PostmanCollection)
+  for (const filePath of result.filePaths) {
+    const content = await readFile(filePath, 'utf-8')
+    const data = JSON.parse(content)
+
+    if (data.info && Array.isArray(data.item)) {
+      collections.push(parsePostmanCollection(data as PostmanCollection))
+    }
   }
 
-  // If it's a JSON object but not a Postman collection, wrap it as a single-request collection
-  throw new Error('Invalid format: expected a Postman collection JSON with "info" and "item" fields')
+  return collections
 }
 
 export async function importPostmanCollectionFromPath(filePath: string): Promise<ApiCollection> {
@@ -407,28 +409,32 @@ export async function importPostmanCollectionFromPath(filePath: string): Promise
   throw new Error('File is not a valid Postman collection format. Expected "info" and "item" fields.')
 }
 
-export async function importPostmanEnvironment(workspaceId: string): Promise<ApiEnvironment | null> {
+export async function importPostmanEnvironment(workspaceId: string): Promise<ApiEnvironment[]> {
   const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
+    properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'JSON', extensions: ['json'] }],
-    title: 'Import Postman Environment',
+    title: 'Import Postman Environment(s)',
   })
 
-  if (result.canceled || !result.filePaths[0]) {
-    return null
+  if (result.canceled || result.filePaths.length === 0) {
+    return []
   }
 
-  const content = await readFile(result.filePaths[0], 'utf-8')
-  const data: PostmanEnvironment = JSON.parse(content)
+  const environments: ApiEnvironment[] = []
 
-  if (!data.values || !Array.isArray(data.values)) {
-    throw new Error('Invalid Postman Environment format: missing "values" array')
+  for (const filePath of result.filePaths) {
+    const content = await readFile(filePath, 'utf-8')
+    const data: PostmanEnvironment = JSON.parse(content)
+
+    if (data.values && Array.isArray(data.values)) {
+      environments.push({
+        id: crypto.randomUUID(),
+        name: data.name || 'Imported Environment',
+        variables: mapPostmanEnvironmentValues(data.values),
+        isActive: false,
+      })
+    }
   }
 
-  return {
-    id: crypto.randomUUID(),
-    name: data.name || 'Imported Environment',
-    variables: mapPostmanEnvironmentValues(data.values),
-    isActive: false,
-  }
+  return environments
 }

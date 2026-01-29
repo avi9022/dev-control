@@ -180,7 +180,6 @@ export const VariableInput: FC<VariableInputProps> = ({
         span.dataset.varName = seg.varName
         span.style.borderRadius = '2px'
         span.style.padding = '0 2px'
-        span.style.fontWeight = '600'
         if (seg.resolved) {
           span.style.color = 'rgb(56, 189, 248)'
           span.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'

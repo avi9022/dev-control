@@ -14,12 +14,25 @@ import { ResponsePanel } from './ResponsePanel'
 import { CodeSnippetPanel } from './CodeSnippetPanel'
 import { useUrlParamsSync } from '@/ui/hooks/useUrlParamsSync'
 import type { ParsedCurl } from '@/ui/utils/curl-parser'
+import type { InsertRule } from './InsertVariableEditor'
+
+// Helper to get value from nested object using dot notation
+function getNestedValue(obj: unknown, path: string): unknown {
+  const parts = path.split('.')
+  let current: unknown = obj
+  for (const part of parts) {
+    if (current === null || current === undefined) return undefined
+    if (typeof current !== 'object') return undefined
+    current = (current as Record<string, unknown>)[part]
+  }
+  return current
+}
 
 const DEFAULT_BODY: ApiRequestBody = { type: 'none', content: '' }
 const DEFAULT_AUTH: ApiAuth = { type: 'none' }
 
 export const ScratchRequestPanel: FC = () => {
-  const { scratchRequest, sendRequest, cancelRequest, activeWorkspace, saveRequestToCollection, createCollection } = useApiClient()
+  const { scratchRequest, sendRequest, cancelRequest, activeWorkspace, saveRequestToCollection, createCollection, updateEnvironment } = useApiClient()
 
   const [method, setMethod] = useState<ApiHttpMethod>(scratchRequest?.method ?? 'GET')
   const [url, setUrl] = useState(scratchRequest?.url ?? '')
@@ -27,6 +40,7 @@ export const ScratchRequestPanel: FC = () => {
   const [headers, setHeaders] = useState<ApiKeyValue[]>(scratchRequest?.headers ?? [])
   const [auth, setAuth] = useState<ApiAuth>(scratchRequest?.auth ?? DEFAULT_AUTH)
   const [body, setBody] = useState<ApiRequestBody>(scratchRequest?.body ?? DEFAULT_BODY)
+  const [insertRules, setInsertRules] = useState<InsertRule[]>([])
 
   // Bidirectional URL-Params sync
   const { handleUrlChange, handleParamsChange } = useUrlParamsSync(url, params, setUrl, setParams)
@@ -70,9 +84,69 @@ export const ScratchRequestPanel: FC = () => {
     document.addEventListener('mouseup', handleMouseUp)
   }, [codeSnippetWidth])
 
-  const buildConfig = useCallback((): ApiRequestConfig => ({
+  const buildConfig = useCallback((): ApiRequestConfig & { insertRules?: InsertRule[] } => ({
     method, url, params, headers, auth, body,
-  }), [method, url, params, headers, auth, body])
+    insertRules: insertRules.length > 0 ? insertRules : undefined,
+  }), [method, url, params, headers, auth, body, insertRules])
+
+  // Process insert rules after successful response
+  const processInsertRules = useCallback(async (responseBody: string) => {
+    if (!activeWorkspace || insertRules.length === 0) return
+
+    const enabledRules = insertRules.filter(
+      (r) => r.enabled && r.variableName && r.responseKey
+    )
+    if (enabledRules.length === 0) return
+
+    // Try to parse response as JSON
+    let parsedBody: unknown
+    try {
+      parsedBody = JSON.parse(responseBody)
+    } catch {
+      // Response is not JSON, can't extract values
+      return
+    }
+
+    const activeEnv = activeWorkspace.environments.find(
+      (e) => e.id === activeWorkspace.activeEnvironmentId
+    )
+    if (!activeEnv) return
+
+    // Build updated variables
+    let updatedVariables = [...activeEnv.variables]
+    let hasChanges = false
+
+    for (const rule of enabledRules) {
+      const extractedValue = getNestedValue(parsedBody, rule.responseKey)
+      if (extractedValue !== undefined && extractedValue !== null) {
+        const stringValue = typeof extractedValue === 'string'
+          ? extractedValue
+          : JSON.stringify(extractedValue)
+
+        const existingIdx = updatedVariables.findIndex((v) => v.key === rule.variableName)
+        if (existingIdx >= 0) {
+          // Update existing variable
+          if (updatedVariables[existingIdx].value !== stringValue) {
+            updatedVariables = updatedVariables.map((v, i) =>
+              i === existingIdx ? { ...v, value: stringValue } : v
+            )
+            hasChanges = true
+          }
+        } else {
+          // Add new variable
+          updatedVariables = [
+            ...updatedVariables,
+            { key: rule.variableName, value: stringValue, type: 'default' as const, enabled: true },
+          ]
+          hasChanges = true
+        }
+      }
+    }
+
+    if (hasChanges) {
+      await updateEnvironment(activeEnv.id, { ...activeEnv, variables: updatedVariables })
+    }
+  }, [activeWorkspace, insertRules, updateEnvironment])
 
   const handleSend = useCallback(async () => {
     setIsSending(true)
@@ -81,6 +155,11 @@ export const ScratchRequestPanel: FC = () => {
       const config = buildConfig()
       const result = await sendRequest(config)
       setResponse(result)
+
+      // Process insert rules to extract values from response
+      if (result.status >= 200 && result.status < 300) {
+        await processInsertRules(result.body)
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred'
       setResponseError(message)
@@ -88,7 +167,7 @@ export const ScratchRequestPanel: FC = () => {
     } finally {
       setIsSending(false)
     }
-  }, [buildConfig, sendRequest])
+  }, [buildConfig, sendRequest, processInsertRules])
 
   const handleCancel = useCallback(async () => {
     try { await cancelRequest() } catch { /* may already be done */ } finally { setIsSending(false) }
@@ -222,10 +301,12 @@ export const ScratchRequestPanel: FC = () => {
                 headers={headers}
                 auth={auth}
                 body={body}
+                insertRules={insertRules}
                 onParamsChange={handleParamsChange}
                 onHeadersChange={setHeaders}
                 onAuthChange={setAuth}
                 onBodyChange={setBody}
+                onInsertRulesChange={setInsertRules}
               />
             </div>
           </ResizablePanel>

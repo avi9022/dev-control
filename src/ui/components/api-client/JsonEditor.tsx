@@ -141,15 +141,13 @@ export const JsonEditor: FC<JsonEditorProps> = ({
         color: #38bdf8 !important;
         background-color: rgba(56, 189, 248, 0.15);
         border-radius: 2px;
-        font-weight: 600;
-        cursor: pointer;
+        font-style: italic;
       }
       .variable-unresolved {
         color: #f87171 !important;
         background-color: rgba(248, 113, 113, 0.15);
         border-radius: 2px;
-        font-weight: 600;
-        cursor: pointer;
+        font-style: italic;
       }
     `
     if (!document.getElementById('monaco-variable-styles')) {

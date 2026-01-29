@@ -109,7 +109,7 @@ export const VariableHighlightText: FC<{ text: string; className?: string }> = (
             <span
               key={i}
               className={cn(
-                "rounded px-0.5 font-semibold cursor-default",
+                "rounded px-0.5 cursor-default",
                 seg.resolved
                   ? "text-orange-400 bg-orange-400/10"
                   : "text-red-400 bg-red-400/10",

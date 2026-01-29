@@ -70,7 +70,7 @@ export const VariableTooltip: FC<VariableTooltipProps> = ({ varName, resolved })
     <>
       <span
         className={cn(
-          "rounded px-0.5 font-semibold pointer-events-auto cursor-default",
+          "rounded px-0.5 italic pointer-events-auto cursor-default",
           resolved
             ? "text-sky-400 bg-sky-400/10"
             : "text-red-400 bg-red-400/10",

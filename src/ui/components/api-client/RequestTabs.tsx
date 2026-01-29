@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { KeyValueTable } from './KeyValueTable'
 import { RequestAuthEditor } from './RequestAuthEditor'
 import { RequestBodyEditor } from './RequestBodyEditor'
+import { InsertVariableEditor, type InsertRule } from './InsertVariableEditor'
 
 interface RequestTabsProps {
   method: ApiMethod
@@ -10,10 +11,12 @@ interface RequestTabsProps {
   headers: ApiKeyValue[]
   auth: ApiAuth
   body: ApiRequestBody
+  insertRules: InsertRule[]
   onParamsChange: (params: ApiKeyValue[]) => void
   onHeadersChange: (headers: ApiKeyValue[]) => void
   onAuthChange: (auth: ApiAuth) => void
   onBodyChange: (body: ApiRequestBody) => void
+  onInsertRulesChange: (rules: InsertRule[]) => void
 }
 
 const countEnabled = (items: ApiKeyValue[]): number =>
@@ -25,10 +28,12 @@ export const RequestTabs: FC<RequestTabsProps> = ({
   headers,
   auth,
   body,
+  insertRules,
   onParamsChange,
   onHeadersChange,
   onAuthChange,
   onBodyChange,
+  onInsertRulesChange,
 }) => {
   const paramsCount = countEnabled(params)
   const headersCount = countEnabled(headers)
@@ -65,6 +70,14 @@ export const RequestTabs: FC<RequestTabsProps> = ({
         </TabsTrigger>
         <TabsTrigger value="auth" className="text-xs h-7 px-3">Auth</TabsTrigger>
         <TabsTrigger value="body" className="text-xs h-7 px-3">Body</TabsTrigger>
+        <TabsTrigger value="insert" className="text-xs h-7 px-3">
+          Insert
+          {insertRules.filter(r => r.enabled && r.variableName && r.responseKey).length > 0 && (
+            <span className="ml-1 text-[10px] text-muted-foreground">
+              ({insertRules.filter(r => r.enabled && r.variableName && r.responseKey).length})
+            </span>
+          )}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="params" className="flex-1 min-h-0 overflow-auto p-1.5 pt-2">
@@ -89,6 +102,10 @@ export const RequestTabs: FC<RequestTabsProps> = ({
 
       <TabsContent value="body" className="flex-1 min-h-0 overflow-hidden p-1.5 pt-2 flex flex-col">
         <RequestBodyEditor body={body} onChange={onBodyChange} />
+      </TabsContent>
+
+      <TabsContent value="insert" className="flex-1 min-h-0 overflow-auto p-1.5 pt-2">
+        <InsertVariableEditor rules={insertRules} onChange={onInsertRulesChange} />
       </TabsContent>
     </Tabs>
   )
