@@ -117,34 +117,29 @@ export const ApiClientProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   const createWorkspace = useCallback(async (name: string) => {
+    setSelectedRequestId(null)
+    setScratchRequest(null)
     const newWorkspace = await window.electron.apiCreateWorkspace(name)
-    await loadWorkspaces()
-    // Switch to the new workspace
     if (newWorkspace) {
+      await window.electron.apiSetActiveWorkspace(newWorkspace.id)
       setActiveWorkspaceId(newWorkspace.id)
-      setSelectedRequestId(null)
-      setScratchRequest(null)
-      updateView('api-client', null)
     }
-  }, [loadWorkspaces, updateView])
+    await loadWorkspaces()
+  }, [loadWorkspaces])
 
   const deleteWorkspace = useCallback(async (id: string) => {
-    await window.electron.apiDeleteWorkspace(id)
-    // Clear selection before loading to avoid stale references
     setSelectedRequestId(null)
     setScratchRequest(null)
-    updateView('api-client', null)
+    await window.electron.apiDeleteWorkspace(id)
     await loadWorkspaces()
-  }, [loadWorkspaces, updateView])
+  }, [loadWorkspaces])
 
   const setActiveWorkspace = useCallback(async (id: string) => {
-    await window.electron.apiSetActiveWorkspace(id)
-    setActiveWorkspaceId(id)
-    // Clear selection when switching workspaces
     setSelectedRequestId(null)
     setScratchRequest(null)
-    updateView('api-client', null)
-  }, [updateView])
+    await window.electron.apiSetActiveWorkspace(id)
+    setActiveWorkspaceId(id)
+  }, [])
 
   const importPostmanCollection = useCallback(async () => {
     if (!activeWorkspaceId) {
