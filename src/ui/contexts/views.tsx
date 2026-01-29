@@ -61,12 +61,12 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
 
   const updateView = (type: ViewType, itemId: string | null) => {
     setViews((prev) => {
-      const prevCopy = [...prev]
-      if (prevCopy[currentViewIndex]) {
-        prevCopy[currentViewIndex].itemId = itemId
-        prevCopy[currentViewIndex].type = type
-      }
-      return prevCopy
+      return prev.map((view, index) => {
+        if (index === currentViewIndex) {
+          return { ...view, itemId, type }
+        }
+        return view
+      })
     })
   }
 

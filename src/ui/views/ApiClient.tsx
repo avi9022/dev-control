@@ -33,6 +33,20 @@ function findRequestInCollections(
   return null
 }
 
+// Parse special view IDs for settings panels
+function parseViewId(id: string | null) {
+  if (!id) return { type: 'empty' as const }
+  if (id === 'scratch') return { type: 'scratch' as const }
+  if (id.startsWith('collection-settings:')) {
+    return { type: 'collection-settings' as const, collectionId: id.replace('collection-settings:', '') }
+  }
+  if (id.startsWith('folder-settings:')) {
+    const [collectionId, folderId] = id.replace('folder-settings:', '').split(':')
+    return { type: 'folder-settings' as const, collectionId, folderId }
+  }
+  return { type: 'request' as const, requestId: id }
+}
+
 interface ApiClientViewProps {
   itemId: string | null
 }
@@ -71,6 +85,53 @@ export const ApiClientView: FC<ApiClientViewProps> = ({ itemId }) => {
     document.addEventListener('mouseup', handleMouseUp)
   }, [panelWidth])
 
+  // Parse view ID (memoized to avoid recalculating)
+  const viewInfo = useMemo(() => parseViewId(itemId), [itemId])
+
+  // Get current request data for variables panel and code snippet
+  const currentRequestContext = useMemo(() => {
+    if (!activeWorkspace) return undefined
+
+    if (viewInfo.type === 'scratch' && scratchRequest) {
+      return {
+        data: {
+          method: scratchRequest.method,
+          url: scratchRequest.url,
+          params: scratchRequest.params,
+          headers: scratchRequest.headers,
+          body: scratchRequest.body ?? { type: 'none' as const, content: '' },
+          auth: scratchRequest.auth ?? { type: 'none' as const },
+        },
+        requestId: undefined as string | undefined,
+        collectionId: undefined as string | undefined,
+      }
+    }
+
+    if (viewInfo.type === 'request') {
+      const found = findRequestInCollections(activeWorkspace.collections, viewInfo.requestId)
+      if (found?.item.request) {
+        return {
+          data: {
+            method: found.item.request.method,
+            url: found.item.request.url,
+            params: found.item.request.params,
+            headers: found.item.request.headers,
+            body: found.item.request.body ?? { type: 'none' as const, content: '' },
+            auth: found.item.request.auth ?? { type: 'none' as const },
+          },
+          requestId: viewInfo.requestId,
+          collectionId: found.collectionId,
+        }
+      }
+    }
+
+    return undefined
+  }, [viewInfo, scratchRequest, activeWorkspace])
+
+  // Don't show variables panel for settings views
+  const canShowVariables = viewInfo.type === 'request' || viewInfo.type === 'scratch'
+
+  // Early return AFTER all hooks
   if (!activeWorkspace) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -81,22 +142,6 @@ export const ApiClientView: FC<ApiClientViewProps> = ({ itemId }) => {
       </div>
     )
   }
-
-  // Parse special view IDs for settings panels
-  const parseViewId = (id: string | null) => {
-    if (!id) return { type: 'empty' as const }
-    if (id === 'scratch') return { type: 'scratch' as const }
-    if (id.startsWith('collection-settings:')) {
-      return { type: 'collection-settings' as const, collectionId: id.replace('collection-settings:', '') }
-    }
-    if (id.startsWith('folder-settings:')) {
-      const [collectionId, folderId] = id.replace('folder-settings:', '').split(':')
-      return { type: 'folder-settings' as const, collectionId, folderId }
-    }
-    return { type: 'request' as const, requestId: id }
-  }
-
-  const viewInfo = parseViewId(itemId)
 
   const mainContent = (() => {
     switch (viewInfo.type) {
@@ -137,47 +182,6 @@ export const ApiClientView: FC<ApiClientViewProps> = ({ itemId }) => {
         )
     }
   })()
-
-  // Don't show variables panel for settings views
-  const canShowVariables = viewInfo.type === 'request' || viewInfo.type === 'scratch'
-
-  // Get current request data for variables panel and code snippet
-  const currentRequestContext = useMemo(() => {
-    if (viewInfo.type === 'scratch' && scratchRequest) {
-      return {
-        data: {
-          method: scratchRequest.method,
-          url: scratchRequest.url,
-          params: scratchRequest.params,
-          headers: scratchRequest.headers,
-          body: scratchRequest.body ?? { type: 'none' as const, content: '' },
-          auth: scratchRequest.auth ?? { type: 'none' as const },
-        },
-        requestId: undefined as string | undefined,
-        collectionId: undefined as string | undefined,
-      }
-    }
-
-    if (viewInfo.type === 'request' && activeWorkspace) {
-      const found = findRequestInCollections(activeWorkspace.collections, viewInfo.requestId)
-      if (found?.item.request) {
-        return {
-          data: {
-            method: found.item.request.method,
-            url: found.item.request.url,
-            params: found.item.request.params,
-            headers: found.item.request.headers,
-            body: found.item.request.body ?? { type: 'none' as const, content: '' },
-            auth: found.item.request.auth ?? { type: 'none' as const },
-          },
-          requestId: viewInfo.requestId,
-          collectionId: found.collectionId,
-        }
-      }
-    }
-
-    return undefined
-  }, [viewInfo, scratchRequest, activeWorkspace])
 
   return (
     <div className="h-full flex flex-col">

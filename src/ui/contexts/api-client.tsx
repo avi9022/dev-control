@@ -117,28 +117,60 @@ export const ApiClientProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   const createWorkspace = useCallback(async (name: string) => {
-    setSelectedRequestId(null)
-    setScratchRequest(null)
-    const newWorkspace = await window.electron.apiCreateWorkspace(name)
-    if (newWorkspace) {
-      await window.electron.apiSetActiveWorkspace(newWorkspace.id)
-      setActiveWorkspaceId(newWorkspace.id)
+    try {
+      const newWorkspace = await window.electron.apiCreateWorkspace(name)
+      if (newWorkspace) {
+        await window.electron.apiSetActiveWorkspace(newWorkspace.id)
+        // Update state synchronously to avoid race conditions
+        setWorkspaces(prev => [...prev, newWorkspace])
+        setActiveWorkspaceId(newWorkspace.id)
+        setSelectedRequestId(null)
+        setScratchRequest(null)
+      }
+    } catch (error) {
+      console.error('Failed to create workspace:', error)
     }
-    await loadWorkspaces()
-  }, [loadWorkspaces])
+  }, [])
 
   const deleteWorkspace = useCallback(async (id: string) => {
-    setSelectedRequestId(null)
-    setScratchRequest(null)
-    await window.electron.apiDeleteWorkspace(id)
-    await loadWorkspaces()
-  }, [loadWorkspaces])
+    try {
+      // First clear selection
+      setSelectedRequestId(null)
+      setScratchRequest(null)
+
+      // Calculate next active workspace before state update
+      const currentWorkspaces = workspaces
+      const filtered = currentWorkspaces.filter(w => w.id !== id)
+      const needsNewActive = id === activeWorkspaceId
+      const nextId = needsNewActive ? (filtered[0]?.id ?? null) : activeWorkspaceId
+
+      // Update local state
+      setWorkspaces(filtered)
+      if (needsNewActive) {
+        setActiveWorkspaceId(nextId)
+        if (nextId) {
+          window.electron.apiSetActiveWorkspace(nextId).catch(console.error)
+        }
+      }
+
+      // Then delete from backend
+      await window.electron.apiDeleteWorkspace(id)
+    } catch (error) {
+      console.error('Failed to delete workspace:', error)
+      // Reload to sync with backend on error
+      await loadWorkspaces()
+    }
+  }, [workspaces, activeWorkspaceId, loadWorkspaces])
 
   const setActiveWorkspace = useCallback(async (id: string) => {
-    setSelectedRequestId(null)
-    setScratchRequest(null)
-    await window.electron.apiSetActiveWorkspace(id)
-    setActiveWorkspaceId(id)
+    try {
+      setSelectedRequestId(null)
+      setScratchRequest(null)
+      setActiveWorkspaceId(id)
+      await window.electron.apiSetActiveWorkspace(id)
+    } catch (error) {
+      console.error('Failed to set active workspace:', error)
+    }
   }, [])
 
   const importPostmanCollection = useCallback(async () => {
