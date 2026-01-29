@@ -105,6 +105,9 @@ export const ApiClientProvider: FC<PropsWithChildren> = ({ children }) => {
         setActiveWorkspaceId(storedActiveId)
       } else if (result.length > 0) {
         setActiveWorkspaceId(result[0].id)
+      } else {
+        // No workspaces - reset active ID
+        setActiveWorkspaceId(null)
       }
     } catch (error) {
       console.error('Failed to load workspaces:', error)
@@ -114,19 +117,34 @@ export const ApiClientProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   const createWorkspace = useCallback(async (name: string) => {
-    await window.electron.apiCreateWorkspace(name)
+    const newWorkspace = await window.electron.apiCreateWorkspace(name)
     await loadWorkspaces()
-  }, [loadWorkspaces])
+    // Switch to the new workspace
+    if (newWorkspace) {
+      setActiveWorkspaceId(newWorkspace.id)
+      setSelectedRequestId(null)
+      setScratchRequest(null)
+      updateView('api-client', null)
+    }
+  }, [loadWorkspaces, updateView])
 
   const deleteWorkspace = useCallback(async (id: string) => {
     await window.electron.apiDeleteWorkspace(id)
+    // Clear selection before loading to avoid stale references
+    setSelectedRequestId(null)
+    setScratchRequest(null)
+    updateView('api-client', null)
     await loadWorkspaces()
-  }, [loadWorkspaces])
+  }, [loadWorkspaces, updateView])
 
   const setActiveWorkspace = useCallback(async (id: string) => {
     await window.electron.apiSetActiveWorkspace(id)
     setActiveWorkspaceId(id)
-  }, [])
+    // Clear selection when switching workspaces
+    setSelectedRequestId(null)
+    setScratchRequest(null)
+    updateView('api-client', null)
+  }, [updateView])
 
   const importPostmanCollection = useCallback(async () => {
     if (!activeWorkspaceId) {
