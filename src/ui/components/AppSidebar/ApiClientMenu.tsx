@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, CircleX, RefreshCw, Plus, Upload, FolderOpen, Globe, ChevronRight, ChevronDown, Settings2, Trash2, MoreVertical } from "lucide-react"
-import { useCallback, useEffect, useRef, useState, type FC, type MouseEvent } from "react"
+import { Search, CircleX, Plus, Upload, FolderOpen, ChevronRight, Settings2, Trash2, MoreVertical, GripVertical } from "lucide-react"
+import { useCallback, useEffect, useRef, useState, type FC, type MouseEvent, type DragEvent } from "react"
 import { createPortal } from "react-dom"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useApiClient } from "@/ui/contexts/api-client"
@@ -20,7 +20,7 @@ const METHOD_COLORS: Record<ApiHttpMethod, string> = {
   OPTIONS: 'text-gray-400',
 }
 
-// --- Custom right-click context menu (non-modal, Electron-safe) ---
+// --- Context Menu ---
 
 interface ContextMenuAction {
   label: string
@@ -92,7 +92,49 @@ const RightClickMenu: FC<{
   )
 }
 
-// --- Collection tree item ---
+// --- Drag & Drop Types ---
+
+type DragType = 'item' | 'collection'
+
+interface DragData {
+  type: DragType
+  id: string
+  collectionId?: string // Only for items
+  itemType?: 'request' | 'folder' // Only for items
+}
+
+interface DropTarget {
+  type: 'item' | 'collection' | 'collection-root'
+  id: string
+  collectionId: string
+  position: 'before' | 'after' | 'inside'
+}
+
+// --- Drop Indicator Line Component ---
+
+const DropLine: FC<{ depth: number }> = ({ depth }) => (
+  <div
+    className="h-[2px] bg-sky-500 rounded-full my-[-1px] relative z-10 animate-in fade-in-0 duration-100"
+    style={{ marginLeft: `${8 + depth * 12}px`, marginRight: '8px' }}
+  />
+)
+
+// --- Collapsible Container for smooth expand/collapse ---
+
+const CollapsibleContent: FC<{ isOpen: boolean; children: React.ReactNode }> = ({ isOpen, children }) => (
+  <div
+    className={cn(
+      "grid transition-[grid-template-rows] duration-200 ease-out",
+      isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+    )}
+  >
+    <div className="overflow-hidden">
+      {children}
+    </div>
+  </div>
+)
+
+// --- Collection Tree Item ---
 
 interface CollectionTreeItemProps {
   item: ApiCollectionItem
@@ -113,6 +155,14 @@ interface CollectionTreeItemProps {
   onCancelRename: () => void
   onContextMenu: (e: MouseEvent, actions: ContextMenuAction[]) => void
   depth: number
+  // Drag & drop
+  isDragEnabled: boolean
+  dragData: DragData | null
+  dropTarget: DropTarget | null
+  onDragStart: (data: DragData) => void
+  onDragEnd: () => void
+  onDragOverItem: (e: DragEvent, itemId: string, collectionId: string, itemType: 'request' | 'folder') => void
+  onDrop: () => void
 }
 
 const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
@@ -134,9 +184,54 @@ const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
   onCancelRename,
   onContextMenu,
   depth,
+  isDragEnabled,
+  dragData,
+  dropTarget,
+  onDragStart,
+  onDragEnd,
+  onDragOverItem,
+  onDrop,
 }) => {
   const isExpanded = expandedFolders[item.id] ?? false
   const isEditing = editingItemId === item.id
+  const isDragging = dragData?.type === 'item' && dragData.id === item.id
+
+  // Check if this item is a drop target
+  const isDropTarget = dropTarget?.type === 'item' && dropTarget.id === item.id
+  const showLineBefore = isDropTarget && dropTarget?.position === 'before'
+  const showLineAfter = isDropTarget && dropTarget?.position === 'after'
+  const showInside = isDropTarget && dropTarget?.position === 'inside'
+
+  const canDrag = isDragEnabled && !isEditing
+
+  const handleDragStart = (e: DragEvent) => {
+    if (!canDrag) {
+      e.preventDefault()
+      return
+    }
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', item.id)
+    // Small delay to show the drag effect
+    setTimeout(() => {
+      onDragStart({ type: 'item', id: item.id, collectionId, itemType: item.type })
+    }, 0)
+  }
+
+  const handleDragOver = (e: DragEvent) => {
+    if (!isDragEnabled || !dragData || dragData.id === item.id) return
+    // Don't allow dropping item on itself or dragging collection onto item
+    if (dragData.type === 'collection') return
+
+    e.preventDefault()
+    e.stopPropagation()
+    onDragOverItem(e, item.id, collectionId, item.type)
+  }
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onDrop()
+  }
 
   if (item.type === 'folder') {
     const folderActions: ContextMenuAction[] = [
@@ -149,12 +244,26 @@ const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
     ]
 
     return (
-      <div>
+      <div className="transition-all duration-150">
+        {showLineBefore && <DropLine depth={depth} />}
         <div
+          draggable={canDrag}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onDragEnd={onDragEnd}
           onContextMenu={(e) => onContextMenu(e, folderActions)}
-          className="w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent"
+          className={cn(
+            "group w-full flex items-center gap-1 px-2 py-1 text-xs rounded transition-all duration-150",
+            "hover:bg-accent",
+            isDragging && "opacity-40",
+            showInside && "bg-sky-500/20 ring-1 ring-sky-500/50",
+          )}
           style={{ paddingLeft: `${8 + depth * 12}px` }}
         >
+          {canDrag && (
+            <GripVertical className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/50 flex-shrink-0 cursor-grab transition-colors" />
+          )}
           {isEditing ? (
             <>
               <FolderOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -173,45 +282,55 @@ const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
           ) : (
             <button
               onClick={() => onToggleFolder(item.id)}
-              className="flex items-center gap-1.5 flex-1 text-left"
+              className="flex items-center gap-1 flex-1 text-left"
             >
-              {isExpanded ? (
-                <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-              ) : (
-                <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-              )}
-              <FolderOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <ChevronRight className={cn(
+                "h-3 w-3 text-muted-foreground flex-shrink-0 transition-transform duration-200",
+                isExpanded && "rotate-90"
+              )} />
+              <FolderOpen className="h-3.5 w-3.5 text-amber-500/70 flex-shrink-0" />
               <span className="truncate">{item.name}</span>
             </button>
           )}
         </div>
-        {isExpanded && item.items?.map((child) => (
-          <CollectionTreeItem
-            key={child.id}
-            item={child}
-            collectionId={collectionId}
-            expandedFolders={expandedFolders}
-            selectedRequestId={selectedRequestId}
-            editingItemId={editingItemId}
-            editingValue={editingValue}
-            onEditingValueChange={onEditingValueChange}
-            onToggleFolder={onToggleFolder}
-            onSelectRequest={onSelectRequest}
-            onAddRequest={onAddRequest}
-            onAddFolder={onAddFolder}
-            onDeleteItem={onDeleteItem}
-            onDuplicateItem={onDuplicateItem}
-            onStartRename={onStartRename}
-            onCommitRename={onCommitRename}
-            onCancelRename={onCancelRename}
-            onContextMenu={onContextMenu}
-            depth={depth + 1}
-          />
-        ))}
+        <CollapsibleContent isOpen={isExpanded}>
+          {item.items?.map((child) => (
+            <CollectionTreeItem
+              key={child.id}
+              item={child}
+              collectionId={collectionId}
+              expandedFolders={expandedFolders}
+              selectedRequestId={selectedRequestId}
+              editingItemId={editingItemId}
+              editingValue={editingValue}
+              onEditingValueChange={onEditingValueChange}
+              onToggleFolder={onToggleFolder}
+              onSelectRequest={onSelectRequest}
+              onAddRequest={onAddRequest}
+              onAddFolder={onAddFolder}
+              onDeleteItem={onDeleteItem}
+              onDuplicateItem={onDuplicateItem}
+              onStartRename={onStartRename}
+              onCommitRename={onCommitRename}
+              onCancelRename={onCancelRename}
+              onContextMenu={onContextMenu}
+              depth={depth + 1}
+              isDragEnabled={isDragEnabled}
+              dragData={dragData}
+              dropTarget={dropTarget}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onDragOverItem={onDragOverItem}
+              onDrop={onDrop}
+            />
+          ))}
+        </CollapsibleContent>
+        {showLineAfter && <DropLine depth={depth} />}
       </div>
     )
   }
 
+  // Request item
   const method = item.request?.method ?? 'GET'
 
   const requestActions: ContextMenuAction[] = [
@@ -221,39 +340,53 @@ const CollectionTreeItem: FC<CollectionTreeItemProps> = ({
   ]
 
   return (
-    <div
-      onClick={() => { if (!isEditing) onSelectRequest(item.id) }}
-      onContextMenu={(e) => onContextMenu(e, requestActions)}
-      className={cn(
-        "w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent cursor-default",
-        selectedRequestId === item.id && "bg-accent",
-      )}
-      style={{ paddingLeft: `${8 + depth * 12}px` }}
-    >
-      <span className={cn("text-[9px] font-bold uppercase flex-shrink-0 w-9", METHOD_COLORS[method])}>
-        {method}
-      </span>
-      {isEditing ? (
-        <input
-          autoFocus
-          value={editingValue}
-          onChange={(e) => onEditingValueChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') onCommitRename(collectionId, item.id)
-            if (e.key === 'Escape') onCancelRename()
-          }}
-          onBlur={() => onCommitRename(collectionId, item.id)}
-          onClick={(e) => e.stopPropagation()}
-          className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-xs outline-none min-w-0"
-        />
-      ) : (
-        <span className="truncate">{item.name}</span>
-      )}
+    <div className="transition-all duration-150">
+      {showLineBefore && <DropLine depth={depth} />}
+      <div
+        draggable={canDrag}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onDragEnd={onDragEnd}
+        onClick={() => { if (!isEditing) onSelectRequest(item.id) }}
+        onContextMenu={(e) => onContextMenu(e, requestActions)}
+        className={cn(
+          "group w-full flex items-center gap-1 px-2 py-1 text-xs rounded cursor-default transition-all duration-150",
+          "hover:bg-accent",
+          selectedRequestId === item.id && "bg-accent",
+          isDragging && "opacity-40",
+        )}
+        style={{ paddingLeft: `${8 + depth * 12}px` }}
+      >
+        {canDrag && (
+          <GripVertical className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/50 flex-shrink-0 cursor-grab transition-colors" />
+        )}
+        <span className={cn("text-[9px] font-bold uppercase flex-shrink-0 w-8", METHOD_COLORS[method])}>
+          {method}
+        </span>
+        {isEditing ? (
+          <input
+            autoFocus
+            value={editingValue}
+            onChange={(e) => onEditingValueChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onCommitRename(collectionId, item.id)
+              if (e.key === 'Escape') onCancelRename()
+            }}
+            onBlur={() => onCommitRename(collectionId, item.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-xs outline-none min-w-0"
+          />
+        ) : (
+          <span className="truncate">{item.name}</span>
+        )}
+      </div>
+      {showLineAfter && <DropLine depth={depth} />}
     </div>
   )
 }
 
-// --- Main menu component ---
+// --- Main Menu Component ---
 
 export const ApiClientMenu: FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -276,9 +409,15 @@ export const ApiClientMenu: FC = () => {
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
-  const editingCollectionIdRef = useRef<string | null>(null)
   const [editingCollectionNameId, setEditingCollectionNameId] = useState<string | null>(null)
   const [editingCollectionNameValue, setEditingCollectionNameValue] = useState('')
+
+  // Drag & drop state - use refs to avoid stale closures in event handlers
+  const [dragData, setDragData] = useState<DragData | null>(null)
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
+  const dragDataRef = useRef<DragData | null>(null)
+  const dropTargetRef = useRef<DropTarget | null>(null)
+  const isDroppedRef = useRef(false)
 
   const openInputDialog = useCallback((label: string, callback: (value: string) => void, defaultValue = '') => {
     setInputDialogLabel(label)
@@ -319,7 +458,6 @@ export const ApiClientMenu: FC = () => {
     workspaces,
     activeWorkspace,
     activeWorkspaceId,
-    loading,
     selectedRequestId,
     history,
     createWorkspace,
@@ -334,9 +472,152 @@ export const ApiClientMenu: FC = () => {
     renameItem,
     duplicateItem,
     deleteItem,
+    moveItem,
+    reorderCollection,
     selectRequest,
     createScratchRequest,
   } = useApiClient()
+
+  // Disable drag during search
+  const isDragEnabled = !searchTerm
+
+  // --- Drag & Drop Handlers ---
+
+  const handleDragStart = useCallback((data: DragData) => {
+    dragDataRef.current = data
+    isDroppedRef.current = false
+    setDragData(data)
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    // Only clear if drop didn't happen (e.g., drag cancelled)
+    // Use setTimeout to let handleDrop run first if both events fire
+    setTimeout(() => {
+      if (!isDroppedRef.current) {
+        dragDataRef.current = null
+        dropTargetRef.current = null
+        setDragData(null)
+        setDropTarget(null)
+      }
+    }, 0)
+  }, [])
+
+  const handleDragOverItem = useCallback((e: DragEvent, itemId: string, collectionId: string, itemType: 'request' | 'folder') => {
+    if (!dragDataRef.current) return
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const height = rect.height
+
+    let position: 'before' | 'after' | 'inside'
+
+    if (itemType === 'folder') {
+      // Folder: 30% top = before, 40% middle = inside, 30% bottom = after
+      if (y < height * 0.3) {
+        position = 'before'
+      } else if (y > height * 0.7) {
+        position = 'after'
+      } else {
+        position = 'inside'
+      }
+    } else {
+      // Request: 50% top = before, 50% bottom = after
+      position = y < height * 0.5 ? 'before' : 'after'
+    }
+
+    const target = { type: 'item' as const, id: itemId, collectionId, position }
+    dropTargetRef.current = target
+    setDropTarget(target)
+  }, [])
+
+  const handleDragOverCollection = useCallback((e: DragEvent, collectionId: string) => {
+    if (!dragDataRef.current) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    let target: DropTarget
+    if (dragDataRef.current.type === 'collection') {
+      // Collection being dragged over another collection
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const y = e.clientY - rect.top
+      const height = rect.height
+      const position = y < height * 0.5 ? 'before' : 'after'
+      target = { type: 'collection', id: collectionId, collectionId, position }
+    } else {
+      // Item being dragged to collection root
+      target = { type: 'collection-root', id: collectionId, collectionId, position: 'inside' }
+    }
+    dropTargetRef.current = target
+    setDropTarget(target)
+  }, [])
+
+  const handleDrop = useCallback(async () => {
+    const currentDragData = dragDataRef.current
+    const currentDropTarget = dropTargetRef.current
+
+    if (!currentDragData || !currentDropTarget) {
+      dragDataRef.current = null
+      dropTargetRef.current = null
+      setDragData(null)
+      setDropTarget(null)
+      return
+    }
+
+    // Mark as dropped to prevent handleDragEnd from clearing
+    isDroppedRef.current = true
+
+    // Don't drop on self
+    if (currentDragData.id === currentDropTarget.id) {
+      dragDataRef.current = null
+      dropTargetRef.current = null
+      setDragData(null)
+      setDropTarget(null)
+      return
+    }
+
+    try {
+      if (currentDragData.type === 'collection') {
+        // Reorder collection
+        if (currentDropTarget.type === 'collection') {
+          await reorderCollection(
+            currentDragData.id,
+            currentDropTarget.id,
+            currentDropTarget.position as 'before' | 'after'
+          )
+        }
+      } else {
+        // Move item
+        if (currentDropTarget.type === 'item') {
+          await moveItem(
+            currentDragData.collectionId!,
+            currentDragData.id,
+            currentDropTarget.collectionId,
+            currentDropTarget.id,
+            currentDropTarget.position
+          )
+        } else if (currentDropTarget.type === 'collection-root') {
+          // Move to collection root (end of collection)
+          await moveItem(
+            currentDragData.collectionId!,
+            currentDragData.id,
+            currentDropTarget.collectionId,
+            null,
+            'inside'
+          )
+        }
+      }
+    } catch (error) {
+      console.error('Drop failed:', error)
+    }
+
+    // Clear state after operation
+    dragDataRef.current = null
+    dropTargetRef.current = null
+    setDragData(null)
+    setDropTarget(null)
+  }, [moveItem, reorderCollection])
+
+  // --- Other Handlers ---
 
   const handleToggleFolder = (folderId: string) => {
     setExpandedFolders((prev) => ({
@@ -434,7 +715,6 @@ export const ApiClientMenu: FC = () => {
 
   const collections = activeWorkspace?.collections ?? []
   const environments = activeWorkspace?.environments ?? []
-  const activeEnvironment = environments.find((e) => e.id === activeWorkspace?.activeEnvironmentId)
 
   const filterItems = (items: ApiCollectionItem[]): ApiCollectionItem[] => {
     if (!searchTerm) return items
@@ -479,11 +759,7 @@ export const ApiClientMenu: FC = () => {
             </select>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 flex-shrink-0"
-                >
+                <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
                   <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -501,7 +777,7 @@ export const ApiClientMenu: FC = () => {
                   className="text-destructive focus:text-destructive"
                   onClick={() => {
                     if (activeWorkspaceId && activeWorkspace) {
-                      openConfirmDialog(`Delete workspace "${activeWorkspace.name}"? This will remove all collections and requests.`, () => {
+                      openConfirmDialog(`Delete workspace "${activeWorkspace.name}"?`, () => {
                         deleteWorkspace(activeWorkspaceId)
                       })
                     }
@@ -521,9 +797,7 @@ export const ApiClientMenu: FC = () => {
               value={newWorkspaceName}
               onChange={(e) => setNewWorkspaceName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleCreateWorkspace()
-                }
+                if (e.key === 'Enter') handleCreateWorkspace()
               }}
               className="h-7 text-xs"
             />
@@ -555,9 +829,7 @@ export const ApiClientMenu: FC = () => {
               >
                 <option value="">No environment</option>
                 {environments.map((env) => (
-                  <option key={env.id} value={env.id}>
-                    {env.name}
-                  </option>
+                  <option key={env.id} value={env.id}>{env.name}</option>
                 ))}
               </select>
             ) : (
@@ -580,22 +852,14 @@ export const ApiClientMenu: FC = () => {
           <div className="flex items-center gap-1.5 mb-2 px-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 flex items-center gap-1 text-[11px] px-2"
-                >
+                <Button variant="outline" size="sm" className="h-7 flex items-center gap-1 text-[11px] px-2">
                   <Upload className="h-3 w-3" />
                   Import
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={importPostmanCollection}>
-                  Collection
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={importPostmanEnvironment}>
-                  Environment
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={importPostmanCollection}>Collection</DropdownMenuItem>
+                <DropdownMenuItem onClick={importPostmanEnvironment}>Environment</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
@@ -618,7 +882,7 @@ export const ApiClientMenu: FC = () => {
             </Button>
           </div>
 
-          {/* Search Input */}
+          {/* Search */}
           <div className="relative h-7 mb-3 px-4">
             <Search className="absolute left-6 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -639,47 +903,95 @@ export const ApiClientMenu: FC = () => {
             )}
           </div>
 
-          {/* Collection Tree */}
+          {/* Collections */}
           <ScrollArea className="h-[calc(100vh-80px-40px-80px-35px-20px-140px)]">
-            <div className="px-1">
-              {loading && (
-                <div className="flex items-center justify-center py-6 text-muted-foreground text-xs">
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin mr-2" />
-                  Loading...
-                </div>
-              )}
-
-              {!loading && collections.length === 0 && (
+            <div className="px-1 relative">
+              {collections.length === 0 && (
                 <div className="px-3 py-6 text-xs text-muted-foreground text-center">
                   No collections yet. Import or create one.
                 </div>
               )}
 
-              {!loading && collections.map((collection) => {
-                const isExpanded = expandedCollections[collection.id] ?? true
+              {/* Top drop zone - absolute positioned, doesn't affect layout */}
+              {collections.length > 0 && dragData?.type === 'collection' && (
+                <div
+                  className="absolute top-0 left-0 right-0 h-4 z-10"
+                  onDragOver={(e) => {
+                    if (!dragDataRef.current || dragDataRef.current.type !== 'collection') return
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const firstCollection = collections[0]
+                    if (firstCollection && dragDataRef.current.id !== firstCollection.id) {
+                      const target: DropTarget = { type: 'collection', id: firstCollection.id, collectionId: firstCollection.id, position: 'before' }
+                      dropTargetRef.current = target
+                      setDropTarget(target)
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleDrop()
+                  }}
+                />
+              )}
+
+              {collections.map((collection) => {
+                const isExpanded = expandedCollections[collection.id] ?? false
                 const filteredItems = filterItems(collection.items)
+                const isEditingCollection = editingCollectionNameId === collection.id
+                const isDraggingCollection = dragData?.type === 'collection' && dragData.id === collection.id
+                const isCollectionDropTarget = dropTarget?.type === 'collection' && dropTarget.id === collection.id
+                const isRootDropTarget = dropTarget?.type === 'collection-root' && dropTarget.id === collection.id
 
                 if (searchTerm && filteredItems.length === 0) return null
 
-                const isEditingCollection = editingCollectionNameId === collection.id
                 const collectionActions: ContextMenuAction[] = [
                   { label: 'Add Request', onClick: () => handleAddRequest(collection.id, null) },
                   { label: 'Add Folder', onClick: () => handleAddFolder(collection.id, null) },
                   { label: 'Edit Authorization', onClick: () => selectRequest(`collection-settings:${collection.id}`), separator: true },
                   { label: 'Rename', onClick: () => handleStartCollectionRename(collection.id, collection.name) },
-                  { label: 'Duplicate', onClick: () => {
-                    createCollection(`Copy of ${collection.name}`)
-                  } },
-                  { label: 'Export', onClick: () => {}, disabled: true, separator: true },
+                  { label: 'Duplicate', onClick: () => createCollection(`Copy of ${collection.name}`) },
                   { label: 'Delete Collection', onClick: () => handleDeleteCollection(collection.id), variant: 'destructive', separator: true },
                 ]
 
                 return (
-                  <div key={collection.id} className="mb-0.5">
+                  <div key={collection.id} className="mb-0.5 transition-all duration-150">
+                    {/* Drop line before collection */}
+                    {isCollectionDropTarget && dropTarget?.position === 'before' && (
+                      <div className="h-[2px] bg-sky-500 rounded-full mx-2 my-[-1px]" />
+                    )}
+
                     <div
+                      draggable={isDragEnabled && !isEditingCollection}
+                      onDragStart={(e) => {
+                        if (!isDragEnabled || isEditingCollection) {
+                          e.preventDefault()
+                          return
+                        }
+                        e.dataTransfer.effectAllowed = 'move'
+                        e.dataTransfer.setData('text/plain', collection.id)
+                        setTimeout(() => {
+                          handleDragStart({ type: 'collection', id: collection.id })
+                        }, 0)
+                      }}
+                      onDragOver={(e) => handleDragOverCollection(e, collection.id)}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleDrop()
+                      }}
+                      onDragEnd={handleDragEnd}
                       onContextMenu={(e) => handleRightClick(e, collectionActions)}
-                      className="w-full flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded hover:bg-accent"
+                      className={cn(
+                        "group w-full flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all duration-150",
+                        "hover:bg-accent",
+                        isDraggingCollection && "opacity-40",
+                        isRootDropTarget && "bg-sky-500/20 ring-1 ring-sky-500/50",
+                      )}
                     >
+                      {isDragEnabled && !isEditingCollection && (
+                        <GripVertical className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/50 flex-shrink-0 cursor-grab transition-colors" />
+                      )}
                       {isEditingCollection ? (
                         <input
                           autoFocus
@@ -695,13 +1007,12 @@ export const ApiClientMenu: FC = () => {
                       ) : (
                         <button
                           onClick={() => handleToggleCollection(collection.id)}
-                          className="flex items-center gap-1.5 flex-1 text-left"
+                          className="flex items-center gap-1 flex-1 text-left"
                         >
-                          {isExpanded ? (
-                            <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          ) : (
-                            <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          )}
+                          <ChevronRight className={cn(
+                            "h-3 w-3 text-muted-foreground flex-shrink-0 transition-transform duration-200",
+                            isExpanded && "rotate-90"
+                          )} />
                           <span className="truncate">{collection.name}</span>
                           <span className="ml-auto text-[9px] text-muted-foreground">
                             {collection.items.length}
@@ -709,50 +1020,63 @@ export const ApiClientMenu: FC = () => {
                         </button>
                       )}
                     </div>
-                    {isExpanded && (searchTerm ? filteredItems : collection.items).map((item) => (
-                      <CollectionTreeItem
-                        key={item.id}
-                        item={item}
-                        collectionId={collection.id}
-                        expandedFolders={expandedFolders}
-                        selectedRequestId={selectedRequestId}
-                        editingItemId={editingItemId}
-                        editingValue={editingValue}
-                        onEditingValueChange={setEditingValue}
-                        onToggleFolder={handleToggleFolder}
-                        onSelectRequest={selectRequest}
-                        onAddRequest={handleAddRequest}
-                        onAddFolder={handleAddFolder}
-                        onDeleteItem={handleDeleteItem}
-                        onDuplicateItem={handleDuplicateItem}
-                        onStartRename={handleStartRename}
-                        onCommitRename={handleCommitRename}
-                        onCancelRename={handleCancelRename}
-                        onContextMenu={handleRightClick}
-                        depth={1}
-                      />
-                    ))}
+
+                    {/* Collection items */}
+                    <CollapsibleContent isOpen={isExpanded || !!searchTerm}>
+                      {(searchTerm ? filteredItems : collection.items).map((item) => (
+                        <CollectionTreeItem
+                          key={item.id}
+                          item={item}
+                          collectionId={collection.id}
+                          expandedFolders={expandedFolders}
+                          selectedRequestId={selectedRequestId}
+                          editingItemId={editingItemId}
+                          editingValue={editingValue}
+                          onEditingValueChange={setEditingValue}
+                          onToggleFolder={handleToggleFolder}
+                          onSelectRequest={selectRequest}
+                          onAddRequest={handleAddRequest}
+                          onAddFolder={handleAddFolder}
+                          onDeleteItem={handleDeleteItem}
+                          onDuplicateItem={handleDuplicateItem}
+                          onStartRename={handleStartRename}
+                          onCommitRename={handleCommitRename}
+                          onCancelRename={handleCancelRename}
+                          onContextMenu={handleRightClick}
+                          depth={1}
+                          isDragEnabled={isDragEnabled}
+                          dragData={dragData}
+                          dropTarget={dropTarget}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onDragOverItem={handleDragOverItem}
+                          onDrop={handleDrop}
+                        />
+                      ))}
+                    </CollapsibleContent>
+
+                    {/* Drop line after collection */}
+                    {isCollectionDropTarget && dropTarget?.position === 'after' && (
+                      <div className="h-[2px] bg-sky-500 rounded-full mx-2 my-[-1px]" />
+                    )}
                   </div>
                 )
               })}
             </div>
           </ScrollArea>
 
-          {/* History Section */}
+          {/* History */}
           <div className="border-t">
             <button
               onClick={() => setHistoryExpanded((prev) => !prev)}
               className="w-full flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium hover:bg-accent text-left"
             >
-              {historyExpanded ? (
-                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="h-3 w-3 text-muted-foreground" />
-              )}
+              <ChevronRight className={cn(
+                "h-3 w-3 text-muted-foreground transition-transform duration-200",
+                historyExpanded && "rotate-90"
+              )} />
               History
-              <span className="ml-auto text-[9px] text-muted-foreground">
-                {history.length}
-              </span>
+              <span className="ml-auto text-[9px] text-muted-foreground">{history.length}</span>
             </button>
             {historyExpanded && (
               <ScrollArea className="max-h-[180px]">
@@ -768,10 +1092,7 @@ export const ApiClientMenu: FC = () => {
                       onClick={() => selectRequest(entry.id)}
                       className="w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent text-left"
                     >
-                      <span className={cn(
-                        "text-[9px] font-bold uppercase flex-shrink-0 w-9",
-                        METHOD_COLORS[entry.request.method],
-                      )}>
+                      <span className={cn("text-[9px] font-bold uppercase flex-shrink-0 w-9", METHOD_COLORS[entry.request.method])}>
                         {entry.request.method}
                       </span>
                       <span className="truncate text-[11px] text-muted-foreground">{entry.request.url}</span>
@@ -786,7 +1107,7 @@ export const ApiClientMenu: FC = () => {
 
       <EnvironmentManager open={envManagerOpen} onOpenChange={setEnvManagerOpen} />
 
-      {/* Input Dialog (for creating collections, requests, folders, workspaces) */}
+      {/* Input Dialog */}
       <Dialog open={inputDialogOpen} onOpenChange={setInputDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -803,17 +1124,13 @@ export const ApiClientMenu: FC = () => {
             }}
           />
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setInputDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleInputDialogConfirm} disabled={!inputDialogValue.trim()}>
-              Create
-            </Button>
+            <Button variant="ghost" onClick={() => setInputDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleInputDialogConfirm} disabled={!inputDialogValue.trim()}>Create</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Dialog (for delete operations) */}
+      {/* Confirm Dialog */}
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -821,20 +1138,14 @@ export const ApiClientMenu: FC = () => {
             <DialogDescription>{confirmDialogMessage}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDialogConfirm}>
-              Delete
-            </Button>
+            <Button variant="ghost" onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleConfirmDialogConfirm}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Right-click context menu (non-modal, rendered via portal) */}
-      {rightClickMenu && (
-        <RightClickMenu menu={rightClickMenu} onClose={closeRightClickMenu} />
-      )}
+      {/* Context Menu */}
+      {rightClickMenu && <RightClickMenu menu={rightClickMenu} onClose={closeRightClickMenu} />}
     </div>
   )
 }

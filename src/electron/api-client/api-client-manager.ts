@@ -139,6 +139,46 @@ function deleteItemFromTree(
     })
 }
 
+function insertItemAtPosition(
+  items: ApiCollectionItem[],
+  newItem: ApiCollectionItem,
+  targetId: string | null,
+  position: 'before' | 'after' | 'inside'
+): ApiCollectionItem[] {
+  // If no target, insert at the end
+  if (!targetId) {
+    return [...items, newItem]
+  }
+
+  const result: ApiCollectionItem[] = []
+  for (const item of items) {
+    if (item.id === targetId) {
+      if (position === 'before') {
+        result.push(newItem)
+        result.push(item)
+      } else if (position === 'after') {
+        result.push(item)
+        result.push(newItem)
+      } else if (position === 'inside' && item.type === 'folder') {
+        result.push({
+          ...item,
+          items: [...(item.items || []), newItem],
+        })
+      } else {
+        result.push(item)
+      }
+    } else if (item.items) {
+      result.push({
+        ...item,
+        items: insertItemAtPosition(item.items, newItem, targetId, position),
+      })
+    } else {
+      result.push(item)
+    }
+  }
+  return result
+}
+
 // ─── Manager ───
 
 class ApiClientManager {
@@ -244,6 +284,58 @@ class ApiClientManager {
         updatedAt: now,
       }
     })
+    store.set('apiWorkspaces', workspaces)
+    this.emitWorkspaces(workspaces)
+  }
+
+  reorderCollection(
+    workspaceId: string,
+    collectionId: string,
+    targetCollectionId: string | null,
+    position: 'before' | 'after'
+  ): void {
+    const now = Date.now()
+    const workspaces = this.getWorkspaces().map((w) => {
+      if (w.id !== workspaceId) return w
+
+      const collection = w.collections.find(c => c.id === collectionId)
+      if (!collection) return w
+
+      // Remove the collection from its current position
+      const collectionsWithoutMoved = w.collections.filter(c => c.id !== collectionId)
+
+      // If no target, add at the end
+      if (!targetCollectionId) {
+        return {
+          ...w,
+          collections: [...collectionsWithoutMoved, collection],
+          updatedAt: now,
+        }
+      }
+
+      // Insert at the target position
+      const newCollections: ApiCollection[] = []
+      for (const c of collectionsWithoutMoved) {
+        if (c.id === targetCollectionId) {
+          if (position === 'before') {
+            newCollections.push(collection)
+            newCollections.push(c)
+          } else {
+            newCollections.push(c)
+            newCollections.push(collection)
+          }
+        } else {
+          newCollections.push(c)
+        }
+      }
+
+      return {
+        ...w,
+        collections: newCollections,
+        updatedAt: now,
+      }
+    })
+
     store.set('apiWorkspaces', workspaces)
     this.emitWorkspaces(workspaces)
   }
@@ -472,6 +564,64 @@ class ApiClientManager {
 
     store.set('apiWorkspaces', workspaces)
     this.emitWorkspaces(workspaces)
+  }
+
+  moveItem(
+    workspaceId: string,
+    sourceCollectionId: string,
+    itemId: string,
+    targetCollectionId: string,
+    targetId: string | null,
+    position: 'before' | 'after' | 'inside'
+  ): void {
+    const now = Date.now()
+    let movedItem: ApiCollectionItem | null = null
+
+    // First, find and extract the item from source collection
+    const workspaces = this.getWorkspaces().map((w) => {
+      if (w.id !== workspaceId) return w
+
+      // Find the item first
+      const sourceCollection = w.collections.find(c => c.id === sourceCollectionId)
+      if (sourceCollection) {
+        movedItem = findItemInTree(sourceCollection.items, itemId)
+      }
+
+      return {
+        ...w,
+        collections: w.collections.map((c) => {
+          if (c.id !== sourceCollectionId) return c
+          return {
+            ...c,
+            items: deleteItemFromTree(c.items, itemId),
+            updatedAt: now,
+          }
+        }),
+        updatedAt: now,
+      }
+    })
+
+    if (!movedItem) return
+
+    // Then insert at target position
+    const finalWorkspaces = workspaces.map((w) => {
+      if (w.id !== workspaceId) return w
+      return {
+        ...w,
+        collections: w.collections.map((c) => {
+          if (c.id !== targetCollectionId) return c
+          return {
+            ...c,
+            items: insertItemAtPosition(c.items, movedItem!, targetId, position),
+            updatedAt: now,
+          }
+        }),
+        updatedAt: now,
+      }
+    })
+
+    store.set('apiWorkspaces', finalWorkspaces)
+    this.emitWorkspaces(finalWorkspaces)
   }
 
   // ─── Environment CRUD ───

@@ -1009,6 +1009,10 @@ type EventPayloadMapping = {
     return: void;
     args: [string, string, Partial<ApiCollection>];
   }
+  apiReorderCollection: {
+    return: void;
+    args: [string, string, string | null, 'before' | 'after'];
+  }
   apiAddRequest: {
     return: ApiCollectionItem;
     args: [string, string, string | null, ApiRequestConfig];
@@ -1032,6 +1036,10 @@ type EventPayloadMapping = {
   apiDeleteItem: {
     return: void;
     args: [string, string, string];
+  }
+  apiMoveItem: {
+    return: void;
+    args: [string, string, string, string, string | null, 'before' | 'after' | 'inside'];
   }
   apiUpdateFolderAuth: {
     return: void;
@@ -1504,12 +1512,14 @@ interface Window {
     apiCreateCollection: (workspaceId: string, name: string) => Promise<ApiCollection>
     apiDeleteCollection: (workspaceId: string, collectionId: string) => Promise<void>
     apiUpdateCollection: (workspaceId: string, collectionId: string, data: Partial<ApiCollection>) => Promise<void>
+    apiReorderCollection: (workspaceId: string, collectionId: string, targetCollectionId: string | null, position: 'before' | 'after') => Promise<void>
     apiAddRequest: (workspaceId: string, collectionId: string, parentFolderId: string | null, config: ApiRequestConfig) => Promise<ApiCollectionItem>
     apiAddFolder: (workspaceId: string, collectionId: string, parentFolderId: string | null, name: string) => Promise<ApiCollectionItem>
     apiUpdateRequest: (workspaceId: string, collectionId: string, itemId: string, config: ApiRequestConfig) => Promise<void>
     apiRenameItem: (workspaceId: string, collectionId: string, itemId: string, name: string) => Promise<void>
     apiDuplicateItem: (workspaceId: string, collectionId: string, itemId: string) => Promise<ApiCollectionItem | null>
     apiDeleteItem: (workspaceId: string, collectionId: string, itemId: string) => Promise<void>
+    apiMoveItem: (workspaceId: string, sourceCollectionId: string, itemId: string, targetCollectionId: string, targetId: string | null, position: 'before' | 'after' | 'inside') => Promise<void>
     apiUpdateFolderAuth: (workspaceId: string, collectionId: string, folderId: string, auth: ApiAuth) => Promise<void>
     apiUpdateCollectionAuth: (workspaceId: string, collectionId: string, auth: ApiAuth) => Promise<void>
     apiGetResolvedAuth: (workspaceId: string, collectionId: string, requestId: string) => Promise<ResolvedAuthInfo | null>

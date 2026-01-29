@@ -23,6 +23,8 @@ interface ApiClientContextValue {
   renameItem: (collectionId: string, itemId: string, name: string) => Promise<void>
   duplicateItem: (collectionId: string, itemId: string) => Promise<void>
   deleteItem: (collectionId: string, itemId: string) => Promise<void>
+  moveItem: (sourceCollectionId: string, itemId: string, targetCollectionId: string, targetId: string | null, position: 'before' | 'after' | 'inside') => Promise<void>
+  reorderCollection: (collectionId: string, targetCollectionId: string | null, position: 'before' | 'after') => Promise<void>
   selectRequest: (requestId: string | null) => void
   createEnvironment: (name: string) => Promise<void>
   updateEnvironment: (envId: string, env: ApiEnvironment) => Promise<void>
@@ -59,6 +61,8 @@ export const ApiClientContext = createContext<ApiClientContextValue>({
   renameItem: async () => {},
   duplicateItem: async () => {},
   deleteItem: async () => {},
+  moveItem: async () => {},
+  reorderCollection: async () => {},
   selectRequest: () => {},
   createEnvironment: async () => {},
   updateEnvironment: async () => {},
@@ -251,6 +255,28 @@ export const ApiClientProvider: FC<PropsWithChildren> = ({ children }) => {
     await loadWorkspaces()
   }, [activeWorkspaceId, loadWorkspaces])
 
+  const moveItem = useCallback(async (
+    sourceCollectionId: string,
+    itemId: string,
+    targetCollectionId: string,
+    targetId: string | null,
+    position: 'before' | 'after' | 'inside'
+  ) => {
+    if (!activeWorkspaceId) return
+    await window.electron.apiMoveItem(activeWorkspaceId, sourceCollectionId, itemId, targetCollectionId, targetId, position)
+    await loadWorkspaces()
+  }, [activeWorkspaceId, loadWorkspaces])
+
+  const reorderCollection = useCallback(async (
+    collectionId: string,
+    targetCollectionId: string | null,
+    position: 'before' | 'after'
+  ) => {
+    if (!activeWorkspaceId) return
+    await window.electron.apiReorderCollection(activeWorkspaceId, collectionId, targetCollectionId, position)
+    await loadWorkspaces()
+  }, [activeWorkspaceId, loadWorkspaces])
+
   const selectRequest = useCallback((requestId: string | null) => {
     setSelectedRequestId(requestId)
     setScratchRequest(null)
@@ -381,6 +407,8 @@ export const ApiClientProvider: FC<PropsWithChildren> = ({ children }) => {
         renameItem,
         duplicateItem,
         deleteItem,
+        moveItem,
+        reorderCollection,
         selectRequest,
         createEnvironment,
         updateEnvironment,
