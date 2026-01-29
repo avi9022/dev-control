@@ -1,6 +1,66 @@
 import crypto from 'node:crypto'
 import { resolveRequestConfig, resolveInheritedAuth } from './variable-resolver.js'
 
+// Strip comments from JSONC for sending (supports // and /* */ comments)
+function stripJsonComments(jsonc: string): string {
+  let result = ''
+  let i = 0
+  let inString = false
+  let stringChar = ''
+
+  while (i < jsonc.length) {
+    const char = jsonc[i]
+    const nextChar = jsonc[i + 1]
+
+    // Handle string state
+    if (inString) {
+      result += char
+      if (char === '\\' && i + 1 < jsonc.length) {
+        result += nextChar
+        i += 2
+        continue
+      }
+      if (char === stringChar) {
+        inString = false
+      }
+      i++
+      continue
+    }
+
+    // Check for string start
+    if (char === '"' || char === "'") {
+      inString = true
+      stringChar = char
+      result += char
+      i++
+      continue
+    }
+
+    // Check for single-line comment
+    if (char === '/' && nextChar === '/') {
+      while (i < jsonc.length && jsonc[i] !== '\n') {
+        i++
+      }
+      continue
+    }
+
+    // Check for multi-line comment
+    if (char === '/' && nextChar === '*') {
+      i += 2
+      while (i < jsonc.length - 1 && !(jsonc[i] === '*' && jsonc[i + 1] === '/')) {
+        i++
+      }
+      i += 2
+      continue
+    }
+
+    result += char
+    i++
+  }
+
+  return result
+}
+
 let activeAbortController: AbortController | null = null
 
 export async function executeRequest(
@@ -261,7 +321,8 @@ function buildBody(
       if (!headers.resolved['Content-Type'] && !headers.resolved['content-type']) {
         headers.resolved['Content-Type'] = 'application/json'
       }
-      return body.content
+      // Strip comments before sending (JSONC -> JSON)
+      return stripJsonComments(body.content)
     }
     case 'raw': {
       return body.content

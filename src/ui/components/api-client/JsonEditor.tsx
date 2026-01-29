@@ -9,6 +9,68 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useVariableMap } from './VariableHighlight'
 import { VariableEditPopup } from './VariableEditPopup'
 
+// Strip comments from JSONC for parsing (supports // and /* */ comments)
+function stripJsonComments(jsonc: string): string {
+  let result = ''
+  let i = 0
+  let inString = false
+  let stringChar = ''
+
+  while (i < jsonc.length) {
+    const char = jsonc[i]
+    const nextChar = jsonc[i + 1]
+
+    // Handle string state
+    if (inString) {
+      result += char
+      if (char === '\\' && i + 1 < jsonc.length) {
+        // Escape sequence - include next char
+        result += nextChar
+        i += 2
+        continue
+      }
+      if (char === stringChar) {
+        inString = false
+      }
+      i++
+      continue
+    }
+
+    // Check for string start
+    if (char === '"' || char === "'") {
+      inString = true
+      stringChar = char
+      result += char
+      i++
+      continue
+    }
+
+    // Check for single-line comment
+    if (char === '/' && nextChar === '/') {
+      // Skip until end of line
+      while (i < jsonc.length && jsonc[i] !== '\n') {
+        i++
+      }
+      continue
+    }
+
+    // Check for multi-line comment
+    if (char === '/' && nextChar === '*') {
+      i += 2
+      while (i < jsonc.length - 1 && !(jsonc[i] === '*' && jsonc[i + 1] === '/')) {
+        i++
+      }
+      i += 2 // Skip */
+      continue
+    }
+
+    result += char
+    i++
+  }
+
+  return result
+}
+
 // Configure custom theme matching app colors
 loader.init().then((monaco) => {
   monaco.editor.defineTheme('dev-control-dark', {
@@ -133,6 +195,13 @@ export const JsonEditor: FC<JsonEditorProps> = ({
     editorRef.current = editor
     monacoRef.current = monaco
 
+    // Disable JSON validation to allow comments (we do our own validation)
+    monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+      validate: false,
+      allowComments: true,
+      trailingCommas: 'ignore',
+    })
+
     // Add CSS for variable highlighting
     const styleEl = document.getElementById('monaco-variable-styles') || document.createElement('style')
     styleEl.id = 'monaco-variable-styles'
@@ -235,12 +304,14 @@ export const JsonEditor: FC<JsonEditorProps> = ({
   }, [vars, cancelClose, scheduleClose])
 
   // Replace {{variables}} with placeholder strings for JSON validation
-  // Don't add quotes - variables are usually already inside quoted strings
+  // Also strip comments for validation (JSONC support)
   const valueForValidation = useMemo(() => {
-    return value.replace(/\{\{[^}]+\}\}/g, '__VAR__')
+    const withoutComments = stripJsonComments(value)
+    return withoutComments.replace(/\{\{[^}]+\}\}/g, '__VAR__')
   }, [value])
 
   const hasVariables = useMemo(() => /\{\{[^}]+\}\}/.test(value), [value])
+  const hasComments = useMemo(() => /\/\/|\/\*/.test(value), [value])
 
   const jsonError = useMemo(() => {
     if (!value.trim()) return null
@@ -256,11 +327,11 @@ export const JsonEditor: FC<JsonEditorProps> = ({
 
   const handleFormat = useCallback(() => {
     try {
+      // Strip comments first (they won't survive JSON.stringify)
+      let tempValue = stripJsonComments(value)
+
       // Extract variables and their unique IDs
       const variables: string[] = []
-      let tempValue = value
-
-      // Replace each variable with a unique placeholder (without extra quotes)
       tempValue = tempValue.replace(/\{\{([^}]+)\}\}/g, (match) => {
         const idx = variables.length
         variables.push(match)
@@ -283,11 +354,11 @@ export const JsonEditor: FC<JsonEditorProps> = ({
 
   const handleMinify = useCallback(() => {
     try {
+      // Strip comments first (they won't survive JSON.stringify)
+      let tempValue = stripJsonComments(value)
+
       // Extract variables and their unique IDs
       const variables: string[] = []
-      let tempValue = value
-
-      // Replace each variable with a unique placeholder (without extra quotes)
       tempValue = tempValue.replace(/\{\{([^}]+)\}\}/g, (match) => {
         const idx = variables.length
         variables.push(match)
@@ -346,7 +417,7 @@ export const JsonEditor: FC<JsonEditorProps> = ({
             className="h-6 px-2 text-[10px] gap-1"
             onClick={handleMinify}
             disabled={!isValidJson}
-            title="Minify JSON"
+            title={hasComments ? "Minify JSON (comments will be removed)" : "Minify JSON"}
           >
             <Minimize2 className="h-3 w-3" />
             Minify
@@ -357,7 +428,7 @@ export const JsonEditor: FC<JsonEditorProps> = ({
             className="h-6 px-2 text-[10px] gap-1"
             onClick={handleFormat}
             disabled={!isValidJson}
-            title="Format JSON"
+            title={hasComments ? "Format JSON (comments will be removed)" : "Format JSON"}
           >
             <WrapText className="h-3 w-3" />
             Format
@@ -434,7 +505,7 @@ export const JsonEditor: FC<JsonEditorProps> = ({
         >
           <ScrollArea className="h-full">
             <div className="p-3">
-              <JsonViewer data={value} maxInitialDepth={10} />
+              <JsonViewer data={stripJsonComments(value)} maxInitialDepth={10} />
             </div>
           </ScrollArea>
         </div>
@@ -450,7 +521,11 @@ export const JsonEditor: FC<JsonEditorProps> = ({
         ) : isValidJson ? (
           <div className="flex items-center gap-1.5 text-[10px] text-green-500">
             <Check className="h-3 w-3" />
-            <span>{hasVariables ? 'Valid JSON (with variables)' : 'Valid JSON'}</span>
+            <span>
+              Valid JSON
+              {hasComments && ' (with comments)'}
+              {hasVariables && ' (with variables)'}
+            </span>
           </div>
         ) : (
           <div className="text-[10px] text-muted-foreground">

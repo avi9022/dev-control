@@ -137,6 +137,62 @@ const LANGUAGES: LanguageOption[] = [
   },
 ]
 
+// Strip comments from JSONC (supports // and /* */ comments)
+function stripJsonComments(jsonc: string): string {
+  let result = ''
+  let i = 0
+  let inString = false
+  let stringChar = ''
+
+  while (i < jsonc.length) {
+    const char = jsonc[i]
+    const nextChar = jsonc[i + 1]
+
+    if (inString) {
+      result += char
+      if (char === '\\' && i + 1 < jsonc.length) {
+        result += nextChar
+        i += 2
+        continue
+      }
+      if (char === stringChar) {
+        inString = false
+      }
+      i++
+      continue
+    }
+
+    if (char === '"' || char === "'") {
+      inString = true
+      stringChar = char
+      result += char
+      i++
+      continue
+    }
+
+    if (char === '/' && nextChar === '/') {
+      while (i < jsonc.length && jsonc[i] !== '\n') {
+        i++
+      }
+      continue
+    }
+
+    if (char === '/' && nextChar === '*') {
+      i += 2
+      while (i < jsonc.length - 1 && !(jsonc[i] === '*' && jsonc[i + 1] === '/')) {
+        i++
+      }
+      i += 2
+      continue
+    }
+
+    result += char
+    i++
+  }
+
+  return result
+}
+
 // Helper to resolve variables in a string
 const resolveVariables = (
   text: string,
@@ -250,10 +306,13 @@ export const CodeSnippetPanel: FC<CodeSnippetPanelProps> = ({
       enabled: h.enabled,
     }))
 
-    // Resolve variables in body
+    // Resolve variables in body (strip comments for JSON)
     const resolvedBody = body ? {
       type: body.type,
-      content: resolveVariables(body.content || '', variablesMap),
+      content: resolveVariables(
+        body.type === 'json' ? stripJsonComments(body.content || '') : (body.content || ''),
+        variablesMap
+      ),
     } : undefined
 
     // Resolve variables in auth
