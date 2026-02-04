@@ -1,4 +1,4 @@
-import type { FC, KeyboardEvent } from 'react'
+import type { FC, KeyboardEvent, RefObject } from 'react'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronLeft, ChevronRight, CircleX, Trash2 } from "lucide-react"
@@ -17,6 +17,7 @@ interface TerminalToolbarProps {
   onClearTerminal: () => void
   searchResultsCount: number
   currentMatchIndex: number
+  searchInputRef?: RefObject<HTMLInputElement | null>
 }
 
 export const TerminalToolbar: FC<TerminalToolbarProps> = ({
@@ -31,6 +32,7 @@ export const TerminalToolbar: FC<TerminalToolbarProps> = ({
   onClearTerminal,
   searchResultsCount,
   currentMatchIndex,
+  searchInputRef,
 }) => {
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -67,6 +69,7 @@ export const TerminalToolbar: FC<TerminalToolbarProps> = ({
           <Trash2 />
         </Button>
         <Input
+          ref={searchInputRef}
           placeholder="Search logs..."
           value={searchInput}
           onChange={(e) => onSearchInputChange(e.target.value)}

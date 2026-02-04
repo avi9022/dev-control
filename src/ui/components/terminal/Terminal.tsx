@@ -1,4 +1,4 @@
-import { useRef, useCallback, type FC } from 'react'
+import { useRef, useCallback, useEffect, type FC } from 'react'
 import type { TerminalProps } from './terminal.types'
 import { TerminalToolbar } from './TerminalToolbar'
 import { TerminalVirtualList } from './TerminalVirtualList'
@@ -7,6 +7,19 @@ import { useSearch } from './hooks/useSearch'
 
 export const Terminal: FC<TerminalProps> = ({ id }) => {
   const scrollToLineRef = useRef<((lineNumber: number) => void) | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Cmd+F / Ctrl+F to focus search input
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const {
     data,
@@ -74,6 +87,7 @@ export const Terminal: FC<TerminalProps> = ({ id }) => {
         onClearTerminal={clear}
         searchResultsCount={searchResults.length}
         currentMatchIndex={currentMatchIndex}
+        searchInputRef={searchInputRef}
       />
       <TerminalVirtualList
         data={data}
