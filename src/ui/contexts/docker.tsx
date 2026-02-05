@@ -221,7 +221,8 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [refreshContainers])
 
   const execInContainer = useCallback(async (id: string, command: string) => {
-    return await window.electron.dockerExecInContainer(id, command)
+    const commandArray = command.split(' ').filter(Boolean)
+    return await window.electron.dockerExecInContainer(id, commandArray)
   }, [])
 
   const getContainerLogs = useCallback(async (id: string, options?: DockerLogOptions) => {

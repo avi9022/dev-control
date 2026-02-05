@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, globalShortcut, nativeImage, screen } from 'electron'
+import { app, BrowserWindow, Tray, Menu, globalShortcut, nativeImage, screen, shell } from 'electron'
 import { isDev } from './utils/is-dev.js'
 import { getPreloadPath, getUIPath, getOverlayUIPath, getAssetsPath } from './pathResolver.js'
 import path from 'path'
@@ -367,6 +367,7 @@ app.on("ready", async () => {
   ipcMainHandle('checkServiceState', (_event, id: string) => isServiceRunning(id))
   ipcMainHandle('openProjectInBrowser', (_event, id: string) => openProjectInBrowser(id))
   ipcMainHandle('openInVSCode', (_event, id: string) => openInVSCode(id))
+  ipcMainHandle('openInFinder', (_event, filePath: string) => shell.showItemInFolder(filePath))
   ipcMainHandle('getQueues', (_event, id: string) => getServiceQueues(id))
   ipcMainHandle('sendQueueMessage', (_event, queueUrl: string, message: string) => brokerManager.sendMessage(queueUrl, message))
   ipcMainHandle('createQueue', (_event, name: string, options: CreateQueueOptions) => brokerManager.createQueue(name, options))
@@ -542,6 +543,22 @@ app.on("ready", async () => {
   ipcMainHandle('dockerUnpauseContainer', (_event, id: string, dockerContext?: string) => dockerManager.unpauseContainer(id, dockerContext))
   ipcMainHandle('dockerRemoveContainer', (_event, id: string, force: boolean, dockerContext?: string) => dockerManager.removeContainer(id, force, dockerContext))
   ipcMainHandle('dockerExecInContainer', (_event, id: string, command: string[]) => dockerManager.execInContainer(id, command))
+  // Interactive Exec
+  ipcMainHandle('dockerExecInteractive', (_event, containerId: string, shell: string) => dockerManager.startInteractiveExec(containerId, shell))
+  ipcMainHandle('dockerExecInput', (_event, sessionId: string, data: string) => dockerManager.writeToExecSession(sessionId, data))
+  ipcMainHandle('dockerExecResize', (_event, sessionId: string, cols: number, rows: number) => dockerManager.resizeExecSession(sessionId, cols, rows))
+  ipcMainHandle('dockerExecClose', (_event, sessionId: string) => dockerManager.closeExecSession(sessionId))
+  // File Manager
+  ipcMainHandle('dockerListDirectory', (_event, containerId: string, path: string) => dockerManager.listDirectory(containerId, path))
+  ipcMainHandle('dockerReadFile', (_event, containerId: string, path: string, maxSize?: number) => dockerManager.readFile(containerId, path, maxSize))
+  ipcMainHandle('dockerDownloadFile', (_event, containerId: string, remotePath: string, isDirectory?: boolean) => dockerManager.downloadFile(containerId, remotePath, isDirectory))
+  ipcMainHandle('dockerUploadFile', (_event, containerId: string, localPath: string, remotePath: string) => dockerManager.uploadFile(containerId, localPath, remotePath))
+  ipcMainHandle('dockerUploadFiles', (_event, containerId: string, localPaths: string[], remotePath: string) => dockerManager.uploadFiles(containerId, localPaths, remotePath))
+  ipcMainHandle('dockerUploadFileDialog', (_event, containerId: string, remotePath: string) => dockerManager.uploadFileDialog(containerId, remotePath))
+  ipcMainHandle('dockerCreateDirectory', (_event, containerId: string, path: string) => dockerManager.createDirectory(containerId, path))
+  ipcMainHandle('dockerDeletePath', (_event, containerId: string, path: string, recursive?: boolean) => dockerManager.deletePath(containerId, path, recursive))
+  ipcMainHandle('dockerRenamePath', (_event, containerId: string, oldPath: string, newPath: string) => dockerManager.renamePath(containerId, oldPath, newPath))
+  ipcMainHandle('dockerStartDrag', (_event, containerId: string, remotePath: string) => dockerManager.startDrag(containerId, remotePath))
   ipcMainHandle('dockerInspectContainer', (_event, id: string) => dockerManager.inspectContainer(id))
   ipcMainHandle('dockerGetContainerLogs', (_event, id: string, options: DockerLogOptions) => dockerManager.getContainerLogs(id, options))
   ipcMainHandle('dockerStreamContainerLogs', (_event, id: string, options: DockerLogOptions) => dockerManager.streamContainerLogs(id, options))

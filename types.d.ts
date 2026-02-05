@@ -272,6 +272,7 @@ interface DockerMount {
   source: string
   destination: string
   readOnly: boolean
+  volumeName?: string  // Docker volume name (only for type: 'volume')
 }
 
 interface DockerContainerStats {
@@ -324,6 +325,12 @@ interface DockerImageLayer {
   comment: string
 }
 
+interface DockerVolumeUsage {
+  containerId: string
+  containerName: string
+  running: boolean
+}
+
 interface DockerVolume {
   name: string
   driver: string
@@ -331,9 +338,10 @@ interface DockerVolume {
   labels: Record<string, string>
   scope: 'local' | 'global'
   createdAt: string
-  usedBy: string[]
+  usedBy: DockerVolumeUsage[]
   size?: number
   dockerContext?: string
+  type: 'volume' | 'bind'  // Docker volume or bind mount
 }
 
 interface DockerNetwork {
@@ -399,6 +407,45 @@ interface DockerLogOptions {
   since?: string
   follow?: boolean
   timestamps?: boolean
+}
+
+// ─── Docker Interactive Exec Types ───
+interface DockerExecSession {
+  sessionId: string
+  containerId: string
+  shell: string
+  createdAt: number
+}
+
+interface DockerExecSessionOutput {
+  sessionId: string
+  data: string
+}
+
+interface DockerExecSessionClosed {
+  sessionId: string
+  exitCode?: number
+}
+
+// ─── Docker File Manager Types ───
+interface DockerFileEntry {
+  name: string
+  path: string
+  type: 'file' | 'directory' | 'symlink'
+  size: number
+  permissions: string
+  owner: string
+  group: string
+  modifiedAt: string
+  linkTarget?: string
+}
+
+interface DockerFileContent {
+  content: string
+  truncated: boolean
+  mimeType: string
+  size: number
+  encoding: 'utf8' | 'base64'
 }
 
 // ─── MongoDB Types ───
@@ -796,6 +843,10 @@ type EventPayloadMapping = {
     args: []
   }
   openInVSCode: {
+    return: void;
+    args: [string]
+  }
+  openInFinder: {
     return: void;
     args: [string]
   }
@@ -1274,6 +1325,72 @@ type EventPayloadMapping = {
     return: { containerId: string; log: string };
     args: [{ containerId: string; log: string }];
   }
+  // Docker Interactive Exec handlers
+  dockerExecInteractive: {
+    return: DockerExecSession;
+    args: [string, string]; // containerId, shell
+  }
+  dockerExecInput: {
+    return: void;
+    args: [string, string]; // sessionId, data
+  }
+  dockerExecResize: {
+    return: void;
+    args: [string, number, number]; // sessionId, cols, rows
+  }
+  dockerExecClose: {
+    return: void;
+    args: [string]; // sessionId
+  }
+  subscribeDockerExecOutput: {
+    return: DockerExecSessionOutput;
+    args: [DockerExecSessionOutput];
+  }
+  subscribeDockerExecClosed: {
+    return: DockerExecSessionClosed;
+    args: [DockerExecSessionClosed];
+  }
+  // Docker File Manager handlers
+  dockerListDirectory: {
+    return: DockerFileEntry[];
+    args: [string, string]; // containerId, path
+  }
+  dockerReadFile: {
+    return: DockerFileContent;
+    args: [string, string, number?]; // containerId, path, maxSize
+  }
+  dockerDownloadFile: {
+    return: string;
+    args: [string, string, boolean?]; // containerId, remotePath, isDirectory
+  }
+  dockerUploadFile: {
+    return: void;
+    args: [string, string, string]; // containerId, localPath, remotePath
+  }
+  dockerUploadFiles: {
+    return: number;
+    args: [string, string[], string]; // containerId, localPaths, remotePath
+  }
+  dockerUploadFileDialog: {
+    return: number;
+    args: [string, string]; // containerId, remotePath
+  }
+  dockerCreateDirectory: {
+    return: void;
+    args: [string, string]; // containerId, path
+  }
+  dockerDeletePath: {
+    return: void;
+    args: [string, string, boolean?]; // containerId, path, recursive
+  }
+  dockerRenamePath: {
+    return: void;
+    args: [string, string, string]; // containerId, oldPath, newPath
+  }
+  dockerStartDrag: {
+    return: void;
+    args: [string, string]; // containerId, remotePath
+  }
   // ─── MongoDB handlers ───
   mongoGetConnections: {
     return: MongoConnectionConfig[];
@@ -1452,6 +1569,7 @@ interface Window {
     updateWorkflow: (id: string, data: Omit<Workflow, 'id'>) => void
     startWorkflow: (id: string) => void
     openInVSCode: (id: string) => void
+    openInFinder: (path: string) => Promise<void>
     markUserAsPrompted: () => void
     refuseUpdates: () => void
     updateSystem: () => void
@@ -1579,6 +1697,24 @@ interface Window {
     subscribeDockerContainers: (callback: (containers: DockerContainer[]) => void) => () => void
     subscribeDockerStats: (callback: (stats: Record<string, DockerContainerStats>) => void) => () => void
     subscribeDockerLogs: (callback: (data: { containerId: string; log: string }) => void) => () => void
+    // Docker Interactive Exec
+    dockerExecInteractive: (containerId: string, shell: string) => Promise<DockerExecSession>
+    dockerExecInput: (sessionId: string, data: string) => Promise<void>
+    dockerExecResize: (sessionId: string, cols: number, rows: number) => Promise<void>
+    dockerExecClose: (sessionId: string) => Promise<void>
+    subscribeDockerExecOutput: (callback: (data: DockerExecSessionOutput) => void) => () => void
+    subscribeDockerExecClosed: (callback: (data: DockerExecSessionClosed) => void) => () => void
+    // Docker File Manager
+    dockerListDirectory: (containerId: string, path: string) => Promise<DockerFileEntry[]>
+    dockerReadFile: (containerId: string, path: string, maxSize?: number) => Promise<DockerFileContent>
+    dockerDownloadFile: (containerId: string, remotePath: string, isDirectory?: boolean) => Promise<string>
+    dockerUploadFile: (containerId: string, localPath: string, remotePath: string) => Promise<void>
+    dockerUploadFiles: (containerId: string, localPaths: string[], remotePath: string) => Promise<number>
+    dockerUploadFileDialog: (containerId: string, remotePath: string) => Promise<number>
+    dockerCreateDirectory: (containerId: string, path: string) => Promise<void>
+    dockerDeletePath: (containerId: string, path: string, recursive?: boolean) => Promise<void>
+    dockerRenamePath: (containerId: string, oldPath: string, newPath: string) => Promise<void>
+    dockerStartDrag: (containerId: string, remotePath: string) => Promise<void>
     // MongoDB API
     mongoGetConnections: () => Promise<MongoConnectionConfig[]>
     mongoGetActiveConnectionId: () => Promise<string | null>

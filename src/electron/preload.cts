@@ -50,6 +50,7 @@ electron.contextBridge.exposeInMainWorld("electron", {
   updateWorkflow: (id: string, data: Omit<Workflow, 'id'>) => ipcInvoke('updateWorkflow', id, data),
   startWorkflow: (id: string) => ipcInvoke('startWorkflow', id),
   openInVSCode: (id: string) => ipcInvoke('openInVSCode', id),
+  openInFinder: (path: string) => ipcInvoke('openInFinder', path),
   markUserAsPrompted: () => ipcInvoke('markUserAsPrompted'),
   refuseUpdates: () => ipcInvoke('refuseUpdates'),
   updateSystem: () => ipcInvoke('updateSystem'),
@@ -162,6 +163,22 @@ electron.contextBridge.exposeInMainWorld("electron", {
   dockerUnpauseContainer: (id: string, dockerContext?: string) => ipcInvoke('dockerUnpauseContainer', id, dockerContext),
   dockerRemoveContainer: (id: string, force: boolean, dockerContext?: string) => ipcInvoke('dockerRemoveContainer', id, force, dockerContext),
   dockerExecInContainer: (id: string, command: string[]) => ipcInvoke('dockerExecInContainer', id, command),
+  // Interactive Exec
+  dockerExecInteractive: (containerId: string, shell: string) => ipcInvoke('dockerExecInteractive', containerId, shell),
+  dockerExecInput: (sessionId: string, data: string) => ipcInvoke('dockerExecInput', sessionId, data),
+  dockerExecResize: (sessionId: string, cols: number, rows: number) => ipcInvoke('dockerExecResize', sessionId, cols, rows),
+  dockerExecClose: (sessionId: string) => ipcInvoke('dockerExecClose', sessionId),
+  // File Manager
+  dockerListDirectory: (containerId: string, path: string) => ipcInvoke('dockerListDirectory', containerId, path),
+  dockerReadFile: (containerId: string, path: string, maxSize?: number) => ipcInvoke('dockerReadFile', containerId, path, maxSize),
+  dockerDownloadFile: (containerId: string, remotePath: string, isDirectory?: boolean) => ipcInvoke('dockerDownloadFile', containerId, remotePath, isDirectory),
+  dockerUploadFile: (containerId: string, localPath: string, remotePath: string) => ipcInvoke('dockerUploadFile', containerId, localPath, remotePath),
+  dockerUploadFiles: (containerId: string, localPaths: string[], remotePath: string) => ipcInvoke('dockerUploadFiles', containerId, localPaths, remotePath),
+  dockerUploadFileDialog: (containerId: string, remotePath: string) => ipcInvoke('dockerUploadFileDialog', containerId, remotePath),
+  dockerCreateDirectory: (containerId: string, path: string) => ipcInvoke('dockerCreateDirectory', containerId, path),
+  dockerDeletePath: (containerId: string, path: string, recursive?: boolean) => ipcInvoke('dockerDeletePath', containerId, path, recursive),
+  dockerRenamePath: (containerId: string, oldPath: string, newPath: string) => ipcInvoke('dockerRenamePath', containerId, oldPath, newPath),
+  dockerStartDrag: (containerId: string, remotePath: string) => ipcInvoke('dockerStartDrag', containerId, remotePath),
   dockerInspectContainer: (id: string) => ipcInvoke('dockerInspectContainer', id),
   dockerGetContainerLogs: (id: string, options: DockerLogOptions) => ipcInvoke('dockerGetContainerLogs', id, options),
   dockerStreamContainerLogs: (id: string, options: DockerLogOptions) => ipcInvoke('dockerStreamContainerLogs', id, options),
@@ -199,6 +216,14 @@ electron.contextBridge.exposeInMainWorld("electron", {
     }),
   subscribeDockerLogs: (callback) =>
     ipcOn('subscribeDockerLogs', (data) => {
+      callback(data);
+    }),
+  subscribeDockerExecOutput: (callback) =>
+    ipcOn('subscribeDockerExecOutput', (data) => {
+      callback(data);
+    }),
+  subscribeDockerExecClosed: (callback) =>
+    ipcOn('subscribeDockerExecClosed', (data) => {
       callback(data);
     }),
   // MongoDB API
