@@ -93,20 +93,39 @@ function buildSchemaSpec(
   return { schema: tableSpec, defaultSchema: undefined }
 }
 
+interface TableRef {
+  /** All referenced table names (uppercase) */
+  tables: Set<string>
+  /** alias (lowercase) → TABLE_NAME (uppercase) */
+  aliases: Map<string, string>
+}
+
 /**
- * Extract table names referenced in the current SQL statement.
- * Matches: FROM table, JOIN table, UPDATE table, INTO table
- * Handles: "SCHEMA"."TABLE", SCHEMA.TABLE, "TABLE", TABLE
+ * Extract table names and aliases from the current SQL statement.
+ * Matches: FROM/JOIN/UPDATE/INTO table [alias]
+ * Handles: "SCHEMA"."TABLE" alias, SCHEMA.TABLE alias, "TABLE" alias, TABLE alias
+ * Oracle: no AS keyword for table aliases
  */
-function extractReferencedTables(statement: string): Set<string> {
+function extractTableRefs(statement: string): TableRef {
   const tables = new Set<string>()
-  const pattern = /\b(?:FROM|JOIN|UPDATE|INTO)\s+(?:"[^"]*"\s*\.\s*)?(?:"([^"]+)"|(\w+))/gi
+  const aliases = new Map<string, string>()
+
+  // Match table reference + optional alias (Oracle style: no AS for table aliases)
+  // Groups: 1=quoted table after schema, 2=unquoted table after schema,
+  //         3=quoted standalone table, 4=unquoted standalone table, 5=alias
+  const pattern =
+    /\b(?:FROM|JOIN|UPDATE|INTO)\s+(?:(?:"[^"]*"|[\w]+)\s*\.\s*)?(?:"([^"]+)"|(\w+))(?:\s+(?!WHERE|ON|SET|VALUES|LEFT|RIGHT|INNER|OUTER|CROSS|FULL|NATURAL|GROUP|ORDER|HAVING|LIMIT|UNION|MINUS|INTERSECT|CONNECT|START)(\w+))?/gi
+
   let m
   while ((m = pattern.exec(statement)) !== null) {
-    const name = (m[1] ?? m[2]).toUpperCase()
-    tables.add(name)
+    const tableName = (m[1] ?? m[2]).toUpperCase()
+    tables.add(tableName)
+    const alias = m[3]
+    if (alias) {
+      aliases.set(alias.toLowerCase(), tableName)
+    }
   }
-  return tables
+  return { tables, aliases }
 }
 
 /** Find the current statement boundaries around the cursor */
@@ -120,22 +139,40 @@ function getStatementAt(doc: string, cursor: number): string {
   return doc.slice(start, end)
 }
 
-/** Context-aware completion source: only columns from tables in the current query */
+/** Context-aware completion source: columns from tables/aliases in the current query */
 function columnCompletionSource(colMap: Record<string, string[]>) {
   return PLSQL.language.data.of({
     autocomplete: (context: CompletionContext) => {
-      if (context.matchBefore(/\.\w*/)) return null
+      const doc = context.state.doc.toString()
+      const stmt = getStatementAt(doc, context.pos)
+      const { tables, aliases } = extractTableRefs(stmt)
+
+      if (tables.size === 0) return null
+
+      // Check if we're in an "alias." or "TABLE." context
+      const dotMatch = context.matchBefore(/(\w+)\.\w*/)
+      if (dotMatch) {
+        const prefix = dotMatch.text.split('.')[0].toLowerCase()
+        // Resolve alias → table name, or use as direct table name
+        const tableName = aliases.get(prefix) ?? prefix.toUpperCase()
+        const cols = colMap[tableName]
+        if (!cols) return null
+
+        const from = dotMatch.from + prefix.length + 1 // after the dot
+        const completions: Completion[] = cols.map((col) => ({
+          label: col,
+          type: 'property',
+          detail: tableName,
+        }))
+        return { from, options: completions, validFor: /^\w*$/ }
+      }
+
+      // Bare column name (no dot prefix) - suggest from all referenced tables
       const word = context.matchBefore(/\w+/)
       if (!word && !context.explicit) return null
 
-      const doc = context.state.doc.toString()
-      const stmt = getStatementAt(doc, context.pos)
-      const referencedTables = extractReferencedTables(stmt)
-
-      if (referencedTables.size === 0) return null
-
       const completions: Completion[] = []
-      for (const table of referencedTables) {
+      for (const table of tables) {
         const cols = colMap[table]
         if (!cols) continue
         for (const col of cols) {
@@ -144,7 +181,7 @@ function columnCompletionSource(colMap: Record<string, string[]>) {
       }
 
       if (completions.length === 0) return null
-      return { from: word.from, options: completions, validFor: /^\w*$/ }
+      return { from: word!.from, options: completions, validFor: /^\w*$/ }
     },
   })
 }
