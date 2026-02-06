@@ -30,7 +30,7 @@ interface DockerContextValue {
   unpauseContainer: (id: string, dockerContext?: string) => Promise<void>
   removeContainer: (id: string, dockerContext?: string) => Promise<void>
   execInContainer: (id: string, command: string) => Promise<string>
-  getContainerLogs: (id: string, options?: DockerLogOptions) => Promise<string>
+  getContainerLogs: (id: string, options?: DockerLogOptions, dockerContext?: string) => Promise<string>
   pullImage: (name: string) => Promise<void>
   removeImage: (id: string, dockerContext?: string) => Promise<void>
   pruneImages: () => Promise<void>
@@ -225,8 +225,8 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
     return await window.electron.dockerExecInContainer(id, commandArray)
   }, [])
 
-  const getContainerLogs = useCallback(async (id: string, options?: DockerLogOptions) => {
-    return await window.electron.dockerGetContainerLogs(id, options)
+  const getContainerLogs = useCallback(async (id: string, options?: DockerLogOptions, dockerContext?: string) => {
+    return await window.electron.dockerGetContainerLogs(id, options, dockerContext)
   }, [])
 
   const pullImage = useCallback(async (name: string) => {

@@ -42,6 +42,10 @@ import { importPostmanCollection, importPostmanEnvironment, importPostmanCollect
 import { exportPostmanCollection } from './api-client/postman-exporter.js'
 // Docker
 import { dockerManager } from './docker/docker-manager.js'
+// SQL Developer
+import { sqlManager } from './sql/sql-manager.js'
+import { executeQuery as sqlExecQuery, executeScript as sqlExecScript, cancelQuery as sqlCancel, explainPlan as sqlExplain, commit as sqlCommit, rollback as sqlRollback, enableDbmsOutput as sqlEnableDbms, getDbmsOutput as sqlGetDbms } from './sql/query-executor.js'
+import { getSchemas as sqlGetSchemas, getTables as sqlGetTables, getViews as sqlGetViews, getSequences as sqlGetSequences, getProcedures as sqlGetProcedures, getFunctions as sqlGetFunctions, getPackages as sqlGetPackages, getTriggers as sqlGetTriggers, getTableColumns as sqlGetColumns, getTableConstraints as sqlGetConstraints, getTableIndexes as sqlGetIndexes, getTableTriggers as sqlGetTableTriggers, getObjectDDL as sqlGetDDL, getTableRowCount as sqlGetRowCount, describeObject as sqlDescribeObject, getTableGrants as sqlGetGrants, getSchemaColumnMap as sqlGetSchemaColumnMap } from './sql/schema-inspector.js'
 // MongoDB
 import { mongoManager } from './mongodb/mongo-manager.js'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
@@ -535,35 +539,35 @@ app.on("ready", async () => {
   ipcMainHandle('dockerGetActiveContext', () => dockerManager.getActiveContext())
   ipcMainHandle('dockerIsAvailable', () => dockerManager.isAvailable())
   ipcMainHandle('dockerGetContainers', (_event, filters?: DockerContainerFilters) => dockerManager.getContainers(filters))
-  ipcMainHandle('dockerGetContainer', (_event, id: string) => dockerManager.getContainer(id))
+  ipcMainHandle('dockerGetContainer', (_event, id: string, dockerContext?: string) => dockerManager.getContainer(id, dockerContext))
   ipcMainHandle('dockerStartContainer', (_event, id: string, dockerContext?: string) => dockerManager.startContainer(id, dockerContext))
   ipcMainHandle('dockerStopContainer', (_event, id: string, dockerContext?: string) => dockerManager.stopContainer(id, dockerContext))
   ipcMainHandle('dockerRestartContainer', (_event, id: string, dockerContext?: string) => dockerManager.restartContainer(id, dockerContext))
   ipcMainHandle('dockerPauseContainer', (_event, id: string, dockerContext?: string) => dockerManager.pauseContainer(id, dockerContext))
   ipcMainHandle('dockerUnpauseContainer', (_event, id: string, dockerContext?: string) => dockerManager.unpauseContainer(id, dockerContext))
   ipcMainHandle('dockerRemoveContainer', (_event, id: string, force: boolean, dockerContext?: string) => dockerManager.removeContainer(id, force, dockerContext))
-  ipcMainHandle('dockerExecInContainer', (_event, id: string, command: string[]) => dockerManager.execInContainer(id, command))
+  ipcMainHandle('dockerExecInContainer', (_event, id: string, command: string[], dockerContext?: string) => dockerManager.execInContainer(id, command, dockerContext))
   // Interactive Exec
-  ipcMainHandle('dockerExecInteractive', (_event, containerId: string, shell: string) => dockerManager.startInteractiveExec(containerId, shell))
+  ipcMainHandle('dockerExecInteractive', (_event, containerId: string, shell: string, dockerContext?: string) => dockerManager.startInteractiveExec(containerId, shell, dockerContext))
   ipcMainHandle('dockerExecInput', (_event, sessionId: string, data: string) => dockerManager.writeToExecSession(sessionId, data))
   ipcMainHandle('dockerExecResize', (_event, sessionId: string, cols: number, rows: number) => dockerManager.resizeExecSession(sessionId, cols, rows))
   ipcMainHandle('dockerExecClose', (_event, sessionId: string) => dockerManager.closeExecSession(sessionId))
   // File Manager
-  ipcMainHandle('dockerListDirectory', (_event, containerId: string, path: string) => dockerManager.listDirectory(containerId, path))
-  ipcMainHandle('dockerReadFile', (_event, containerId: string, path: string, maxSize?: number) => dockerManager.readFile(containerId, path, maxSize))
-  ipcMainHandle('dockerDownloadFile', (_event, containerId: string, remotePath: string, isDirectory?: boolean) => dockerManager.downloadFile(containerId, remotePath, isDirectory))
-  ipcMainHandle('dockerUploadFile', (_event, containerId: string, localPath: string, remotePath: string) => dockerManager.uploadFile(containerId, localPath, remotePath))
-  ipcMainHandle('dockerUploadFiles', (_event, containerId: string, localPaths: string[], remotePath: string) => dockerManager.uploadFiles(containerId, localPaths, remotePath))
-  ipcMainHandle('dockerUploadFileDialog', (_event, containerId: string, remotePath: string) => dockerManager.uploadFileDialog(containerId, remotePath))
-  ipcMainHandle('dockerCreateDirectory', (_event, containerId: string, path: string) => dockerManager.createDirectory(containerId, path))
-  ipcMainHandle('dockerDeletePath', (_event, containerId: string, path: string, recursive?: boolean) => dockerManager.deletePath(containerId, path, recursive))
-  ipcMainHandle('dockerRenamePath', (_event, containerId: string, oldPath: string, newPath: string) => dockerManager.renamePath(containerId, oldPath, newPath))
-  ipcMainHandle('dockerStartDrag', (_event, containerId: string, remotePath: string) => dockerManager.startDrag(containerId, remotePath))
-  ipcMainHandle('dockerInspectContainer', (_event, id: string) => dockerManager.inspectContainer(id))
-  ipcMainHandle('dockerGetContainerLogs', (_event, id: string, options: DockerLogOptions) => dockerManager.getContainerLogs(id, options))
-  ipcMainHandle('dockerStreamContainerLogs', (_event, id: string, options: DockerLogOptions) => dockerManager.streamContainerLogs(id, options))
+  ipcMainHandle('dockerListDirectory', (_event, containerId: string, path: string, dockerContext?: string) => dockerManager.listDirectory(containerId, path, dockerContext))
+  ipcMainHandle('dockerReadFile', (_event, containerId: string, path: string, maxSize?: number, dockerContext?: string) => dockerManager.readFile(containerId, path, maxSize, dockerContext))
+  ipcMainHandle('dockerDownloadFile', (_event, containerId: string, remotePath: string, isDirectory?: boolean, dockerContext?: string) => dockerManager.downloadFile(containerId, remotePath, isDirectory, dockerContext))
+  ipcMainHandle('dockerUploadFile', (_event, containerId: string, localPath: string, remotePath: string, dockerContext?: string) => dockerManager.uploadFile(containerId, localPath, remotePath, dockerContext))
+  ipcMainHandle('dockerUploadFiles', (_event, containerId: string, localPaths: string[], remotePath: string, dockerContext?: string) => dockerManager.uploadFiles(containerId, localPaths, remotePath, dockerContext))
+  ipcMainHandle('dockerUploadFileDialog', (_event, containerId: string, remotePath: string, dockerContext?: string) => dockerManager.uploadFileDialog(containerId, remotePath, dockerContext))
+  ipcMainHandle('dockerCreateDirectory', (_event, containerId: string, path: string, dockerContext?: string) => dockerManager.createDirectory(containerId, path, dockerContext))
+  ipcMainHandle('dockerDeletePath', (_event, containerId: string, path: string, recursive?: boolean, dockerContext?: string) => dockerManager.deletePath(containerId, path, recursive, dockerContext))
+  ipcMainHandle('dockerRenamePath', (_event, containerId: string, oldPath: string, newPath: string, dockerContext?: string) => dockerManager.renamePath(containerId, oldPath, newPath, dockerContext))
+  ipcMainHandle('dockerStartDrag', (_event, containerId: string, remotePath: string, dockerContext?: string) => dockerManager.startDrag(containerId, remotePath, dockerContext))
+  ipcMainHandle('dockerInspectContainer', (_event, id: string, dockerContext?: string) => dockerManager.inspectContainer(id, dockerContext))
+  ipcMainHandle('dockerGetContainerLogs', (_event, id: string, options: DockerLogOptions, dockerContext?: string) => dockerManager.getContainerLogs(id, options, dockerContext))
+  ipcMainHandle('dockerStreamContainerLogs', (_event, id: string, options: DockerLogOptions, dockerContext?: string) => dockerManager.streamContainerLogs(id, options, dockerContext))
   ipcMainHandle('dockerStopLogStream', (_event, id: string) => dockerManager.stopLogStream(id))
-  ipcMainHandle('dockerGetContainerStats', (_event, id: string) => dockerManager.getContainerStats(id))
+  ipcMainHandle('dockerGetContainerStats', (_event, id: string, dockerContext?: string) => dockerManager.getContainerStats(id, dockerContext))
   ipcMainHandle('dockerGetAllStats', () => dockerManager.getAllStats())
   ipcMainHandle('dockerGetImages', () => dockerManager.getImages())
   ipcMainHandle('dockerPullImage', (_event, name: string) => dockerManager.pullImage(name))
@@ -586,6 +590,57 @@ app.on("ready", async () => {
   ipcMainHandle('dockerGetDashboardStats', () => dockerManager.getDashboardStats())
   ipcMainHandle('dockerGetSystemInfo', () => dockerManager.getSystemInfo())
   ipcMainHandle('dockerSystemPrune', (_event, includeVolumes: boolean) => dockerManager.systemPrune(includeVolumes))
+
+  // ─── SQL Developer handlers ───
+  sqlManager.setMainWindow(mainWindow)
+  ipcMainHandle('sqlGetConnections', () => sqlManager.getConnections())
+  ipcMainHandle('sqlSaveConnection', (_event, config: SQLConnectionConfig) => sqlManager.saveConnection(config))
+  ipcMainHandle('sqlDeleteConnection', (_event, id: string) => sqlManager.deleteConnection(id))
+  ipcMainHandle('sqlTestConnection', (_event, id: string) => sqlManager.testConnection(id))
+  ipcMainHandle('sqlSetActiveConnection', (_event, id: string) => sqlManager.setActiveConnection(id))
+  ipcMainHandle('sqlDisconnect', () => sqlManager.disconnect())
+  ipcMainHandle('sqlGetActiveConnectionId', () => sqlManager.getActiveConnectionId())
+  ipcMainHandle('sqlExecuteQuery', (_event, sql: string, params?: unknown[]) => sqlExecQuery(sql, params))
+  ipcMainHandle('sqlExecuteScript', (_event, sql: string) => sqlExecScript(sql))
+  ipcMainHandle('sqlCancelQuery', (_event, queryId: string) => sqlCancel(queryId))
+  ipcMainHandle('sqlExplainPlan', (_event, sql: string) => sqlExplain(sql))
+  ipcMainHandle('sqlEnableDbmsOutput', () => sqlEnableDbms())
+  ipcMainHandle('sqlGetDbmsOutput', () => sqlGetDbms())
+  ipcMainHandle('sqlGetSchemas', (_event, includeSystem?: boolean) => sqlGetSchemas(includeSystem))
+  ipcMainHandle('sqlGetTables', (_event, schema: string) => sqlGetTables(schema))
+  ipcMainHandle('sqlGetViews', (_event, schema: string) => sqlGetViews(schema))
+  ipcMainHandle('sqlGetSequences', (_event, schema: string) => sqlGetSequences(schema))
+  ipcMainHandle('sqlGetProcedures', (_event, schema: string) => sqlGetProcedures(schema))
+  ipcMainHandle('sqlGetFunctions', (_event, schema: string) => sqlGetFunctions(schema))
+  ipcMainHandle('sqlGetPackages', (_event, schema: string) => sqlGetPackages(schema))
+  ipcMainHandle('sqlGetTriggers', (_event, schema: string) => sqlGetTriggers(schema))
+  ipcMainHandle('sqlGetTableColumns', (_event, schema: string, table: string) => sqlGetColumns(schema, table))
+  ipcMainHandle('sqlGetTableConstraints', (_event, schema: string, table: string) => sqlGetConstraints(schema, table))
+  ipcMainHandle('sqlGetTableIndexes', (_event, schema: string, table: string) => sqlGetIndexes(schema, table))
+  ipcMainHandle('sqlGetTableTriggers', (_event, schema: string, table: string) => sqlGetTableTriggers(schema, table))
+  ipcMainHandle('sqlGetObjectDDL', (_event, schema: string, objectName: string, objectType: string) => sqlGetDDL(schema, objectName, objectType))
+  ipcMainHandle('sqlGetTableRowCount', (_event, schema: string, table: string) => sqlGetRowCount(schema, table))
+  ipcMainHandle('sqlDescribeObject', (_event, schema: string, name: string) => sqlDescribeObject(schema, name))
+  ipcMainHandle('sqlGetTableGrants', (_event, schema: string, table: string) => sqlGetGrants(schema, table))
+  ipcMainHandle('sqlGetSchemaColumnMap', (_event, schema: string) => sqlGetSchemaColumnMap(schema))
+  ipcMainHandle('sqlGetHistory', () => (store.get('sqlHistory') as SQLHistoryEntry[] | undefined) ?? [])
+  ipcMainHandle('sqlClearHistory', () => store.set('sqlHistory', []))
+  ipcMainHandle('sqlGetSavedQueries', () => (store.get('sqlSavedQueries') as SQLSavedQuery[] | undefined) ?? [])
+  ipcMainHandle('sqlSaveQuery', (_event, query: SQLSavedQuery) => {
+    const queries = (store.get('sqlSavedQueries') as SQLSavedQuery[] | undefined) ?? []
+    const idx = queries.findIndex((q) => q.id === query.id)
+    if (idx >= 0) {
+      const updated = [...queries]
+      updated[idx] = query
+      store.set('sqlSavedQueries', updated)
+    } else {
+      store.set('sqlSavedQueries', [...queries, query])
+    }
+  })
+  ipcMainHandle('sqlDeleteSavedQuery', (_event, id: string) => {
+    const queries = (store.get('sqlSavedQueries') as SQLSavedQuery[] | undefined) ?? []
+    store.set('sqlSavedQueries', queries.filter((q) => q.id !== id))
+  })
 
   // ─── MongoDB handlers ───
   mongoManager.setMainWindow(mainWindow)

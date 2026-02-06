@@ -613,6 +613,200 @@ interface MongoSavedQuery {
   updatedAt: number
 }
 
+// ─── SQL Developer types ───
+
+interface SQLConnectionConfig {
+  id: string
+  name: string
+  host: string
+  port: number
+  sid?: string
+  serviceName?: string
+  username: string
+  password: string
+  color?: string
+  createdAt: number
+  updatedAt: number
+}
+
+interface SQLConnectionState {
+  connectionId: string
+  status: 'connected' | 'disconnected' | 'connecting' | 'error'
+  error?: string
+  serverVersion?: string
+  currentSchema?: string
+}
+
+interface SQLQueryResult {
+  queryId: string
+  columns: SQLColumn[]
+  rows: unknown[][]
+  rowCount: number
+  affectedRows?: number
+  executionTime: number
+  statement: string
+  type: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'DDL' | 'PLSQL' | 'OTHER'
+  warnings?: string[]
+}
+
+interface SQLScriptResult {
+  results: SQLQueryResult[]
+  totalTime: number
+}
+
+interface SQLColumn {
+  name: string
+  type: string
+  nullable: boolean
+  precision?: number
+  scale?: number
+  maxSize?: number
+}
+
+interface SQLTableInfo {
+  name: string
+  schema: string
+  rowCount?: number
+  tablespace?: string
+  comments?: string
+}
+
+interface SQLViewInfo {
+  name: string
+  schema: string
+  isReadOnly: boolean
+}
+
+interface SQLSequenceInfo {
+  name: string
+  schema: string
+  currentValue: number
+  increment: number
+  minValue: number
+  maxValue: number
+}
+
+interface SQLProcedureInfo {
+  name: string
+  schema: string
+  status: 'VALID' | 'INVALID'
+}
+
+interface SQLFunctionInfo {
+  name: string
+  schema: string
+  status: 'VALID' | 'INVALID'
+  returnType: string
+}
+
+interface SQLPackageInfo {
+  name: string
+  schema: string
+  status: 'VALID' | 'INVALID'
+}
+
+interface SQLTriggerInfo {
+  name: string
+  schema: string
+  status: 'ENABLED' | 'DISABLED'
+  event: string
+  table?: string
+}
+
+interface SQLColumnDetail {
+  name: string
+  type: string
+  nullable: boolean
+  defaultValue?: string
+  precision?: number
+  scale?: number
+  maxLength?: number
+  isPrimaryKey: boolean
+  comments?: string
+}
+
+interface SQLConstraint {
+  name: string
+  type: 'PRIMARY' | 'UNIQUE' | 'FOREIGN_KEY' | 'CHECK' | 'NOT_NULL'
+  columns: string[]
+  refTable?: string
+  refColumns?: string[]
+  deleteRule?: string
+  status: 'ENABLED' | 'DISABLED'
+}
+
+interface SQLIndex {
+  name: string
+  columns: string[]
+  isUnique: boolean
+  type: string
+  tablespace?: string
+  status: 'VALID' | 'UNUSABLE'
+}
+
+interface SQLExplainPlan {
+  nodes: SQLPlanNode[]
+  totalCost: number
+  executionTime?: number
+}
+
+interface SQLPlanNode {
+  id: number
+  parentId?: number
+  operation: string
+  options?: string
+  objectName?: string
+  cost?: number
+  cardinality?: number
+  bytes?: number
+  cpuCost?: number
+  ioCost?: number
+  depth: number
+}
+
+interface SQLSavedQuery {
+  id: string
+  connectionId: string
+  name: string
+  sql: string
+  createdAt: number
+  updatedAt: number
+}
+
+interface SQLHistoryEntry {
+  id: string
+  connectionId: string
+  sql: string
+  executionTime: number
+  rowCount: number
+  status: 'success' | 'error'
+  error?: string
+  executedAt: number
+}
+
+interface SQLWorksheet {
+  id: string
+  name: string
+  sql: string
+  connectionId?: string
+}
+
+interface SQLObjectDescription {
+  name: string
+  schema: string
+  type: string
+  columns?: SQLColumnDetail[]
+  constraints?: SQLConstraint[]
+  indexes?: SQLIndex[]
+  ddl?: string
+}
+
+interface SQLGrant {
+  grantee: string
+  privilege: string
+  grantable: boolean
+}
+
 // DynamoDB types
 interface DynamoDBTableInfo {
   tableName: string
@@ -1175,7 +1369,7 @@ type EventPayloadMapping = {
   }
   dockerGetContainer: {
     return: DockerContainer;
-    args: [string];
+    args: [string, string?];
   }
   dockerStartContainer: {
     return: void;
@@ -1203,19 +1397,19 @@ type EventPayloadMapping = {
   }
   dockerExecInContainer: {
     return: string;
-    args: [string, string[]];
+    args: [string, string[], string?];
   }
   dockerInspectContainer: {
     return: Record<string, unknown>;
-    args: [string];
+    args: [string, string?];
   }
   dockerGetContainerLogs: {
     return: string[];
-    args: [string, DockerLogOptions];
+    args: [string, DockerLogOptions, string?];
   }
   dockerStreamContainerLogs: {
     return: void;
-    args: [string, DockerLogOptions];
+    args: [string, DockerLogOptions, string?];
   }
   dockerStopLogStream: {
     return: void;
@@ -1223,7 +1417,7 @@ type EventPayloadMapping = {
   }
   dockerGetContainerStats: {
     return: DockerContainerStats;
-    args: [string];
+    args: [string, string?];
   }
   dockerGetAllStats: {
     return: Record<string, DockerContainerStats>;
@@ -1328,7 +1522,7 @@ type EventPayloadMapping = {
   // Docker Interactive Exec handlers
   dockerExecInteractive: {
     return: DockerExecSession;
-    args: [string, string]; // containerId, shell
+    args: [string, string, string?]; // containerId, shell, dockerContext
   }
   dockerExecInput: {
     return: void;
@@ -1353,43 +1547,83 @@ type EventPayloadMapping = {
   // Docker File Manager handlers
   dockerListDirectory: {
     return: DockerFileEntry[];
-    args: [string, string]; // containerId, path
+    args: [string, string, string?]; // containerId, path, dockerContext
   }
   dockerReadFile: {
     return: DockerFileContent;
-    args: [string, string, number?]; // containerId, path, maxSize
+    args: [string, string, number?, string?]; // containerId, path, maxSize, dockerContext
   }
   dockerDownloadFile: {
     return: string;
-    args: [string, string, boolean?]; // containerId, remotePath, isDirectory
+    args: [string, string, boolean?, string?]; // containerId, remotePath, isDirectory, dockerContext
   }
   dockerUploadFile: {
     return: void;
-    args: [string, string, string]; // containerId, localPath, remotePath
+    args: [string, string, string, string?]; // containerId, localPath, remotePath, dockerContext
   }
   dockerUploadFiles: {
     return: number;
-    args: [string, string[], string]; // containerId, localPaths, remotePath
+    args: [string, string[], string, string?]; // containerId, localPaths, remotePath, dockerContext
   }
   dockerUploadFileDialog: {
     return: number;
-    args: [string, string]; // containerId, remotePath
+    args: [string, string, string?]; // containerId, remotePath, dockerContext
   }
   dockerCreateDirectory: {
     return: void;
-    args: [string, string]; // containerId, path
+    args: [string, string, string?]; // containerId, path, dockerContext
   }
   dockerDeletePath: {
     return: void;
-    args: [string, string, boolean?]; // containerId, path, recursive
+    args: [string, string, boolean?, string?]; // containerId, path, recursive, dockerContext
   }
   dockerRenamePath: {
     return: void;
-    args: [string, string, string]; // containerId, oldPath, newPath
+    args: [string, string, string, string?]; // containerId, oldPath, newPath, dockerContext
   }
   dockerStartDrag: {
     return: void;
-    args: [string, string]; // containerId, remotePath
+    args: [string, string, string?]; // containerId, remotePath, dockerContext
+  }
+  // ─── SQL Developer handlers ───
+  sqlGetConnections: { return: SQLConnectionConfig[]; args: [] }
+  sqlSaveConnection: { return: void; args: [SQLConnectionConfig] }
+  sqlDeleteConnection: { return: void; args: [string] }
+  sqlTestConnection: { return: SQLConnectionState; args: [string] }
+  sqlSetActiveConnection: { return: void; args: [string] }
+  sqlDisconnect: { return: void; args: [] }
+  sqlGetActiveConnectionId: { return: string | null; args: [] }
+  sqlExecuteQuery: { return: SQLQueryResult; args: [string, unknown[]?] }
+  sqlExecuteScript: { return: SQLScriptResult; args: [string] }
+  sqlCancelQuery: { return: void; args: [string] }
+  sqlExplainPlan: { return: SQLExplainPlan; args: [string] }
+  sqlEnableDbmsOutput: { return: void; args: [] }
+  sqlGetDbmsOutput: { return: string[]; args: [] }
+  sqlGetSchemas: { return: string[]; args: [boolean?] }
+  sqlGetTables: { return: SQLTableInfo[]; args: [string] }
+  sqlGetViews: { return: SQLViewInfo[]; args: [string] }
+  sqlGetSequences: { return: SQLSequenceInfo[]; args: [string] }
+  sqlGetProcedures: { return: SQLProcedureInfo[]; args: [string] }
+  sqlGetFunctions: { return: SQLFunctionInfo[]; args: [string] }
+  sqlGetPackages: { return: SQLPackageInfo[]; args: [string] }
+  sqlGetTriggers: { return: SQLTriggerInfo[]; args: [string] }
+  sqlGetTableColumns: { return: SQLColumnDetail[]; args: [string, string] }
+  sqlGetTableConstraints: { return: SQLConstraint[]; args: [string, string] }
+  sqlGetTableIndexes: { return: SQLIndex[]; args: [string, string] }
+  sqlGetTableTriggers: { return: SQLTriggerInfo[]; args: [string, string] }
+  sqlGetObjectDDL: { return: string; args: [string, string, string] }
+  sqlGetTableRowCount: { return: number; args: [string, string] }
+  sqlDescribeObject: { return: SQLObjectDescription; args: [string, string] }
+  sqlGetTableGrants: { return: SQLGrant[]; args: [string, string] }
+  sqlGetSchemaColumnMap: { return: Record<string, string[]>; args: [string] }
+  sqlGetHistory: { return: SQLHistoryEntry[]; args: [] }
+  sqlClearHistory: { return: void; args: [] }
+  sqlGetSavedQueries: { return: SQLSavedQuery[]; args: [] }
+  sqlSaveQuery: { return: void; args: [SQLSavedQuery] }
+  sqlDeleteSavedQuery: { return: void; args: [string] }
+  subscribeSQLConnectionState: {
+    return: SQLConnectionState
+    args: [SQLConnectionState]
   }
   // ─── MongoDB handlers ───
   mongoGetConnections: {
@@ -1659,19 +1893,19 @@ interface Window {
     dockerGetActiveContext: () => Promise<string>
     dockerIsAvailable: () => Promise<boolean>
     dockerGetContainers: (filters?: DockerContainerFilters) => Promise<DockerContainer[]>
-    dockerGetContainer: (id: string) => Promise<DockerContainer>
+    dockerGetContainer: (id: string, dockerContext?: string) => Promise<DockerContainer>
     dockerStartContainer: (id: string, dockerContext?: string) => Promise<void>
     dockerStopContainer: (id: string, dockerContext?: string) => Promise<void>
     dockerRestartContainer: (id: string, dockerContext?: string) => Promise<void>
     dockerPauseContainer: (id: string, dockerContext?: string) => Promise<void>
     dockerUnpauseContainer: (id: string, dockerContext?: string) => Promise<void>
     dockerRemoveContainer: (id: string, force: boolean, dockerContext?: string) => Promise<void>
-    dockerExecInContainer: (id: string, command: string[]) => Promise<string>
-    dockerInspectContainer: (id: string) => Promise<Record<string, unknown>>
-    dockerGetContainerLogs: (id: string, options: DockerLogOptions) => Promise<string[]>
-    dockerStreamContainerLogs: (id: string, options: DockerLogOptions) => Promise<void>
+    dockerExecInContainer: (id: string, command: string[], dockerContext?: string) => Promise<string>
+    dockerInspectContainer: (id: string, dockerContext?: string) => Promise<Record<string, unknown>>
+    dockerGetContainerLogs: (id: string, options: DockerLogOptions, dockerContext?: string) => Promise<string[]>
+    dockerStreamContainerLogs: (id: string, options: DockerLogOptions, dockerContext?: string) => Promise<void>
     dockerStopLogStream: (id: string) => Promise<void>
-    dockerGetContainerStats: (id: string) => Promise<DockerContainerStats>
+    dockerGetContainerStats: (id: string, dockerContext?: string) => Promise<DockerContainerStats>
     dockerGetAllStats: () => Promise<Record<string, DockerContainerStats>>
     dockerGetImages: () => Promise<DockerImage[]>
     dockerPullImage: (name: string) => Promise<void>
@@ -1698,23 +1932,60 @@ interface Window {
     subscribeDockerStats: (callback: (stats: Record<string, DockerContainerStats>) => void) => () => void
     subscribeDockerLogs: (callback: (data: { containerId: string; log: string }) => void) => () => void
     // Docker Interactive Exec
-    dockerExecInteractive: (containerId: string, shell: string) => Promise<DockerExecSession>
+    dockerExecInteractive: (containerId: string, shell: string, dockerContext?: string) => Promise<DockerExecSession>
     dockerExecInput: (sessionId: string, data: string) => Promise<void>
     dockerExecResize: (sessionId: string, cols: number, rows: number) => Promise<void>
     dockerExecClose: (sessionId: string) => Promise<void>
     subscribeDockerExecOutput: (callback: (data: DockerExecSessionOutput) => void) => () => void
     subscribeDockerExecClosed: (callback: (data: DockerExecSessionClosed) => void) => () => void
     // Docker File Manager
-    dockerListDirectory: (containerId: string, path: string) => Promise<DockerFileEntry[]>
-    dockerReadFile: (containerId: string, path: string, maxSize?: number) => Promise<DockerFileContent>
-    dockerDownloadFile: (containerId: string, remotePath: string, isDirectory?: boolean) => Promise<string>
-    dockerUploadFile: (containerId: string, localPath: string, remotePath: string) => Promise<void>
-    dockerUploadFiles: (containerId: string, localPaths: string[], remotePath: string) => Promise<number>
-    dockerUploadFileDialog: (containerId: string, remotePath: string) => Promise<number>
-    dockerCreateDirectory: (containerId: string, path: string) => Promise<void>
-    dockerDeletePath: (containerId: string, path: string, recursive?: boolean) => Promise<void>
-    dockerRenamePath: (containerId: string, oldPath: string, newPath: string) => Promise<void>
-    dockerStartDrag: (containerId: string, remotePath: string) => Promise<void>
+    dockerListDirectory: (containerId: string, path: string, dockerContext?: string) => Promise<DockerFileEntry[]>
+    dockerReadFile: (containerId: string, path: string, maxSize?: number, dockerContext?: string) => Promise<DockerFileContent>
+    dockerDownloadFile: (containerId: string, remotePath: string, isDirectory?: boolean, dockerContext?: string) => Promise<string>
+    dockerUploadFile: (containerId: string, localPath: string, remotePath: string, dockerContext?: string) => Promise<void>
+    dockerUploadFiles: (containerId: string, localPaths: string[], remotePath: string, dockerContext?: string) => Promise<number>
+    dockerUploadFileDialog: (containerId: string, remotePath: string, dockerContext?: string) => Promise<number>
+    dockerCreateDirectory: (containerId: string, path: string, dockerContext?: string) => Promise<void>
+    dockerDeletePath: (containerId: string, path: string, recursive?: boolean, dockerContext?: string) => Promise<void>
+    dockerRenamePath: (containerId: string, oldPath: string, newPath: string, dockerContext?: string) => Promise<void>
+    dockerStartDrag: (containerId: string, remotePath: string, dockerContext?: string) => Promise<void>
+    // SQL Developer API
+    sqlGetConnections: () => Promise<SQLConnectionConfig[]>
+    sqlSaveConnection: (config: SQLConnectionConfig) => Promise<void>
+    sqlDeleteConnection: (id: string) => Promise<void>
+    sqlTestConnection: (id: string) => Promise<SQLConnectionState>
+    sqlSetActiveConnection: (id: string) => Promise<void>
+    sqlDisconnect: () => Promise<void>
+    sqlGetActiveConnectionId: () => Promise<string | null>
+    sqlExecuteQuery: (sql: string, params?: unknown[]) => Promise<SQLQueryResult>
+    sqlExecuteScript: (sql: string) => Promise<SQLScriptResult>
+    sqlCancelQuery: (queryId: string) => Promise<void>
+    sqlExplainPlan: (sql: string) => Promise<SQLExplainPlan>
+    sqlEnableDbmsOutput: () => Promise<void>
+    sqlGetDbmsOutput: () => Promise<string[]>
+    sqlGetSchemas: (includeSystem?: boolean) => Promise<string[]>
+    sqlGetTables: (schema: string) => Promise<SQLTableInfo[]>
+    sqlGetViews: (schema: string) => Promise<SQLViewInfo[]>
+    sqlGetSequences: (schema: string) => Promise<SQLSequenceInfo[]>
+    sqlGetProcedures: (schema: string) => Promise<SQLProcedureInfo[]>
+    sqlGetFunctions: (schema: string) => Promise<SQLFunctionInfo[]>
+    sqlGetPackages: (schema: string) => Promise<SQLPackageInfo[]>
+    sqlGetTriggers: (schema: string) => Promise<SQLTriggerInfo[]>
+    sqlGetTableColumns: (schema: string, table: string) => Promise<SQLColumnDetail[]>
+    sqlGetTableConstraints: (schema: string, table: string) => Promise<SQLConstraint[]>
+    sqlGetTableIndexes: (schema: string, table: string) => Promise<SQLIndex[]>
+    sqlGetTableTriggers: (schema: string, table: string) => Promise<SQLTriggerInfo[]>
+    sqlGetObjectDDL: (schema: string, objectName: string, objectType: string) => Promise<string>
+    sqlGetTableRowCount: (schema: string, table: string) => Promise<number>
+    sqlDescribeObject: (schema: string, name: string) => Promise<SQLObjectDescription>
+    sqlGetTableGrants: (schema: string, table: string) => Promise<SQLGrant[]>
+    sqlGetSchemaColumnMap: (schema: string) => Promise<Record<string, string[]>>
+    sqlGetHistory: () => Promise<SQLHistoryEntry[]>
+    sqlClearHistory: () => Promise<void>
+    sqlGetSavedQueries: () => Promise<SQLSavedQuery[]>
+    sqlSaveQuery: (query: SQLSavedQuery) => Promise<void>
+    sqlDeleteSavedQuery: (id: string) => Promise<void>
+    subscribeSQLConnectionState: (callback: (state: SQLConnectionState) => void) => () => void
     // MongoDB API
     mongoGetConnections: () => Promise<MongoConnectionConfig[]>
     mongoGetActiveConnectionId: () => Promise<string | null>

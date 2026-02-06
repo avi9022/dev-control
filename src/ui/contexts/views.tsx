@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type FC, type PropsWithChildren } from 'react'
 
-export type ViewType = 'directory' | 'queue' | 'tool' | 'dynamodb' | 'api-client' | 'docker' | 'mongodb'
+export type ViewType = 'directory' | 'queue' | 'tool' | 'dynamodb' | 'api-client' | 'docker' | 'mongodb' | 'sql'
 
 interface View {
   type: ViewType,

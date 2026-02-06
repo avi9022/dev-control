@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { SearchAddon } from '@xterm/addon-search'
 import '@xterm/xterm/css/xterm.css'
 import { FilesTab } from './files/FilesTab'
 
@@ -239,48 +240,155 @@ function OverviewTab({ container, containerStats }: { container: DockerContainer
   )
 }
 
-function LogsTab({ containerId }: { containerId: string }) {
-  const { getContainerLogs } = useDocker()
-  const [logs, setLogs] = useState('')
+function LogsTab({ containerId, dockerContext }: { containerId: string; dockerContext?: string }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [follow, setFollow] = useState(false)
   const [loading, setLoading] = useState(false)
+  const terminalRef = useRef<HTMLDivElement>(null)
+  const xtermRef = useRef<XTerm | null>(null)
+  const fitAddonRef = useRef<FitAddon | null>(null)
+  const searchAddonRef = useRef<SearchAddon | null>(null)
+  const logsRef = useRef<string[]>([])
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Initialize xterm
+  useEffect(() => {
+    if (!terminalRef.current) return
+
+    const term = new XTerm({
+      cursorBlink: false,
+      disableStdin: true,
+      fontSize: 12,
+      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      scrollback: 10000,
+      convertEol: true,
+      theme: {
+        background: '#0d1117',
+        foreground: '#c9d1d9',
+        cursor: '#0d1117',
+        selectionBackground: '#264f78',
+        black: '#0d1117',
+        red: '#ff7b72',
+        green: '#3fb950',
+        yellow: '#d29922',
+        blue: '#58a6ff',
+        magenta: '#bc8cff',
+        cyan: '#39c5cf',
+        white: '#c9d1d9',
+      },
+    })
+
+    const fitAddon = new FitAddon()
+    const searchAddon = new SearchAddon()
+    term.loadAddon(fitAddon)
+    term.loadAddon(searchAddon)
+    term.open(terminalRef.current)
+
+    xtermRef.current = term
+    fitAddonRef.current = fitAddon
+    searchAddonRef.current = searchAddon
+
+    setTimeout(() => fitAddon.fit(), 50)
+
+    const resizeObserver = new ResizeObserver(() => {
+      fitAddon.fit()
+    })
+    resizeObserver.observe(terminalRef.current)
+
+    return () => {
+      resizeObserver.disconnect()
+      term.dispose()
+      xtermRef.current = null
+      fitAddonRef.current = null
+      searchAddonRef.current = null
+    }
+  }, [])
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await getContainerLogs(containerId, { tail: 500, follow: false })
-      setLogs(result)
+      const result = await window.electron.dockerGetContainerLogs(
+        containerId,
+        { tail: 1000, follow: false },
+        dockerContext
+      )
+      const lines = Array.isArray(result) ? result : [String(result)]
+      logsRef.current = lines
+
+      if (xtermRef.current) {
+        xtermRef.current.clear()
+        xtermRef.current.write(lines.join('\r\n'))
+        if (follow) {
+          xtermRef.current.scrollToBottom()
+        }
+      }
     } catch {
-      setLogs('Failed to fetch logs')
+      if (xtermRef.current) {
+        xtermRef.current.clear()
+        xtermRef.current.write('\x1b[31mFailed to fetch logs\x1b[0m')
+      }
     } finally {
       setLoading(false)
     }
-  }, [containerId, getContainerLogs])
+  }, [containerId, dockerContext, follow])
 
+  // Initial fetch
   useEffect(() => {
     fetchLogs()
   }, [fetchLogs])
 
+  // Follow mode polling
   useEffect(() => {
     if (!follow) return
     const interval = setInterval(fetchLogs, 2000)
     return () => clearInterval(interval)
   }, [follow, fetchLogs])
 
-  const displayedLogs = searchTerm
-    ? logs.split('\n').filter((line) => line.toLowerCase().includes(searchTerm.toLowerCase())).join('\n')
-    : logs
+  // Search
+  useEffect(() => {
+    if (!searchAddonRef.current) return
+    if (searchTerm) {
+      searchAddonRef.current.findNext(searchTerm, { caseSensitive: false })
+    } else {
+      searchAddonRef.current.clearDecorations()
+    }
+  }, [searchTerm])
+
+  const handleSearchNext = () => {
+    if (searchAddonRef.current && searchTerm) {
+      searchAddonRef.current.findNext(searchTerm, { caseSensitive: false })
+    }
+  }
+
+  const handleSearchPrev = () => {
+    if (searchAddonRef.current && searchTerm) {
+      searchAddonRef.current.findPrevious(searchTerm, { caseSensitive: false })
+    }
+  }
+
+  const handleClear = () => {
+    logsRef.current = []
+    if (xtermRef.current) {
+      xtermRef.current.clear()
+      xtermRef.current.reset()
+    }
+  }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 p-3 border-b">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex items-center gap-2 p-3 border-b shrink-0">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
+            ref={searchInputRef}
             placeholder="Search logs..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.shiftKey ? handleSearchPrev() : handleSearchNext()
+              }
+            }}
             className="pl-8 h-7 text-xs"
           />
         </div>
@@ -292,18 +400,14 @@ function LogsTab({ containerId }: { containerId: string }) {
         >
           {follow ? 'Following' : 'Follow'}
         </Button>
-        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setLogs('')}>
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleClear}>
           Clear
         </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={fetchLogs} disabled={loading}>
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
-      <ScrollArea className="flex-1">
-        <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-all text-foreground">
-          {displayedLogs || 'No logs available'}
-        </pre>
-      </ScrollArea>
+      <div ref={terminalRef} className="flex-1 min-h-0" />
     </div>
   )
 }
@@ -314,7 +418,7 @@ const SHELLS = [
   { value: '/bin/bash', label: 'bash' },
 ]
 
-function ExecTab({ containerId }: { containerId: string }) {
+function ExecTab({ containerId, dockerContext }: { containerId: string; dockerContext?: string }) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -436,7 +540,7 @@ function ExecTab({ containerId }: { containerId: string }) {
     for (const sh of shells) {
       try {
         terminal.write(`\x1b[90mConnecting with ${sh}...\x1b[0m\r\n`)
-        const session = await window.electron.dockerExecInteractive(containerId, sh)
+        const session = await window.electron.dockerExecInteractive(containerId, sh, dockerContext)
         setSessionId(session.sessionId)
         setCurrentShell(sh)
         setConnecting(false)
@@ -572,7 +676,7 @@ export const ContainerDetail: FC<ContainerDetailProps> = ({ container: container
   // Fetch detailed container info to get proper mount types
   useEffect(() => {
     let mounted = true
-    window.electron.dockerGetContainer(containerProp.id).then((detailed) => {
+    window.electron.dockerGetContainer(containerProp.id, containerProp.dockerContext).then((detailed) => {
       if (mounted) {
         setDetailedContainer(detailed)
       }
@@ -664,13 +768,13 @@ export const ContainerDetail: FC<ContainerDetailProps> = ({ container: container
           <OverviewTab container={container} containerStats={containerStats} />
         </TabsContent>
         <TabsContent value="logs" className="flex-1 min-h-0">
-          <LogsTab containerId={container.id} />
+          <LogsTab containerId={container.id} dockerContext={containerProp.dockerContext} />
         </TabsContent>
         <TabsContent value="exec" className="flex-1 min-h-0">
-          <ExecTab containerId={container.id} />
+          <ExecTab containerId={container.id} dockerContext={containerProp.dockerContext} />
         </TabsContent>
         <TabsContent value="files" className="flex-1 min-h-0">
-          <FilesTab containerId={container.id} />
+          <FilesTab containerId={container.id} dockerContext={containerProp.dockerContext} />
         </TabsContent>
       </Tabs>
     </div>

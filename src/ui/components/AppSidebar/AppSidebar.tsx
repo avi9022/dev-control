@@ -12,7 +12,8 @@ import { ApiClientMenu } from "./ApiClientMenu"
 import { DockerMenu } from "./DockerMenu"
 import { MongoDBMenu } from "./MongoDBMenu"
 import { useViews, type ViewType } from "@/ui/contexts/views"
-import { Server, ListOrdered, Database, Globe, Container, Leaf, GitBranch, Wrench } from "lucide-react"
+import { SQLMenu } from "./SQLMenu"
+import { Server, ListOrdered, Database, Globe, Container, Leaf, GitBranch, Wrench, DatabaseZap } from "lucide-react"
 
 const SIDEBAR_TABS = [
   { value: 'services', label: 'Services', icon: Server },
@@ -21,11 +22,12 @@ const SIDEBAR_TABS = [
   { value: 'api-client', label: 'API Client', icon: Globe },
   { value: 'docker', label: 'Docker', icon: Container },
   { value: 'mongodb', label: 'MongoDB', icon: Leaf },
+  { value: 'sql', label: 'SQL Developer', icon: DatabaseZap },
   { value: 'workflows', label: 'Workflows', icon: GitBranch },
   { value: 'tools', label: 'Tools', icon: Wrench },
 ] as const
 
-const VIEW_TABS = new Set<string>(['dynamodb', 'api-client', 'docker', 'mongodb'])
+const VIEW_TABS = new Set<string>(['dynamodb', 'api-client', 'docker', 'mongodb', 'sql'])
 
 export const AppSidebar: FC = () => {
   const [tab, setTab] = useState('services')
@@ -80,6 +82,9 @@ export const AppSidebar: FC = () => {
           </TabsContent>
           <TabsContent value="mongodb" className="flex-1 min-h-0 overflow-auto mt-0">
             <MongoDBMenu />
+          </TabsContent>
+          <TabsContent value="sql" className="flex-1 min-h-0 overflow-auto mt-0">
+            <SQLMenu />
           </TabsContent>
           <TabsContent value="workflows" className="flex-1 min-h-0 overflow-auto mt-0">
             <WorkflowsMenu onStartWorkflow={() => setTab('services')} />

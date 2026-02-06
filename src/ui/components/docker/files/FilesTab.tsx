@@ -44,6 +44,7 @@ import {
 
 interface FilesTabProps {
   containerId: string
+  dockerContext?: string
 }
 
 type FileEntry = DockerFileEntry
@@ -111,7 +112,7 @@ function formatDate(dateStr: string): string {
   })
 }
 
-export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
+export const FilesTab: FC<FilesTabProps> = ({ containerId, dockerContext }) => {
   const [currentPath, setCurrentPath] = useState('/')
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [selectedEntry, setSelectedEntry] = useState<FileEntry | null>(null)
@@ -136,7 +137,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
     setLoading(true)
     setError(null)
     try {
-      const result = await window.electron.dockerListDirectory(containerId, path)
+      const result = await window.electron.dockerListDirectory(containerId, path, dockerContext)
       setEntries(result)
       setCurrentPath(path)
       setSelectedEntry(null)
@@ -146,14 +147,14 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
     } finally {
       setLoading(false)
     }
-  }, [containerId])
+  }, [containerId, dockerContext])
 
   const loadPreview = useCallback(async (entry: FileEntry) => {
     if (entry.type === 'directory') return
 
     setPreviewLoading(true)
     try {
-      const content = await window.electron.dockerReadFile(containerId, entry.path)
+      const content = await window.electron.dockerReadFile(containerId, entry.path, undefined, dockerContext)
       setPreview(content)
     } catch (err) {
       setPreview({
@@ -207,7 +208,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
 
   const handleDownload = async (entry: FileEntry) => {
     try {
-      await window.electron.dockerDownloadFile(containerId, entry.path, entry.type === 'directory')
+      await window.electron.dockerDownloadFile(containerId, entry.path, entry.type === 'directory', dockerContext)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Download failed')
     }
@@ -217,7 +218,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
     try {
       setUploading(true)
       const targetPath = currentPath === '/' ? '/' : currentPath + '/'
-      const count = await window.electron.dockerUploadFileDialog(containerId, targetPath)
+      const count = await window.electron.dockerUploadFileDialog(containerId, targetPath, dockerContext)
       if (count > 0) {
         loadDirectory(currentPath)
       }
@@ -234,7 +235,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
       const folderPath = currentPath.endsWith('/')
         ? `${currentPath}${newFolderName}`
         : `${currentPath}/${newFolderName}`
-      await window.electron.dockerCreateDirectory(containerId, folderPath)
+      await window.electron.dockerCreateDirectory(containerId, folderPath, dockerContext)
       setNewFolderDialog(false)
       setNewFolderName('')
       loadDirectory(currentPath)
@@ -249,7 +250,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
       const newPath = currentPath.endsWith('/')
         ? `${currentPath}${renameValue}`
         : `${currentPath}/${renameValue}`
-      await window.electron.dockerRenamePath(containerId, selectedEntry.path, newPath)
+      await window.electron.dockerRenamePath(containerId, selectedEntry.path, newPath, dockerContext)
       setRenameDialog(false)
       setRenameValue('')
       loadDirectory(currentPath)
@@ -264,7 +265,8 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
       await window.electron.dockerDeletePath(
         containerId,
         deleteTarget.path,
-        deleteTarget.type === 'directory'
+        deleteTarget.type === 'directory',
+        dockerContext
       )
       setDeleteDialog(false)
       setDeleteTarget(null)
@@ -332,7 +334,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
     try {
       setUploading(true)
       const targetPath = currentPath === '/' ? '/' : currentPath + '/'
-      const count = await window.electron.dockerUploadFiles(containerId, filePaths, targetPath)
+      const count = await window.electron.dockerUploadFiles(containerId, filePaths, targetPath, dockerContext)
       if (count > 0) {
         await loadDirectory(currentPath)
       }
@@ -352,7 +354,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId }) => {
       setDraggingEntry(entry.path)
       // Downloads to temp and starts native OS drag operation
       // User can then drop anywhere on their computer
-      await window.electron.dockerStartDrag(containerId, entry.path)
+      await window.electron.dockerStartDrag(containerId, entry.path, dockerContext)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Drag failed')
     } finally {
