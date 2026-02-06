@@ -236,6 +236,7 @@ const SQLEditorView: FC = () => {
             onExecuteScript={handleExecuteScript}
             tables={tableNames}
             columnMap={columnMap}
+            selectedSchema={selectedSchema}
           />
         </ResizablePanel>
 

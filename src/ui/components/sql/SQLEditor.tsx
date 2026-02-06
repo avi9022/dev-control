@@ -1,10 +1,10 @@
 import { useEffect, useRef, useCallback, type FC } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
 import { Compartment, EditorState } from '@codemirror/state'
-import { sql, MSSQL } from '@codemirror/lang-sql'
+import { sql, PLSQL } from '@codemirror/lang-sql'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
-import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
+import { autocompletion, completionKeymap, type CompletionContext, type Completion } from '@codemirror/autocomplete'
 import { bracketMatching, foldGutter, foldKeymap, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
 import { oneDark } from '@codemirror/theme-one-dark'
 
@@ -15,6 +15,7 @@ interface SQLEditorProps {
   onExecuteScript: (sql: string) => void
   tables?: string[]
   columnMap?: Record<string, string[]>
+  selectedSchema?: string | null
   className?: string
 }
 
@@ -72,12 +73,80 @@ function getCurrentStatement(view: EditorView): string {
   return doc.slice(start, end).trim()
 }
 
-function buildSchema(tables: string[], columnMap: Record<string, string[]>): Record<string, string[]> {
-  const schema: Record<string, string[]> = {}
+function buildSchemaSpec(
+  tables: string[],
+  columnMap: Record<string, string[]>,
+  schemaName?: string | null,
+) {
+  const tableSpec: Record<string, readonly string[]> = {}
   for (const t of tables) {
-    schema[t] = columnMap[t] ?? []
+    tableSpec[t] = columnMap[t] ?? []
   }
-  return schema
+
+  if (schemaName) {
+    return {
+      schema: { [schemaName]: tableSpec } as Record<string, Record<string, readonly string[]>>,
+      defaultSchema: schemaName,
+    }
+  }
+
+  return { schema: tableSpec, defaultSchema: undefined }
+}
+
+/**
+ * Extract table names referenced in the current SQL statement.
+ * Matches: FROM table, JOIN table, UPDATE table, INTO table
+ * Handles: "SCHEMA"."TABLE", SCHEMA.TABLE, "TABLE", TABLE
+ */
+function extractReferencedTables(statement: string): Set<string> {
+  const tables = new Set<string>()
+  const pattern = /\b(?:FROM|JOIN|UPDATE|INTO)\s+(?:"[^"]*"\s*\.\s*)?(?:"([^"]+)"|(\w+))/gi
+  let m
+  while ((m = pattern.exec(statement)) !== null) {
+    const name = (m[1] ?? m[2]).toUpperCase()
+    tables.add(name)
+  }
+  return tables
+}
+
+/** Find the current statement boundaries around the cursor */
+function getStatementAt(doc: string, cursor: number): string {
+  let start = 0
+  let end = doc.length
+  const lastSemi = doc.lastIndexOf(';', cursor - 1)
+  if (lastSemi !== -1) start = lastSemi + 1
+  const nextSemi = doc.indexOf(';', cursor)
+  if (nextSemi !== -1) end = nextSemi
+  return doc.slice(start, end)
+}
+
+/** Context-aware completion source: only columns from tables in the current query */
+function columnCompletionSource(colMap: Record<string, string[]>) {
+  return PLSQL.language.data.of({
+    autocomplete: (context: CompletionContext) => {
+      if (context.matchBefore(/\.\w*/)) return null
+      const word = context.matchBefore(/\w+/)
+      if (!word && !context.explicit) return null
+
+      const doc = context.state.doc.toString()
+      const stmt = getStatementAt(doc, context.pos)
+      const referencedTables = extractReferencedTables(stmt)
+
+      if (referencedTables.size === 0) return null
+
+      const completions: Completion[] = []
+      for (const table of referencedTables) {
+        const cols = colMap[table]
+        if (!cols) continue
+        for (const col of cols) {
+          completions.push({ label: col, type: 'property', detail: table, boost: -1 })
+        }
+      }
+
+      if (completions.length === 0) return null
+      return { from: word.from, options: completions, validFor: /^\w*$/ }
+    },
+  })
 }
 
 export const SQLEditor: FC<SQLEditorProps> = ({
@@ -87,11 +156,13 @@ export const SQLEditor: FC<SQLEditorProps> = ({
   onExecuteScript,
   tables = [],
   columnMap = {},
+  selectedSchema,
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const sqlCompartmentRef = useRef(new Compartment())
+  const colCompartmentRef = useRef(new Compartment())
   const onExecuteRef = useRef(onExecute)
   const onExecuteScriptRef = useRef(onExecuteScript)
   const onChangeRef = useRef(onChange)
@@ -125,8 +196,7 @@ export const SQLEditor: FC<SQLEditorProps> = ({
   useEffect(() => {
     if (!containerRef.current) return
 
-    const schema = buildSchema(tables, columnMap)
-    const sqlCompartment = sqlCompartmentRef.current
+    const { schema, defaultSchema } = buildSchemaSpec(tables, columnMap, selectedSchema)
 
     const state = EditorState.create({
       doc: value,
@@ -139,7 +209,8 @@ export const SQLEditor: FC<SQLEditorProps> = ({
         foldGutter(),
         highlightSelectionMatches(),
         autocompletion(),
-        sqlCompartment.of(sql({ dialect: MSSQL, schema, upperCaseKeywords: true })),
+        sqlCompartmentRef.current.of(sql({ dialect: PLSQL, schema, defaultSchema, upperCaseKeywords: true })),
+        colCompartmentRef.current.of(columnCompletionSource(columnMap)),
         oneDark,
         oracleTheme,
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
@@ -169,17 +240,22 @@ export const SQLEditor: FC<SQLEditorProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Dynamically update SQL schema (tables + columns) without recreating editor
+  // Dynamically update SQL schema + column completions without recreating editor
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
-    const schema = buildSchema(tables, columnMap)
+    const { schema, defaultSchema } = buildSchemaSpec(tables, columnMap, selectedSchema)
     view.dispatch({
-      effects: sqlCompartmentRef.current.reconfigure(
-        sql({ dialect: MSSQL, schema, upperCaseKeywords: true })
-      ),
+      effects: [
+        sqlCompartmentRef.current.reconfigure(
+          sql({ dialect: PLSQL, schema, defaultSchema, upperCaseKeywords: true })
+        ),
+        colCompartmentRef.current.reconfigure(
+          columnCompletionSource(columnMap)
+        ),
+      ],
     })
-  }, [tables, columnMap])
+  }, [tables, columnMap, selectedSchema])
 
   useEffect(() => {
     const view = viewRef.current
