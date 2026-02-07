@@ -78,6 +78,83 @@ interface Workflow {
   services: string[]
 }
 
+// ─── Enhanced Workflow Types ───
+type WorkflowStepType = 'command' | 'docker' | 'service'
+
+interface WorkflowStepBase {
+  id: string
+  type: WorkflowStepType
+  label: string
+  enabled: boolean
+  timeoutMs: number
+  retries: number
+  continueOnError: boolean
+}
+
+interface WorkflowCommandStep extends WorkflowStepBase {
+  type: 'command'
+  command: string
+  workingDirectory?: string
+}
+
+interface WorkflowDockerStep extends WorkflowStepBase {
+  type: 'docker'
+  containerIds: string[]
+  containerNames: string[]
+  composeProject?: string
+  dockerContext?: string
+}
+
+interface WorkflowServiceStep extends WorkflowStepBase {
+  type: 'service'
+  serviceIds: string[]
+}
+
+type WorkflowStep = WorkflowCommandStep | WorkflowDockerStep | WorkflowServiceStep
+
+type WorkflowStatus = 'idle' | 'starting' | 'running' | 'stopping' | 'partial' | 'error'
+
+interface EnhancedWorkflow {
+  id: string
+  name: string
+  startSteps: WorkflowStep[]
+  stopSteps: WorkflowStep[]
+  createdAt: number
+  updatedAt: number
+}
+
+type WorkflowStepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+
+interface WorkflowStepProgress {
+  stepId: string
+  status: WorkflowStepStatus
+  message?: string
+  output?: string
+  startedAt?: number
+  completedAt?: number
+  attempt: number
+}
+
+interface WorkflowExecutionProgress {
+  workflowId: string
+  phase: 'starting' | 'stopping'
+  status: WorkflowStatus
+  steps: WorkflowStepProgress[]
+  startedAt: number
+  error?: string
+}
+
+interface WorkflowExecutionRecord {
+  id: string
+  workflowId: string
+  workflowName: string
+  phase: 'start' | 'stop'
+  status: 'completed' | 'failed' | 'cancelled'
+  steps: WorkflowStepProgress[]
+  startedAt: number
+  completedAt: number
+}
+
 interface UpdateNotificationSettings {
   hasUpdates: boolean
   userWasPrompted: boolean
@@ -952,8 +1029,8 @@ type EventPayloadMapping = {
     args: [DirectorySettings[]];
   };
   workflows: {
-    return: Workflow[];
-    args: [Workflow[]];
+    return: EnhancedWorkflow[];
+    args: [EnhancedWorkflow[]];
   };
   updateNotificationSettings: {
     return: UpdateNotificationSettings;
@@ -1024,12 +1101,12 @@ type EventPayloadMapping = {
     args: [string]
   }
   getWorkflows: {
-    return: Workflow[],
+    return: EnhancedWorkflow[],
     args: []
   },
   createWorkflow: {
     return: void;
-    args: [string, string[]]
+    args: [Omit<EnhancedWorkflow, 'id' | 'createdAt' | 'updatedAt'>]
   }
   removeWorkflow: {
     return: void;
@@ -1037,11 +1114,35 @@ type EventPayloadMapping = {
   }
   updateWorkflow: {
     return: void;
-    args: [string, Omit<Workflow, 'id'>]
+    args: [string, Omit<EnhancedWorkflow, 'id' | 'createdAt' | 'updatedAt'>]
   }
   startWorkflow: {
     return: void;
     args: [string]
+  }
+  stopWorkflow: {
+    return: void;
+    args: [string]
+  }
+  cancelWorkflow: {
+    return: void;
+    args: [string]
+  }
+  duplicateWorkflow: {
+    return: void;
+    args: [string]
+  }
+  getWorkflowExecutionHistory: {
+    return: WorkflowExecutionRecord[];
+    args: [string]
+  }
+  workflowProgress: {
+    return: WorkflowExecutionProgress;
+    args: [WorkflowExecutionProgress];
+  }
+  workflowStatusMap: {
+    return: Record<string, WorkflowStatus>;
+    args: [Record<string, WorkflowStatus>];
   }
   markUserAsPrompted: {
     return: void;
@@ -1795,7 +1896,9 @@ interface Window {
   electron: {
     getDirectories: () => Promise<DirectorySettings[]>
     subscribeDirectories: (callback: (directories: DirectorySettings[]) => void) => () => void
-    subscribeWorkflows: (callback: (flows: Workflow[]) => void) => () => void
+    subscribeWorkflows: (callback: (flows: EnhancedWorkflow[]) => void) => () => void
+    subscribeWorkflowProgress: (callback: (progress: WorkflowExecutionProgress) => void) => () => void
+    subscribeWorkflowStatusMap: (callback: (statusMap: Record<string, WorkflowStatus>) => void) => () => void
     subscribeUpdateNotificationSettings: (callback: (flows: UpdateNotificationSettings) => void) => () => void
     subscribeLogs: (callback: (log: Log) => void) => () => void
     addDirectoriesFromFolder: () => Promise<void>
@@ -1816,11 +1919,15 @@ interface Window {
     createQueue: (name: string, options: CreateQueueOptions) => void
     getQueueData: (queueUrl: string) => Promise<QueueData>
     stopPollingQueue: (queueUrl: string) => Promise<boolean>
-    getWorkflows: () => Promise<Workflow[]>
-    createWorkflow: (name: string, services: string[]) => void
+    getWorkflows: () => Promise<EnhancedWorkflow[]>
+    createWorkflow: (data: Omit<EnhancedWorkflow, 'id' | 'createdAt' | 'updatedAt'>) => void
     removeWorkflow: (id: string) => void
-    updateWorkflow: (id: string, data: Omit<Workflow, 'id'>) => void
+    updateWorkflow: (id: string, data: Omit<EnhancedWorkflow, 'id' | 'createdAt' | 'updatedAt'>) => void
     startWorkflow: (id: string) => void
+    stopWorkflow: (id: string) => void
+    cancelWorkflow: (id: string) => void
+    duplicateWorkflow: (id: string) => void
+    getWorkflowExecutionHistory: (id: string) => Promise<WorkflowExecutionRecord[]>
     openInVSCode: (id: string) => void
     openInFinder: (path: string) => Promise<void>
     markUserAsPrompted: () => void

@@ -12,6 +12,12 @@ electron.contextBridge.exposeInMainWorld("electron", {
   subscribeWorkflows: (callback) => ipcOn('workflows', (flows) => {
     callback(flows || []);
   }),
+  subscribeWorkflowProgress: (callback) => ipcOn('workflowProgress', (progress) => {
+    callback(progress);
+  }),
+  subscribeWorkflowStatusMap: (callback) => ipcOn('workflowStatusMap', (statusMap) => {
+    callback(statusMap);
+  }),
   subscribeLogs: (callback) =>
     ipcOn('logs', (log) => {
       callback(log || []);
@@ -45,10 +51,14 @@ electron.contextBridge.exposeInMainWorld("electron", {
   pollQueue: (queueUrl: string) => ipcInvoke('pollQueue', queueUrl),
   getQueueData: (queueUrl: string) => ipcInvoke('getQueueData', queueUrl),
   stopPollingQueue: (queueUrl: string) => ipcInvoke('stopPollingQueue', queueUrl),
-  createWorkflow: (name: string, services: string[]) => ipcInvoke('createWorkflow', name, services),
+  createWorkflow: (data: Omit<EnhancedWorkflow, 'id' | 'createdAt' | 'updatedAt'>) => ipcInvoke('createWorkflow', data),
   removeWorkflow: (id: string) => ipcInvoke('removeWorkflow', id),
-  updateWorkflow: (id: string, data: Omit<Workflow, 'id'>) => ipcInvoke('updateWorkflow', id, data),
+  updateWorkflow: (id: string, data: Omit<EnhancedWorkflow, 'id' | 'createdAt' | 'updatedAt'>) => ipcInvoke('updateWorkflow', id, data),
   startWorkflow: (id: string) => ipcInvoke('startWorkflow', id),
+  stopWorkflow: (id: string) => ipcInvoke('stopWorkflow', id),
+  cancelWorkflow: (id: string) => ipcInvoke('cancelWorkflow', id),
+  duplicateWorkflow: (id: string) => ipcInvoke('duplicateWorkflow', id),
+  getWorkflowExecutionHistory: (id: string) => ipcInvoke('getWorkflowExecutionHistory', id),
   openInVSCode: (id: string) => ipcInvoke('openInVSCode', id),
   openInFinder: (path: string) => ipcInvoke('openInFinder', path),
   markUserAsPrompted: () => ipcInvoke('markUserAsPrompted'),

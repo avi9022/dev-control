@@ -53,9 +53,9 @@ export const SaveWorkflowButton: FC<SaveWorkflowButtonProps> = ({ id }) => {
       description: JSON.stringify(data, null, 2),
     })
     if (id) {
-      window.electron.updateWorkflow(id, data)
+      window.electron.updateWorkflow(id, { name: data.name, startSteps: [], stopSteps: [] })
     } else {
-      window.electron.createWorkflow(data.name, data.services)
+      window.electron.createWorkflow({ name: data.name, startSteps: [], stopSteps: [] })
     }
     setIsOpen(false)
     form.reset()

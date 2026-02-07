@@ -2,7 +2,8 @@ import Store from 'electron-store';
 
 type Schema = {
   directories: DirectorySettings[];
-  workflows: Workflow[]
+  workflows: EnhancedWorkflow[]
+  workflowHistory: Record<string, WorkflowExecutionRecord[]>
   archivedMessages: QueueMessageMapByQueue
   updateNotificationSettings: UpdateNotificationSettings
   waitingMessagesCache: Record<string, {
@@ -81,6 +82,7 @@ export const store = new Store<Schema>({
   defaults: {
     directories: [],
     workflows: [],
+    workflowHistory: {},
     archivedMessages: {},
     waitingMessagesCache: {},
     updateNotificationSettings: {

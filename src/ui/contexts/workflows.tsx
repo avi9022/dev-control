@@ -1,11 +1,25 @@
-import { createContext, useContext, useEffect, useState, type FC, type PropsWithChildren } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, type FC, type PropsWithChildren } from 'react'
 
-const WorkflowsContext = createContext<{
-  workflows: Workflow[]
-  getWorkflowById: (id: string) => Workflow | undefined
-}>({
+interface WorkflowsContextValue {
+  workflows: EnhancedWorkflow[]
+  workflowStatusMap: Record<string, WorkflowStatus>
+  activeProgress: Record<string, WorkflowExecutionProgress>
+  getWorkflowById: (id: string) => EnhancedWorkflow | undefined
+  startWorkflow: (id: string) => void
+  stopWorkflow: (id: string) => void
+  cancelWorkflow: (id: string) => void
+  clearProgress: (id: string) => void
+}
+
+const WorkflowsContext = createContext<WorkflowsContextValue>({
   workflows: [],
-  getWorkflowById: () => undefined
+  workflowStatusMap: {},
+  activeProgress: {},
+  getWorkflowById: () => undefined,
+  startWorkflow: () => {},
+  stopWorkflow: () => {},
+  cancelWorkflow: () => {},
+  clearProgress: () => {},
 })
 
 export function useWorkflows() {
@@ -13,34 +27,70 @@ export function useWorkflows() {
 }
 
 export const WorkflowsProvider: FC<PropsWithChildren> = ({ children }) => {
-  const [workflows, setWorkflows] = useState<Workflow[]>([])
-
-  const getWorkflows = async () => {
-    const currWorkflows = await window.electron.getWorkflows()
-    setWorkflows(currWorkflows)
-  }
-
-  const subscribeToWorkflows = () => {
-    window.electron.subscribeWorkflows((updatedWorkflows = []) => {
-      setWorkflows(updatedWorkflows)
-    })
-  }
-
-  const getWorkflowById = (id: string): Workflow | undefined => {
-    return workflows.find(({ id: currId }) => currId === id)
-  }
+  const [workflows, setWorkflows] = useState<EnhancedWorkflow[]>([])
+  const [workflowStatusMap, setWorkflowStatusMap] = useState<Record<string, WorkflowStatus>>({})
+  const [activeProgress, setActiveProgress] = useState<Record<string, WorkflowExecutionProgress>>({})
 
   useEffect(() => {
-    getWorkflows()
-    subscribeToWorkflows()
+    window.electron.getWorkflows().then(setWorkflows)
+
+    const unsubWorkflows = window.electron.subscribeWorkflows((flows = []) => {
+      setWorkflows(flows)
+    })
+
+    const unsubProgress = window.electron.subscribeWorkflowProgress((progress) => {
+      setActiveProgress((prev) => ({ ...prev, [progress.workflowId]: progress }))
+    })
+
+    const unsubStatusMap = window.electron.subscribeWorkflowStatusMap((statusMap) => {
+      setWorkflowStatusMap(statusMap)
+    })
+
+    return () => {
+      unsubWorkflows()
+      unsubProgress()
+      unsubStatusMap()
+    }
   }, [])
 
+  const getWorkflowById = useCallback(
+    (id: string) => workflows.find((w) => w.id === id),
+    [workflows]
+  )
 
-  return <WorkflowsContext.Provider value={{
-    workflows,
-    getWorkflowById
-  }}>
-    {children}
-  </WorkflowsContext.Provider>
+  const startWorkflow = useCallback((id: string) => {
+    window.electron.startWorkflow(id)
+  }, [])
 
+  const stopWorkflow = useCallback((id: string) => {
+    window.electron.stopWorkflow(id)
+  }, [])
+
+  const cancelWorkflow = useCallback((id: string) => {
+    window.electron.cancelWorkflow(id)
+  }, [])
+
+  const clearProgress = useCallback((id: string) => {
+    setActiveProgress((prev) => {
+      const { [id]: _, ...rest } = prev
+      return rest
+    })
+  }, [])
+
+  return (
+    <WorkflowsContext.Provider
+      value={{
+        workflows,
+        workflowStatusMap,
+        activeProgress,
+        getWorkflowById,
+        startWorkflow,
+        stopWorkflow,
+        cancelWorkflow,
+        clearProgress,
+      }}
+    >
+      {children}
+    </WorkflowsContext.Provider>
+  )
 }

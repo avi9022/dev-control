@@ -87,7 +87,7 @@ export const AppSidebar: FC = () => {
             <SQLMenu />
           </TabsContent>
           <TabsContent value="workflows" className="flex-1 min-h-0 overflow-auto mt-0">
-            <WorkflowsMenu onStartWorkflow={() => setTab('services')} />
+            <WorkflowsMenu />
           </TabsContent>
           <TabsContent value="tools" className="flex-1 min-h-0 overflow-auto mt-0">
             <ToolsMenu />

@@ -16,7 +16,9 @@ import { brokerManager } from './brokers/index.js'
 import { createWorkflow } from './functions/create-workflow.js'
 import { removeWorkflow } from './functions/remove-workflow.js'
 import { updateWorkflow } from './functions/update-workflow.js'
-import { startWorkflow } from './functions/start-workflow.js'
+import { getWorkflowById } from './storage/get-workflow-by-id.js'
+import { workflowExecutor } from './workflows/workflow-executor.js'
+import { migrateWorkflows } from './workflows/workflow-migration.js'
 import { openInVSCode } from './functions/open-in-vscode.js'
 // import { pollUpdates } from './functions/poll-updates.js'
 import { markUserAsPrompted } from './functions/markUserAsPrompted.js'
@@ -214,6 +216,12 @@ app.on("ready", async () => {
   // Ensure logs directory exists
   ensureLogsDirectory()
 
+  // Migrate legacy workflows
+  migrateWorkflows()
+
+  // Initialize workflow executor
+  workflowExecutor.setMainWindow(mainWindow)
+
   // Initialize broker manager
   brokerManager.setMainWindow(mainWindow)
   brokerManager.testConnection()
@@ -388,10 +396,18 @@ app.on("ready", async () => {
   ipcMainHandle('testBrokerConnection', (_event, type: BrokerType) => brokerManager.testConnection(type))
 
   // Workflows
-  ipcMainHandle('createWorkflow', (_event, name: string, services: string[]) => createWorkflow(name, services))
+  ipcMainHandle('createWorkflow', (_event, data: Omit<EnhancedWorkflow, 'id' | 'createdAt' | 'updatedAt'>) => createWorkflow(data))
   ipcMainHandle('removeWorkflow', (_event, id: string) => removeWorkflow(id))
-  ipcMainHandle('updateWorkflow', (_event, id: string, data: Omit<Workflow, 'id'>) => updateWorkflow(id, data))
-  ipcMainHandle('startWorkflow', (_event, id: string) => startWorkflow(id, mainWindow))
+  ipcMainHandle('updateWorkflow', (_event, id: string, data: Omit<EnhancedWorkflow, 'id' | 'createdAt' | 'updatedAt'>) => updateWorkflow(id, data))
+  ipcMainHandle('startWorkflow', (_event, id: string) => workflowExecutor.startWorkflow(id))
+  ipcMainHandle('stopWorkflow', (_event, id: string) => workflowExecutor.stopWorkflow(id))
+  ipcMainHandle('cancelWorkflow', (_event, id: string) => workflowExecutor.cancelWorkflow(id))
+  ipcMainHandle('duplicateWorkflow', (_event, id: string) => {
+    const workflow = getWorkflowById(id)
+    if (!workflow) throw new Error('Workflow not found')
+    createWorkflow({ name: `${workflow.name} (copy)`, startSteps: workflow.startSteps, stopSteps: workflow.stopSteps })
+  })
+  ipcMainHandle('getWorkflowExecutionHistory', (_event, id: string) => workflowExecutor.getExecutionHistory(id))
 
   // Update notification settings
   ipcMainHandle('markUserAsPrompted', () => markUserAsPrompted())
@@ -760,6 +776,9 @@ app.on('before-quit', async (event) => {
     todoFolderWatcher.close()
     todoFolderWatcher = null
   }
+
+  // Cancel all active workflow executions
+  workflowExecutor.cancelAll()
 
   // Now allow the app to quit
   app.exit(0)
