@@ -4,7 +4,6 @@ import { ResultsGrid } from './ResultsGrid'
 import { ExplainPlanView } from './ExplainPlanView'
 import { DbmsOutputPanel } from './DbmsOutputPanel'
 import { MessagesPanel } from './MessagesPanel'
-import type { SQLMessage } from '@/ui/contexts/sql'
 
 interface ResultsPanelProps {
   result: SQLQueryResult | null

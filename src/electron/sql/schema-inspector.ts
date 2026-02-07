@@ -18,10 +18,13 @@ const SYSTEM_SCHEMAS = new Set([
 ])
 
 export async function getSchemas(includeSystem = false): Promise<string[]> {
-  const rows = await query<{ USERNAME: string }>(
-    `SELECT username FROM all_users ORDER BY username`
+  // Only return schemas that have accessible objects (like SQL Developer)
+  const rows = await query<{ OWNER: string }>(
+    `SELECT DISTINCT owner FROM all_objects
+     WHERE object_type IN ('TABLE', 'VIEW', 'PACKAGE', 'PROCEDURE', 'FUNCTION', 'SEQUENCE')
+     ORDER BY owner`
   )
-  const all = rows.map((r) => r.USERNAME)
+  const all = rows.map((r) => r.OWNER)
   if (includeSystem) return all
   return all.filter((s) => !SYSTEM_SCHEMAS.has(s))
 }

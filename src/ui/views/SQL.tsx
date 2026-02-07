@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, type FC } from 'react'
+import { useState, useCallback, useEffect, useMemo, type FC } from 'react'
 import { useSQL } from '../contexts/sql'
 import { toast } from 'sonner'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
@@ -41,15 +41,17 @@ const SQLEditorView: FC = () => {
     removeWorksheet,
     setActiveWorksheet,
     updateWorksheetSql,
+    renameWorksheet,
     columnMap,
     executeQuery,
     executeScript,
     cancelQuery,
-    explainPlan,
+    explainPlanForWorksheet,
     commit,
     rollback,
     executing,
     lastResult,
+    explainResult,
     messages,
     dbmsOutput,
     queryHistory,
@@ -57,12 +59,18 @@ const SQLEditorView: FC = () => {
     clearHistory,
     saveQuery,
     clearMessages,
-    addMessage,
     patchResultCell,
+    isWorksheetExecuting,
   } = useSQL()
 
-  const [explainResult, setExplainResult] = useState<SQLExplainPlan | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
+
+  // Dirty state: SQL differs from last executed SQL
+  const isWorksheetDirty = useCallback((id: string) => {
+    const ws = worksheets.find((w) => w.id === id)
+    if (!ws) return false
+    return ws.sql !== (ws.lastExecutedSql ?? '')
+  }, [worksheets])
 
   // Detect if last result is editable (simple single-table SELECT)
   const editableTable = useMemo<{ schema: string; table: string } | null>(() => {
@@ -119,17 +127,11 @@ const SQLEditorView: FC = () => {
   const handleExplain = useCallback(async () => {
     if (!currentSql.trim()) return
     try {
-      const plan = await explainPlan(currentSql.trim())
-      setExplainResult(plan)
-    } catch (err) {
-      addMessage({
-        id: crypto.randomUUID(),
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Explain plan failed',
-        timestamp: Date.now(),
-      })
+      await explainPlanForWorksheet(currentSql.trim())
+    } catch {
+      // Error handled by context
     }
-  }, [currentSql, explainPlan, addMessage])
+  }, [currentSql, explainPlanForWorksheet])
 
   const handleStop = useCallback(async () => {
     if (lastResult?.queryId) {
@@ -187,6 +189,25 @@ const SQLEditorView: FC = () => {
     }
   }, [lastResult, editableTable, patchResultCell])
 
+  // Keyboard shortcuts: Cmd+T (new sheet), Cmd+W (close active sheet)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey
+      if (mod && e.key === 't') {
+        e.preventDefault()
+        addWorksheet()
+      }
+      if (mod && e.key === 'w') {
+        e.preventDefault()
+        if (activeWorksheetId) {
+          removeWorksheet(activeWorksheetId)
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [addWorksheet, removeWorksheet, activeWorksheetId])
+
   if (!isConnected) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground bg-[#1a1b1e]">
@@ -224,6 +245,9 @@ const SQLEditorView: FC = () => {
         onSelect={setActiveWorksheet}
         onAdd={addWorksheet}
         onClose={removeWorksheet}
+        onRename={renameWorksheet}
+        isDirty={isWorksheetDirty}
+        isExecuting={isWorksheetExecuting}
       />
 
       {/* Editor + Results split */}

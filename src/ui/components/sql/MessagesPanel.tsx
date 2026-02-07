@@ -3,7 +3,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Trash2, AlertCircle, CheckCircle, AlertTriangle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { SQLMessage } from '@/ui/contexts/sql'
 
 interface MessagesPanelProps {
   messages: SQLMessage[]

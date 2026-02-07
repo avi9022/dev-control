@@ -2,6 +2,17 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, ty
 import { useViews } from '@/ui/contexts/views'
 import { toast } from 'sonner'
 
+function createEmptyWorksheetState(): SQLWorksheetState {
+  return {
+    executing: false,
+    lastResult: null,
+    scriptResult: null,
+    explainResult: null,
+    messages: [],
+    dbmsOutput: [],
+  }
+}
+
 interface SQLContextValue {
   connections: SQLConnectionConfig[]
   activeConnectionId: string | null
@@ -21,6 +32,7 @@ interface SQLContextValue {
   executing: boolean
   lastResult: SQLQueryResult | null
   scriptResult: SQLScriptResult | null
+  explainResult: SQLExplainPlan | null
   queryHistory: SQLHistoryEntry[]
   savedQueries: SQLSavedQuery[]
   messages: SQLMessage[]
@@ -40,6 +52,7 @@ interface SQLContextValue {
   executeScript: (sql: string) => Promise<SQLScriptResult>
   cancelQuery: (queryId: string) => Promise<void>
   explainPlan: (sql: string) => Promise<SQLExplainPlan>
+  explainPlanForWorksheet: (sql: string) => Promise<SQLExplainPlan>
   enableDbmsOutput: () => Promise<void>
   getDbmsOutput: () => Promise<string[]>
   commit: () => Promise<void>
@@ -60,18 +73,13 @@ interface SQLContextValue {
   removeWorksheet: (id: string) => void
   setActiveWorksheet: (id: string) => void
   updateWorksheetSql: (id: string, sql: string) => void
+  renameWorksheet: (id: string, name: string) => void
   addMessage: (message: SQLMessage) => void
   clearMessages: () => void
   setEditorSqlAndExecute: (sql: string) => void
   setEditorSql: (sql: string) => void
   patchResultCell: (rowIdx: number, colIdx: number, newValue: unknown) => void
-}
-
-interface SQLMessage {
-  id: string
-  type: 'info' | 'error' | 'warning' | 'success'
-  text: string
-  timestamp: number
+  isWorksheetExecuting: (id: string) => boolean
 }
 
 const defaultWorksheet: SQLWorksheet = {
@@ -102,6 +110,7 @@ export const SQLContext = createContext<SQLContextValue>({
   executing: false,
   lastResult: null,
   scriptResult: null,
+  explainResult: null,
   queryHistory: [],
   savedQueries: [],
   messages: [],
@@ -120,6 +129,7 @@ export const SQLContext = createContext<SQLContextValue>({
   executeScript: async () => ({}) as SQLScriptResult,
   cancelQuery: async () => {},
   explainPlan: async () => ({}) as SQLExplainPlan,
+  explainPlanForWorksheet: async () => ({}) as SQLExplainPlan,
   enableDbmsOutput: async () => {},
   getDbmsOutput: async () => [],
   commit: async () => {},
@@ -140,18 +150,18 @@ export const SQLContext = createContext<SQLContextValue>({
   removeWorksheet: () => {},
   setActiveWorksheet: () => {},
   updateWorksheetSql: () => {},
+  renameWorksheet: () => {},
   addMessage: () => {},
   clearMessages: () => {},
   setEditorSqlAndExecute: () => {},
   setEditorSql: () => {},
   patchResultCell: () => {},
+  isWorksheetExecuting: () => false,
 })
 
 export function useSQL() {
   return useContext(SQLContext)
 }
-
-export type { SQLMessage }
 
 export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
   const [connections, setConnections] = useState<SQLConnectionConfig[]>([])
@@ -168,18 +178,42 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
   const [triggersList, setTriggersList] = useState<SQLTriggerInfo[]>([])
   const [worksheets, setWorksheets] = useState<SQLWorksheet[]>([defaultWorksheet])
   const [activeWorksheetId, setActiveWorksheetId] = useState<string | null>(defaultWorksheet.id)
-  const [executing, setExecuting] = useState(false)
-  const [lastResult, setLastResult] = useState<SQLQueryResult | null>(null)
-  const [scriptResult, setScriptResult] = useState<SQLScriptResult | null>(null)
+  const [worksheetStates, setWorksheetStates] = useState<Record<string, SQLWorksheetState>>({
+    [defaultWorksheet.id]: createEmptyWorksheetState(),
+  })
   const [queryHistory, setQueryHistory] = useState<SQLHistoryEntry[]>([])
   const [savedQueries, setSavedQueries] = useState<SQLSavedQuery[]>([])
-  const [messages, setMessages] = useState<SQLMessage[]>([])
-  const [dbmsOutput, setDbmsOutput] = useState<string[]>([])
   const [columnMap, setColumnMap] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
   const { updateView } = useViews()
 
   const isConnected = connectionState?.status === 'connected'
+
+  // Derive active worksheet state
+  const activeWsState = activeWorksheetId
+    ? worksheetStates[activeWorksheetId] ?? createEmptyWorksheetState()
+    : createEmptyWorksheetState()
+
+  const executing = activeWsState.executing
+  const lastResult = activeWsState.lastResult
+  const scriptResult = activeWsState.scriptResult
+  const explainResult = activeWsState.explainResult
+  const messages = activeWsState.messages
+  const dbmsOutput = activeWsState.dbmsOutput
+
+  // Per-worksheet state updater
+  const updateWsState = useCallback(
+    (wsId: string, updater: (prev: SQLWorksheetState) => SQLWorksheetState) => {
+      setWorksheetStates((prev) => ({
+        ...prev,
+        [wsId]: updater(prev[wsId] ?? createEmptyWorksheetState()),
+      }))
+    }, []
+  )
+
+  // Ref to track activeWorksheetId in closures
+  const activeWorksheetIdRef = useRef(activeWorksheetId)
+  activeWorksheetIdRef.current = activeWorksheetId
 
   const loadConnections = useCallback(async () => {
     const conns = await window.electron.sqlGetConnections()
@@ -271,92 +305,162 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   const addMessage = useCallback((message: SQLMessage) => {
-    setMessages((prev) => [...prev, message])
-  }, [])
+    const wsId = activeWorksheetIdRef.current
+    if (!wsId) return
+    updateWsState(wsId, (prev) => ({
+      ...prev,
+      messages: [...prev.messages, message],
+    }))
+  }, [updateWsState])
 
   const clearMessages = useCallback(() => {
-    setMessages([])
-  }, [])
+    const wsId = activeWorksheetIdRef.current
+    if (!wsId) return
+    updateWsState(wsId, (prev) => ({
+      ...prev,
+      messages: [],
+    }))
+  }, [updateWsState])
 
   const executeQuery = useCallback(async (sql: string, params?: unknown[]) => {
-    setExecuting(true)
+    const wsId = activeWorksheetIdRef.current
+    if (!wsId) throw new Error('No active worksheet')
+    updateWsState(wsId, (prev) => ({ ...prev, executing: true }))
     try {
       const result = await window.electron.sqlExecuteQuery(sql, params)
-      setLastResult(result)
-      addMessage({
-        id: crypto.randomUUID(),
-        type: 'success',
-        text: `${result.type} executed: ${result.rowCount} rows${result.executionTime ? ` in ${result.executionTime}ms` : ''}`,
-        timestamp: Date.now(),
-      })
+      updateWsState(wsId, (prev) => ({
+        ...prev,
+        executing: false,
+        lastResult: result,
+        messages: [...prev.messages, {
+          id: crypto.randomUUID(),
+          type: 'success' as const,
+          text: `${result.type} executed: ${result.rowCount} rows${result.executionTime ? ` in ${result.executionTime}ms` : ''}`,
+          timestamp: Date.now(),
+        }],
+      }))
+      // Update lastExecutedSql on the worksheet for dirty tracking
+      setWorksheets((prev) =>
+        prev.map((w) => (w.id === wsId ? { ...w, lastExecutedSql: sql, updatedAt: Date.now() } : w))
+      )
       return result
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Query execution failed'
-      addMessage({
-        id: crypto.randomUUID(),
-        type: 'error',
-        text: msg,
-        timestamp: Date.now(),
-      })
+      updateWsState(wsId, (prev) => ({
+        ...prev,
+        executing: false,
+        messages: [...prev.messages, {
+          id: crypto.randomUUID(),
+          type: 'error' as const,
+          text: msg,
+          timestamp: Date.now(),
+        }],
+      }))
       throw err
-    } finally {
-      setExecuting(false)
     }
-  }, [addMessage])
+  }, [updateWsState])
 
   const executeScript = useCallback(async (sql: string) => {
-    setExecuting(true)
+    const wsId = activeWorksheetIdRef.current
+    if (!wsId) throw new Error('No active worksheet')
+    updateWsState(wsId, (prev) => ({ ...prev, executing: true }))
     try {
       const result = await window.electron.sqlExecuteScript(sql)
-      setScriptResult(result)
-      addMessage({
-        id: crypto.randomUUID(),
-        type: 'success',
-        text: `Script executed: ${result.results.length} statements in ${result.totalExecutionTime}ms`,
-        timestamp: Date.now(),
-      })
-      if (result.results.length > 0) {
-        const lastSelect = [...result.results].reverse().find((r) => r.type === 'SELECT')
-        if (lastSelect) setLastResult(lastSelect)
-      }
+      const lastSelect = result.results.length > 0
+        ? [...result.results].reverse().find((r) => r.type === 'SELECT') ?? null
+        : null
+      updateWsState(wsId, (prev) => ({
+        ...prev,
+        executing: false,
+        scriptResult: result,
+        lastResult: lastSelect ?? prev.lastResult,
+        messages: [...prev.messages, {
+          id: crypto.randomUUID(),
+          type: 'success' as const,
+          text: `Script executed: ${result.results.length} statements in ${result.totalExecutionTime}ms`,
+          timestamp: Date.now(),
+        }],
+      }))
+      setWorksheets((prev) =>
+        prev.map((w) => (w.id === wsId ? { ...w, lastExecutedSql: sql, updatedAt: Date.now() } : w))
+      )
       return result
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Script execution failed'
-      addMessage({
-        id: crypto.randomUUID(),
-        type: 'error',
-        text: msg,
-        timestamp: Date.now(),
-      })
+      updateWsState(wsId, (prev) => ({
+        ...prev,
+        executing: false,
+        messages: [...prev.messages, {
+          id: crypto.randomUUID(),
+          type: 'error' as const,
+          text: msg,
+          timestamp: Date.now(),
+        }],
+      }))
       throw err
-    } finally {
-      setExecuting(false)
     }
-  }, [addMessage])
+  }, [updateWsState])
 
   const cancelQuery = useCallback(async (queryId: string) => {
+    const wsId = activeWorksheetIdRef.current
     await window.electron.sqlCancelQuery(queryId)
-    addMessage({
-      id: crypto.randomUUID(),
-      type: 'warning',
-      text: 'Query cancelled',
-      timestamp: Date.now(),
-    })
-  }, [addMessage])
+    if (wsId) {
+      updateWsState(wsId, (prev) => ({
+        ...prev,
+        executing: false,
+        messages: [...prev.messages, {
+          id: crypto.randomUUID(),
+          type: 'warning' as const,
+          text: 'Query cancelled',
+          timestamp: Date.now(),
+        }],
+      }))
+    }
+  }, [updateWsState])
 
   const explainPlan = useCallback(async (sql: string) => {
     return await window.electron.sqlExplainPlan(sql)
   }, [])
+
+  const explainPlanForWorksheet = useCallback(async (sql: string) => {
+    const wsId = activeWorksheetIdRef.current
+    if (!wsId) throw new Error('No active worksheet')
+    try {
+      const plan = await window.electron.sqlExplainPlan(sql)
+      updateWsState(wsId, (prev) => ({
+        ...prev,
+        explainResult: plan,
+      }))
+      return plan
+    } catch (err) {
+      updateWsState(wsId, (prev) => ({
+        ...prev,
+        messages: [...prev.messages, {
+          id: crypto.randomUUID(),
+          type: 'error' as const,
+          text: err instanceof Error ? err.message : 'Explain plan failed',
+          timestamp: Date.now(),
+        }],
+      }))
+      throw err
+    }
+  }, [updateWsState])
 
   const enableDbmsOutput = useCallback(async () => {
     await window.electron.sqlEnableDbmsOutput()
   }, [])
 
   const getDbmsOutputFn = useCallback(async () => {
+    const wsId = activeWorksheetIdRef.current
     const output = await window.electron.sqlGetDbmsOutput()
-    setDbmsOutput((prev) => [...prev, ...output])
+    if (wsId && output.length > 0) {
+      updateWsState(wsId, (prev) => ({
+        ...prev,
+        dbmsOutput: [...prev.dbmsOutput, ...output],
+      }))
+    }
     return output
-  }, [])
+  }, [updateWsState])
 
   const commit = useCallback(async () => {
     await window.electron.sqlExecuteQuery('COMMIT')
@@ -450,10 +554,18 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
       updatedAt: Date.now(),
     }
     setWorksheets((prev) => [...prev, ws])
+    setWorksheetStates((prev) => ({
+      ...prev,
+      [ws.id]: createEmptyWorksheetState(),
+    }))
     setActiveWorksheetId(ws.id)
   }, [worksheets.length, activeConnectionId])
 
   const removeWorksheet = useCallback((id: string) => {
+    setWorksheetStates((prev) => {
+      const { [id]: _, ...rest } = prev
+      return rest
+    })
     setWorksheets((prev) => {
       const filtered = prev.filter((w) => w.id !== id)
       if (filtered.length === 0) {
@@ -465,15 +577,19 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
           createdAt: Date.now(),
           updatedAt: Date.now(),
         }
+        setWorksheetStates((prevStates) => ({
+          ...prevStates,
+          [ws.id]: createEmptyWorksheetState(),
+        }))
         setActiveWorksheetId(ws.id)
         return [ws]
       }
-      if (activeWorksheetId === id) {
+      if (activeWorksheetIdRef.current === id) {
         setActiveWorksheetId(filtered[0].id)
       }
       return filtered
     })
-  }, [activeWorksheetId, activeConnectionId])
+  }, [activeConnectionId])
 
   const setActiveWorksheetFn = useCallback((id: string) => {
     setActiveWorksheetId(id)
@@ -482,6 +598,12 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
   const updateWorksheetSql = useCallback((id: string, sql: string) => {
     setWorksheets((prev) =>
       prev.map((w) => (w.id === id ? { ...w, sql, updatedAt: Date.now() } : w))
+    )
+  }, [])
+
+  const renameWorksheet = useCallback((id: string, name: string) => {
+    setWorksheets((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, name, updatedAt: Date.now() } : w))
     )
   }, [])
 
@@ -495,43 +617,64 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [activeWorksheetId, updateView])
 
   const setEditorSqlAndExecute = useCallback((sql: string) => {
+    const wsId = activeWorksheetIdRef.current
     setEditorSql(sql)
-    // Execute after a microtask to allow state to settle
     setTimeout(async () => {
+      const targetWsId = wsId ?? activeWorksheetIdRef.current
+      if (!targetWsId) return
+      updateWsState(targetWsId, (prev) => ({ ...prev, executing: true }))
       try {
-        await window.electron.sqlExecuteQuery(sql)
-          .then((result) => {
-            setLastResult(result)
-            addMessage({
-              id: crypto.randomUUID(),
-              type: 'success',
-              text: `${result.type} executed: ${result.rowCount} rows${result.executionTime ? ` in ${result.executionTime}ms` : ''}`,
-              timestamp: Date.now(),
-            })
-          })
+        const result = await window.electron.sqlExecuteQuery(sql)
+        updateWsState(targetWsId, (prev) => ({
+          ...prev,
+          executing: false,
+          lastResult: result,
+          messages: [...prev.messages, {
+            id: crypto.randomUUID(),
+            type: 'success' as const,
+            text: `${result.type} executed: ${result.rowCount} rows${result.executionTime ? ` in ${result.executionTime}ms` : ''}`,
+            timestamp: Date.now(),
+          }],
+        }))
+        setWorksheets((prev) =>
+          prev.map((w) => (w.id === targetWsId ? { ...w, lastExecutedSql: sql, updatedAt: Date.now() } : w))
+        )
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Query execution failed'
-        addMessage({
-          id: crypto.randomUUID(),
-          type: 'error',
-          text: msg,
-          timestamp: Date.now(),
-        })
+        updateWsState(targetWsId, (prev) => ({
+          ...prev,
+          executing: false,
+          messages: [...prev.messages, {
+            id: crypto.randomUUID(),
+            type: 'error' as const,
+            text: msg,
+            timestamp: Date.now(),
+          }],
+        }))
       }
     }, 50)
-  }, [setEditorSql, addMessage])
+  }, [setEditorSql, updateWsState])
 
   const patchResultCell = useCallback((rowIdx: number, colIdx: number, newValue: unknown) => {
-    setLastResult((prev) => {
-      if (!prev) return prev
+    const wsId = activeWorksheetIdRef.current
+    if (!wsId) return
+    updateWsState(wsId, (prev) => {
+      if (!prev.lastResult) return prev
       return {
         ...prev,
-        rows: prev.rows.map((row, i) =>
-          i === rowIdx ? row.map((cell, j) => (j === colIdx ? newValue : cell)) : row
-        ),
+        lastResult: {
+          ...prev.lastResult,
+          rows: prev.lastResult.rows.map((row, i) =>
+            i === rowIdx ? row.map((cell, j) => (j === colIdx ? newValue : cell)) : row
+          ),
+        },
       }
     })
-  }, [])
+  }, [updateWsState])
+
+  const isWorksheetExecuting = useCallback((id: string) => {
+    return worksheetStates[id]?.executing ?? false
+  }, [worksheetStates])
 
   const connectionsRef = useRef(connections)
   connectionsRef.current = connections
@@ -560,7 +703,6 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
     if (isConnected) {
       window.electron.sqlGetSchemas().then((schemas) => {
         setSchemas(schemas)
-        // Auto-select schema matching connection username
         const activeConn = connections.find((c) => c.id === activeConnectionId)
         if (activeConn) {
           const userSchema = activeConn.username.toUpperCase()
@@ -612,6 +754,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
         executing,
         lastResult,
         scriptResult,
+        explainResult,
         queryHistory,
         savedQueries,
         messages,
@@ -629,6 +772,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
         executeScript,
         cancelQuery,
         explainPlan,
+        explainPlanForWorksheet,
         enableDbmsOutput,
         getDbmsOutput: getDbmsOutputFn,
         commit,
@@ -649,11 +793,13 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
         removeWorksheet,
         setActiveWorksheet: setActiveWorksheetFn,
         updateWorksheetSql,
+        renameWorksheet,
         addMessage,
         clearMessages,
         setEditorSqlAndExecute,
         setEditorSql,
         patchResultCell,
+        isWorksheetExecuting,
       }}
     >
       {children}

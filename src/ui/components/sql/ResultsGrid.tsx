@@ -24,6 +24,7 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
   const [colWidths, setColWidths] = useState<Record<number, number>>({})
   const resizingRef = useRef<{ colIdx: number; startX: number; startWidth: number } | null>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const originalEditValue = useRef('')
 
   const sortedRows = useMemo(() => {
@@ -133,6 +134,7 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
     // If value unchanged, just cancel - don't fire UPDATE
     if (editValue === originalEditValue.current) {
       setEditingCell(null)
+      containerRef.current?.focus()
       return
     }
     setSaving(true)
@@ -140,6 +142,7 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
       const newVal = editValue.trim() === '' ? null : editValue
       await onCellEdit(editingCell.row, editingCell.col, newVal)
       setEditingCell(null)
+      containerRef.current?.focus()
     } catch {
       // Error handled by caller via toast
     } finally {
@@ -150,7 +153,82 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
   const handleCancelEdit = useCallback(() => {
     setEditingCell(null)
     setEditValue('')
+    containerRef.current?.focus()
   }, [])
+
+  const scrollCellIntoView = useCallback((row: number, col: number) => {
+    const td = containerRef.current?.querySelector<HTMLElement>(`td[data-row="${row}"][data-col="${col}"]`)
+    if (td) {
+      td.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    }
+  }, [])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!result || editingCell) return
+
+    const rowCount = sortedRows.length
+    const colCount = result.columns.length
+    if (rowCount === 0 || colCount === 0) return
+
+    const current = selectedCell ?? { row: 0, col: 0 }
+
+    const navigate = (row: number, col: number) => {
+      const clamped = { row: Math.max(0, Math.min(row, rowCount - 1)), col: Math.max(0, Math.min(col, colCount - 1)) }
+      setSelectedCell(clamped)
+      requestAnimationFrame(() => scrollCellIntoView(clamped.row, clamped.col))
+    }
+
+    switch (e.key) {
+      case 'ArrowUp':
+        e.preventDefault()
+        navigate(current.row - 1, current.col)
+        break
+      case 'ArrowDown':
+        e.preventDefault()
+        navigate(current.row + 1, current.col)
+        break
+      case 'ArrowLeft':
+        e.preventDefault()
+        navigate(current.row, current.col - 1)
+        break
+      case 'ArrowRight':
+        e.preventDefault()
+        navigate(current.row, current.col + 1)
+        break
+      case 'Tab': {
+        e.preventDefault()
+        if (e.shiftKey) {
+          const prevCol = current.col - 1
+          if (prevCol >= 0) {
+            navigate(current.row, prevCol)
+          } else if (current.row > 0) {
+            navigate(current.row - 1, colCount - 1)
+          }
+        } else {
+          const nextCol = current.col + 1
+          if (nextCol < colCount) {
+            navigate(current.row, nextCol)
+          } else if (current.row < rowCount - 1) {
+            navigate(current.row + 1, 0)
+          }
+        }
+        break
+      }
+      case 'Enter':
+        e.preventDefault()
+        if (selectedCell) {
+          const cell = sortedRows[selectedCell.row]?.[selectedCell.col]
+          handleStartEdit(selectedCell.row, selectedCell.col, cell)
+        }
+        break
+      case 'Escape':
+        e.preventDefault()
+        setSelectedCell(null)
+        break
+      default:
+        break
+    }
+  }, [result, editingCell, sortedRows, selectedCell, scrollCellIntoView, handleStartEdit])
 
   useEffect(() => {
     if (editingCell && editInputRef.current) {
@@ -172,7 +250,14 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Grid - native scroll for both axes */}
-      <div className="flex-1 overflow-auto min-h-0">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto min-h-0 outline-none focus-visible:ring-1 focus-visible:ring-[#56d4dd]/50"
+        tabIndex={0}
+        role="grid"
+        aria-label="Query results"
+        onKeyDown={handleKeyDown}
+      >
         <table
           className={cn('border-collapse text-xs font-mono', hasFixedWidths ? 'table-fixed' : 'w-full')}
           style={hasFixedWidths ? { width: 'max-content', minWidth: '100%' } : undefined}
@@ -234,6 +319,8 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
                   return (
                     <td
                       key={colIdx}
+                      data-row={rowIdx}
+                      data-col={colIdx}
                       className={cn(
                         'px-3 py-1 border-r border-border',
                         !isEditing && 'truncate',
@@ -241,7 +328,10 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
                         isNull && !isEditing && 'italic text-muted-foreground'
                       )}
                       style={colWidths[colIdx] ? { maxWidth: colWidths[colIdx] } : { maxWidth: 300 }}
-                      onClick={() => setSelectedCell({ row: rowIdx, col: colIdx })}
+                      onClick={() => {
+                        setSelectedCell({ row: rowIdx, col: colIdx })
+                        containerRef.current?.focus()
+                      }}
                       onDoubleClick={() => {
                         if (editable && onCellEdit) {
                           handleStartEdit(rowIdx, colIdx, cell)

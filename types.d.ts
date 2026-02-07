@@ -789,6 +789,25 @@ interface SQLWorksheet {
   name: string
   sql: string
   connectionId?: string
+  lastExecutedSql?: string
+  createdAt: number
+  updatedAt: number
+}
+
+interface SQLMessage {
+  id: string
+  type: 'info' | 'error' | 'warning' | 'success'
+  text: string
+  timestamp: number
+}
+
+interface SQLWorksheetState {
+  executing: boolean
+  lastResult: SQLQueryResult | null
+  scriptResult: SQLScriptResult | null
+  explainResult: SQLExplainPlan | null
+  messages: SQLMessage[]
+  dbmsOutput: string[]
 }
 
 interface SQLObjectDescription {
