@@ -72,7 +72,7 @@ class DockerCli {
 
   async isAvailable(): Promise<boolean> {
     try {
-      await this.execSafe(['version', '--format', '{{.Client.Version}}'], { timeout: 5000 })
+      await this.execSafe(['context', 'ls', '--format', '{{.Name}}'], { timeout: 5000 })
       return true
     } catch {
       return false

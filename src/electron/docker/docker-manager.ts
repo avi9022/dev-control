@@ -147,7 +147,7 @@ class DockerManager {
       DockerEndpoint: string
       Current: boolean
       ContextType: string
-    }>(['context', 'ls', '--format', '{{json .}}'], { context: this.defaultContext })
+    }>(['context', 'ls', '--format', '{{json .}}'])
 
     return raw.map(ctx => ({
       name: ctx.Name,
