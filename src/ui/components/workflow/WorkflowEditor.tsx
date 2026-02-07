@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { WorkflowStepList } from './WorkflowStepList'
 import { useWorkflows } from '@/ui/contexts/workflows'
 import { toast } from 'sonner'
@@ -103,7 +102,7 @@ export const WorkflowEditor: FC<WorkflowEditorProps> = ({
           <DialogTitle>{workflow ? `Edit: ${workflow.name}` : 'New Workflow'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 flex-1 min-h-0">
+        <div className="space-y-4 flex-1 min-h-0 flex flex-col">
           <div>
             <Label className="text-xs mb-1.5">Workflow Name</Label>
             <Input
@@ -114,7 +113,7 @@ export const WorkflowEditor: FC<WorkflowEditorProps> = ({
             />
           </div>
 
-          <Tabs defaultValue="start" className="w-full">
+          <Tabs defaultValue="start" className="w-full flex-1 min-h-0 flex flex-col">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="start">
                 Start Flow ({buildStepSummary(startSteps)})
@@ -124,13 +123,11 @@ export const WorkflowEditor: FC<WorkflowEditorProps> = ({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="start">
-              <ScrollArea className="h-[350px] pr-3">
-                <WorkflowStepList steps={startSteps} onStepsChange={setStartSteps} />
-              </ScrollArea>
+            <TabsContent value="start" className="flex-1 min-h-0 overflow-y-auto pr-3">
+              <WorkflowStepList steps={startSteps} onStepsChange={setStartSteps} />
             </TabsContent>
 
-            <TabsContent value="stop">
+            <TabsContent value="stop" className="flex-1 min-h-0 overflow-y-auto pr-3">
               <div className="mb-2">
                 <Button
                   variant="outline"
@@ -141,14 +138,12 @@ export const WorkflowEditor: FC<WorkflowEditorProps> = ({
                   <RotateCcw className="h-3 w-3 mr-1" /> Auto-generate from Start
                 </Button>
               </div>
-              <ScrollArea className="h-[320px] pr-3">
-                <WorkflowStepList steps={stopSteps} onStepsChange={setStopSteps} />
-              </ScrollArea>
+              <WorkflowStepList steps={stopSteps} onStepsChange={setStopSteps} />
             </TabsContent>
           </Tabs>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

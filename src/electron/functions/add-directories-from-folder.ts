@@ -13,25 +13,25 @@ export const addDirectoriesFromFolder = async () => {
     return
   }
 
-  result.filePaths.forEach((currPath) => {
+  for (const currPath of result.filePaths) {
     const mainDirectoryPath = currPath;
 
     const packageJsonPath = path.join(mainDirectoryPath, "package.json");
     const packageJsonExists = fs.existsSync(packageJsonPath);
 
     if (packageJsonExists) {
-      addDirectoryToStore(mainDirectoryPath)
+      await addDirectoryToStore(mainDirectoryPath)
     } else {
       const subDirectories = listDirectories(mainDirectoryPath)
 
-      subDirectories.forEach((name) => {
+      for (const name of subDirectories) {
         const fullPath = path.join(mainDirectoryPath, name);
-        const packageJsonPath = path.join(fullPath, "package.json");
+        const subPackageJsonPath = path.join(fullPath, "package.json");
 
-        if (fs.existsSync(packageJsonPath)) {
-          addDirectoryToStore(fullPath)
+        if (fs.existsSync(subPackageJsonPath)) {
+          await addDirectoryToStore(fullPath)
         }
-      })
+      }
     }
-  })
+  }
 }
