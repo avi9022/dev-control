@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect, useMemo, type FC } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef, type FC } from 'react'
 import { useSQL } from '../contexts/sql'
 import { toast } from 'sonner'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import { SQLToolbar } from '../components/sql/SQLToolbar'
 import { WorksheetTabs } from '../components/sql/WorksheetTabs'
-import { SQLEditor } from '../components/sql/SQLEditor'
+import { SQLEditor, type SQLEditorHandle } from '../components/sql/SQLEditor'
 import { ResultsPanel } from '../components/sql/ResultsPanel'
 import { QueryHistory } from '../components/sql/QueryHistory'
 import { TableDetailView } from './TableDetail'
@@ -39,6 +39,8 @@ const SQLEditorView: FC = () => {
     activeWorksheetId,
     addWorksheet,
     removeWorksheet,
+    removeOtherWorksheets,
+    removeAllWorksheets,
     setActiveWorksheet,
     updateWorksheetSql,
     renameWorksheet,
@@ -63,6 +65,7 @@ const SQLEditorView: FC = () => {
     isWorksheetExecuting,
   } = useSQL()
 
+  const editorRef = useRef<SQLEditorHandle>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
 
   // Dirty state: SQL differs from last executed SQL
@@ -103,7 +106,7 @@ const SQLEditorView: FC = () => {
   }, [activeWorksheetId, updateWorksheetSql])
 
   const handleExecute = useCallback(async (sql?: string) => {
-    const statement = sql ?? currentSql.trim()
+    const statement = sql || editorRef.current?.getCurrentStatement() || currentSql.trim()
     if (!statement) return
     try {
       await executeQuery(statement)
@@ -245,6 +248,8 @@ const SQLEditorView: FC = () => {
         onSelect={setActiveWorksheet}
         onAdd={addWorksheet}
         onClose={removeWorksheet}
+        onCloseOthers={removeOtherWorksheets}
+        onCloseAll={removeAllWorksheets}
         onRename={renameWorksheet}
         isDirty={isWorksheetDirty}
         isExecuting={isWorksheetExecuting}
@@ -254,6 +259,7 @@ const SQLEditorView: FC = () => {
       <ResizablePanelGroup direction="vertical" className="flex-1 min-h-0">
         <ResizablePanel defaultSize={50} minSize={20}>
           <SQLEditor
+            ref={editorRef}
             value={currentSql}
             onChange={handleSqlChange}
             onExecute={handleExecute}

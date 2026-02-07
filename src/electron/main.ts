@@ -600,10 +600,28 @@ app.on("ready", async () => {
   ipcMainHandle('sqlSetActiveConnection', (_event, id: string) => sqlManager.setActiveConnection(id))
   ipcMainHandle('sqlDisconnect', () => sqlManager.disconnect())
   ipcMainHandle('sqlGetActiveConnectionId', () => sqlManager.getActiveConnectionId())
-  ipcMainHandle('sqlExecuteQuery', (_event, sql: string, params?: unknown[]) => sqlExecQuery(sql, params))
-  ipcMainHandle('sqlExecuteScript', (_event, sql: string) => sqlExecScript(sql))
+  ipcMainHandle('sqlExecuteQuery', async (_event, sql: string, params?: unknown[]) => {
+    try {
+      return await sqlExecQuery(sql, params)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Query execution failed', { cause: err })
+    }
+  })
+  ipcMainHandle('sqlExecuteScript', async (_event, sql: string) => {
+    try {
+      return await sqlExecScript(sql)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Script execution failed', { cause: err })
+    }
+  })
   ipcMainHandle('sqlCancelQuery', (_event, queryId: string) => sqlCancel(queryId))
-  ipcMainHandle('sqlExplainPlan', (_event, sql: string) => sqlExplain(sql))
+  ipcMainHandle('sqlExplainPlan', async (_event, sql: string) => {
+    try {
+      return await sqlExplain(sql)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Explain plan failed', { cause: err })
+    }
+  })
   ipcMainHandle('sqlEnableDbmsOutput', () => sqlEnableDbms())
   ipcMainHandle('sqlGetDbmsOutput', () => sqlGetDbms())
   ipcMainHandle('sqlGetSchemas', (_event, includeSystem?: boolean) => sqlGetSchemas(includeSystem))

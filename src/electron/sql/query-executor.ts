@@ -47,13 +47,20 @@ export async function executeQuery(sql: string, params?: unknown[]): Promise<SQL
   const conn = sqlManager.getConnection()
   const queryId = crypto.randomUUID()
   const startTime = Date.now()
-  const stmtType = detectStatementType(sql)
+
+  // Oracle oracledb driver does not accept trailing semicolons.
+  // Strip them for non-PL/SQL statements (PL/SQL needs internal semicolons preserved).
+  let cleanSql = sql.trim()
+  const stmtType = detectStatementType(cleanSql)
+  if (stmtType !== 'PLSQL') {
+    cleanSql = cleanSql.replace(/;\s*$/, '')
+  }
 
   runningQueries.set(queryId, conn)
 
   try {
     if (stmtType === 'SELECT') {
-      const result = await conn.execute(sql, params ?? [], {
+      const result = await conn.execute(cleanSql, params ?? [], {
         outFormat: oracledb.OUT_FORMAT_ARRAY,
         maxRows: 10000,
         fetchArraySize: 200,
@@ -92,7 +99,7 @@ export async function executeQuery(sql: string, params?: unknown[]): Promise<SQL
     }
 
     // DML / DDL / PL/SQL
-    const result = await conn.execute(sql, params ?? [], { autoCommit: false })
+    const result = await conn.execute(cleanSql, params ?? [], { autoCommit: false })
 
     return {
       queryId,
@@ -157,10 +164,11 @@ export async function rollback(): Promise<void> {
 
 export async function explainPlan(sql: string): Promise<SQLExplainPlan> {
   const conn = sqlManager.getConnection()
+  const cleanSql = sql.trim().replace(/;\s*$/, '')
 
   // Use EXPLAIN PLAN
   const planId = `plan_${Date.now()}`
-  await conn.execute(`EXPLAIN PLAN SET STATEMENT_ID = '${planId}' FOR ${sql}`)
+  await conn.execute(`EXPLAIN PLAN SET STATEMENT_ID = '${planId}' FOR ${cleanSql}`)
 
   const result = await conn.execute<unknown[]>(
     `SELECT id, parent_id, operation, options, object_name,

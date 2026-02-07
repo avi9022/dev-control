@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, type FC } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus, X } from 'lucide-react'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
+import { Plus, X, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface WorksheetTabsProps {
@@ -9,6 +16,8 @@ interface WorksheetTabsProps {
   onSelect: (id: string) => void
   onAdd: () => void
   onClose: (id: string) => void
+  onCloseOthers: (keepId: string) => void
+  onCloseAll: () => void
   onRename: (id: string, name: string) => void
   isDirty?: (id: string) => boolean
   isExecuting?: (id: string) => boolean
@@ -20,6 +29,8 @@ export const WorksheetTabs: FC<WorksheetTabsProps> = ({
   onSelect,
   onAdd,
   onClose,
+  onCloseOthers,
+  onCloseAll,
   onRename,
   isDirty,
   isExecuting,
@@ -61,69 +72,96 @@ export const WorksheetTabs: FC<WorksheetTabsProps> = ({
         const isEditing = editingTabId === ws.id
 
         return (
-          <div
-            key={ws.id}
-            className={cn(
-              'group flex items-center gap-1.5 px-3 py-1 text-xs cursor-pointer transition-all duration-150',
-              isActive
-                ? 'bg-[#1a1b1e] text-foreground border-t-2 border-t-[#c74634] rounded-t-md'
-                : 'text-muted-foreground hover:bg-[#252629] rounded-t-md'
-            )}
-            onClick={() => onSelect(ws.id)}
-            onDoubleClick={() => handleDoubleClick(ws)}
-            onMouseDown={(e) => {
-              if (e.button === 1) {
-                e.preventDefault()
-                onClose(ws.id)
-              }
-            }}
-          >
-            {/* Executing or dirty indicator */}
-            {wsExecuting ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#c74634] animate-pulse flex-shrink-0" />
-            ) : dirty ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 animate-in fade-in duration-300" />
-            ) : null}
-
-            {/* Tab name or inline edit */}
-            {isEditing ? (
-              <input
-                ref={inputRef}
-                className="bg-transparent text-foreground text-xs font-mono w-[100px] outline-none ring-1 ring-[#c74634]/50 rounded px-1 py-0"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    commitRename(ws.id, ws.name)
-                  } else if (e.key === 'Escape') {
-                    cancelRename()
-                  }
-                  e.stopPropagation()
-                }}
-                onBlur={() => commitRename(ws.id, ws.name)}
-                onClick={(e) => e.stopPropagation()}
-                onDoubleClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <span className="truncate max-w-[120px]">{ws.name}</span>
-            )}
-
-            {/* Close button */}
-            {worksheets.length > 1 && !isEditing && (
-              <button
+          <ContextMenu key={ws.id}>
+            <ContextMenuTrigger asChild>
+              <div
                 className={cn(
-                  'h-4 w-4 flex items-center justify-center rounded hover:bg-muted flex-shrink-0',
-                  isActive ? 'opacity-50 hover:opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  'group flex items-center gap-1.5 px-3 py-1 text-xs cursor-pointer transition-all duration-150',
+                  isActive
+                    ? 'bg-[#1a1b1e] text-foreground border-t-2 border-t-[#c74634] rounded-t-md'
+                    : 'text-muted-foreground hover:bg-[#252629] rounded-t-md'
                 )}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onClose(ws.id)
+                onClick={() => onSelect(ws.id)}
+                onDoubleClick={() => handleDoubleClick(ws)}
+                onMouseDown={(e) => {
+                  if (e.button === 1) {
+                    e.preventDefault()
+                    onClose(ws.id)
+                  }
                 }}
               >
-                <X className="h-2.5 w-2.5" />
-              </button>
-            )}
-          </div>
+                {/* Executing or dirty indicator */}
+                {wsExecuting ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#c74634] animate-pulse flex-shrink-0" />
+                ) : dirty ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 animate-in fade-in duration-300" />
+                ) : null}
+
+                {/* Tab name or inline edit */}
+                {isEditing ? (
+                  <input
+                    ref={inputRef}
+                    className="bg-transparent text-foreground text-xs font-mono w-[100px] outline-none ring-1 ring-[#c74634]/50 rounded px-1 py-0"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        commitRename(ws.id, ws.name)
+                      } else if (e.key === 'Escape') {
+                        cancelRename()
+                      }
+                      e.stopPropagation()
+                    }}
+                    onBlur={() => commitRename(ws.id, ws.name)}
+                    onClick={(e) => e.stopPropagation()}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span className="truncate max-w-[120px]">{ws.name}</span>
+                )}
+
+                {/* Close button */}
+                {worksheets.length > 1 && !isEditing && (
+                  <button
+                    className={cn(
+                      'h-4 w-4 flex items-center justify-center rounded hover:bg-muted flex-shrink-0',
+                      isActive ? 'opacity-50 hover:opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onClose(ws.id)
+                    }}
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+              <ContextMenuItem onClick={() => onClose(ws.id)}>
+                <X className="h-4 w-4 mr-2" />
+                Close
+              </ContextMenuItem>
+              {worksheets.length > 1 && (
+                <ContextMenuItem onClick={() => onCloseOthers(ws.id)}>
+                  <X className="h-4 w-4 mr-2" />
+                  Close Others
+                </ContextMenuItem>
+              )}
+              {worksheets.length > 1 && (
+                <>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onClick={onCloseAll}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Close All Tabs
+                  </ContextMenuItem>
+                </>
+              )}
+            </ContextMenuContent>
+          </ContextMenu>
         )
       })}
       <Button

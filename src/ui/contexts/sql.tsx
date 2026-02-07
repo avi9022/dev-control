@@ -71,6 +71,8 @@ interface SQLContextValue {
   deleteSavedQuery: (id: string) => Promise<void>
   addWorksheet: () => void
   removeWorksheet: (id: string) => void
+  removeOtherWorksheets: (keepId: string) => void
+  removeAllWorksheets: () => void
   setActiveWorksheet: (id: string) => void
   updateWorksheetSql: (id: string, sql: string) => void
   renameWorksheet: (id: string, name: string) => void
@@ -148,6 +150,8 @@ export const SQLContext = createContext<SQLContextValue>({
   deleteSavedQuery: async () => {},
   addWorksheet: () => {},
   removeWorksheet: () => {},
+  removeOtherWorksheets: () => {},
+  removeAllWorksheets: () => {},
   setActiveWorksheet: () => {},
   updateWorksheetSql: () => {},
   renameWorksheet: () => {},
@@ -357,6 +361,9 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
         }],
       }))
       throw err
+    } finally {
+      // Safety net: ensure executing is always reset even if error propagation fails
+      updateWsState(wsId, (prev) => (prev.executing ? { ...prev, executing: false } : prev))
     }
   }, [updateWsState])
 
@@ -591,6 +598,30 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
     })
   }, [activeConnectionId])
 
+  const removeOtherWorksheets = useCallback((keepId: string) => {
+    setWorksheetStates((prev) => {
+      const next: typeof prev = {}
+      next[keepId] = prev[keepId] ?? createEmptyWorksheetState()
+      return next
+    })
+    setWorksheets((prev) => prev.filter((w) => w.id === keepId))
+    setActiveWorksheetId(keepId)
+  }, [])
+
+  const removeAllWorksheets = useCallback(() => {
+    const ws: SQLWorksheet = {
+      id: crypto.randomUUID(),
+      name: 'Sheet 1',
+      sql: '',
+      connectionId: activeConnectionId ?? '',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    setWorksheetStates({ [ws.id]: createEmptyWorksheetState() })
+    setWorksheets([ws])
+    setActiveWorksheetId(ws.id)
+  }, [activeConnectionId])
+
   const setActiveWorksheetFn = useCallback((id: string) => {
     setActiveWorksheetId(id)
   }, [])
@@ -791,6 +822,8 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
         deleteSavedQuery,
         addWorksheet,
         removeWorksheet,
+        removeOtherWorksheets,
+        removeAllWorksheets,
         setActiveWorksheet: setActiveWorksheetFn,
         updateWorksheetSql,
         renameWorksheet,

@@ -36,6 +36,7 @@ import { useSQL } from '@/ui/contexts/sql'
 import { cn } from '@/lib/utils'
 import { AddConnectionDialog } from '../sql/AddConnectionDialog'
 import { SchemaObjectContextMenu } from '../sql/SchemaObjectContextMenu'
+import { TablesSectionContextMenu } from '../sql/TablesSectionContextMenu'
 import { useViews } from '@/ui/contexts/views'
 
 type SchemaObjectType = 'tables' | 'views' | 'sequences' | 'procedures' | 'functions' | 'packages' | 'triggers'
@@ -434,22 +435,32 @@ export const SQLMenu: FC = () => {
                                 const sectionKey = `${schema}-${key}`
                                 const isSectionExpanded = expandedSections.has(sectionKey)
 
+                                const sectionButton = (
+                                  <button
+                                    className="w-full flex items-center gap-1.5 pl-4 pr-2 py-1 text-xs rounded-md hover:bg-accent"
+                                    onClick={() => toggleSection(sectionKey)}
+                                  >
+                                    {isSectionExpanded
+                                      ? <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
+                                      : <ChevronRight className="h-2.5 w-2.5 text-muted-foreground" />
+                                    }
+                                    <Icon className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-muted-foreground">{label}</span>
+                                    <span className="ml-auto text-[10px] text-muted-foreground">
+                                      {objects.length}
+                                    </span>
+                                  </button>
+                                )
+
                                 return (
                                   <div key={key}>
-                                    <button
-                                      className="w-full flex items-center gap-1.5 pl-4 pr-2 py-1 text-xs rounded-md hover:bg-accent"
-                                      onClick={() => toggleSection(sectionKey)}
-                                    >
-                                      {isSectionExpanded
-                                        ? <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
-                                        : <ChevronRight className="h-2.5 w-2.5 text-muted-foreground" />
-                                      }
-                                      <Icon className="h-3 w-3 text-muted-foreground" />
-                                      <span className="text-muted-foreground">{label}</span>
-                                      <span className="ml-auto text-[10px] text-muted-foreground">
-                                        {objects.length}
-                                      </span>
-                                    </button>
+                                    {key === 'tables' ? (
+                                      <TablesSectionContextMenu schema={schema} tables={tables}>
+                                        {sectionButton}
+                                      </TablesSectionContextMenu>
+                                    ) : (
+                                      sectionButton
+                                    )}
 
                                     {isSectionExpanded && filtered.map((obj) => (
                                       <SchemaObjectContextMenu

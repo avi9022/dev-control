@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, type FC } from 'react'
+import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
 import { Compartment, EditorState } from '@codemirror/state'
 import { sql, PLSQL } from '@codemirror/lang-sql'
@@ -7,6 +7,10 @@ import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import { autocompletion, completionKeymap, type CompletionContext, type Completion } from '@codemirror/autocomplete'
 import { bracketMatching, foldGutter, foldKeymap, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
 import { oneDark } from '@codemirror/theme-one-dark'
+
+export interface SQLEditorHandle {
+  getCurrentStatement: () => string
+}
 
 interface SQLEditorProps {
   value: string
@@ -186,7 +190,7 @@ function columnCompletionSource(colMap: Record<string, string[]>) {
   })
 }
 
-export const SQLEditor: FC<SQLEditorProps> = ({
+export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({
   value,
   onChange,
   onExecute,
@@ -195,7 +199,7 @@ export const SQLEditor: FC<SQLEditorProps> = ({
   columnMap = {},
   selectedSchema,
   className = '',
-}) => {
+}, ref) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const sqlCompartmentRef = useRef(new Compartment())
@@ -207,6 +211,13 @@ export const SQLEditor: FC<SQLEditorProps> = ({
   onExecuteRef.current = onExecute
   onExecuteScriptRef.current = onExecuteScript
   onChangeRef.current = onChange
+
+  useImperativeHandle(ref, () => ({
+    getCurrentStatement: () => {
+      if (!viewRef.current) return ''
+      return getCurrentStatement(viewRef.current)
+    },
+  }), [])
 
   const executeKeybinding = useCallback(() => {
     return keymap.of([
@@ -311,4 +322,6 @@ export const SQLEditor: FC<SQLEditorProps> = ({
       className={`h-full overflow-hidden [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto ${className}`}
     />
   )
-}
+})
+
+SQLEditor.displayName = 'SQLEditor'
