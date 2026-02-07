@@ -19,7 +19,7 @@ import { updateWorkflow } from './functions/update-workflow.js'
 import { getWorkflowById } from './storage/get-workflow-by-id.js'
 import { workflowExecutor } from './workflows/workflow-executor.js'
 import { migrateWorkflows } from './workflows/workflow-migration.js'
-import { openInVSCode } from './functions/open-in-vscode.js'
+import { openInIDE, getAvailableIDEs } from './functions/open-in-ide.js'
 // import { pollUpdates } from './functions/poll-updates.js'
 import { markUserAsPrompted } from './functions/markUserAsPrompted.js'
 import { refuseUpdates } from './functions/refuse-updates.js'
@@ -378,7 +378,8 @@ app.on("ready", async () => {
   ipcMainHandle('stopService', (_event, id: string) => stopProcess(id))
   ipcMainHandle('checkServiceState', (_event, id: string) => isServiceRunning(id))
   ipcMainHandle('openProjectInBrowser', (_event, id: string) => openProjectInBrowser(id))
-  ipcMainHandle('openInVSCode', (_event, id: string) => openInVSCode(id))
+  ipcMainHandle('openInIDE', (_event, id: string, cliCommand: string) => openInIDE(id, cliCommand))
+  ipcMainHandle('getAvailableIDEs', () => getAvailableIDEs())
   ipcMainHandle('openInFinder', (_event, filePath: string) => shell.showItemInFolder(filePath))
   ipcMainHandle('getQueues', (_event, id: string) => getServiceQueues(id))
   ipcMainHandle('sendQueueMessage', (_event, queueUrl: string, message: string) => brokerManager.sendMessage(queueUrl, message))

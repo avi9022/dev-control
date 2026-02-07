@@ -1156,9 +1156,13 @@ type EventPayloadMapping = {
     return: void;
     args: []
   }
-  openInVSCode: {
+  openInIDE: {
     return: void;
-    args: [string]
+    args: [string, string]
+  }
+  getAvailableIDEs: {
+    return: Array<{ name: string; command: string }>;
+    args: []
   }
   openInFinder: {
     return: void;
@@ -1928,7 +1932,8 @@ interface Window {
     cancelWorkflow: (id: string) => void
     duplicateWorkflow: (id: string) => void
     getWorkflowExecutionHistory: (id: string) => Promise<WorkflowExecutionRecord[]>
-    openInVSCode: (id: string) => void
+    openInIDE: (id: string, command: string) => void
+    getAvailableIDEs: () => Promise<Array<{ name: string; command: string }>>
     openInFinder: (path: string) => Promise<void>
     markUserAsPrompted: () => void
     refuseUpdates: () => void
