@@ -7,6 +7,7 @@ import { MessagesPanel } from './MessagesPanel'
 
 interface ResultsPanelProps {
   result: SQLQueryResult | null
+  executing?: boolean
   explainPlan: SQLExplainPlan | null
   dbmsOutput: string[]
   messages: SQLMessage[]
@@ -18,6 +19,7 @@ interface ResultsPanelProps {
 
 export const ResultsPanel: FC<ResultsPanelProps> = ({
   result,
+  executing,
   explainPlan,
   dbmsOutput,
   messages,
@@ -46,7 +48,7 @@ export const ResultsPanel: FC<ResultsPanelProps> = ({
       </TabsList>
 
       <TabsContent value="results" className="flex-1 min-h-0 overflow-hidden mt-0">
-        <ResultsGrid result={result} editable={editable} onCellEdit={onCellEdit} />
+        <ResultsGrid result={result} executing={executing} editable={editable} onCellEdit={onCellEdit} />
       </TabsContent>
 
       <TabsContent value="explain" className="flex-1 min-h-0 overflow-hidden mt-0">

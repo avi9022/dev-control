@@ -275,6 +275,7 @@ const SQLEditorView: FC = () => {
         <ResizablePanel defaultSize={50} minSize={15}>
           <ResultsPanel
             result={lastResult}
+            executing={executing}
             explainPlan={explainResult}
             dbmsOutput={dbmsOutput}
             messages={messages}

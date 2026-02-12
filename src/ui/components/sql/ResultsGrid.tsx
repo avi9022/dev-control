@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect, type FC } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowUpDown, ArrowUp, ArrowDown, Copy, Download } from 'lucide-react'
+import { ArrowUpDown, ArrowUp, ArrowDown, Copy, Download, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 interface ResultsGridProps {
   result: SQLQueryResult | null
+  executing?: boolean
   className?: string
   editable?: boolean
   onCellEdit?: (rowIdx: number, colIdx: number, newValue: string | null) => Promise<void>
@@ -15,7 +16,7 @@ type SortDirection = 'asc' | 'desc' | null
 
 const MIN_COL_WIDTH = 60
 
-export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable, onCellEdit }) => {
+export const ResultsGrid: FC<ResultsGridProps> = ({ result, executing, className, editable, onCellEdit }) => {
   const [sortCol, setSortCol] = useState<number | null>(null)
   const [sortDir, setSortDir] = useState<SortDirection>(null)
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null)
@@ -247,6 +248,15 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
       editInputRef.current.select()
     }
   }, [editingCell])
+
+  if (executing && (!result || !result.columns.length)) {
+    return (
+      <div className={cn('flex flex-col items-center justify-center h-full gap-3', className)}>
+        <Loader2 className="h-5 w-5 text-cyan-400 animate-spin" />
+        <span className="text-xs text-muted-foreground">Executing query...</span>
+      </div>
+    )
+  }
 
   if (!result || !result.columns.length) {
     return (
