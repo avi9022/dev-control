@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect, type FC } from 'reac
 import { Button } from '@/components/ui/button'
 import { ArrowUpDown, ArrowUp, ArrowDown, Copy, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 interface ResultsGridProps {
   result: SQLQueryResult | null
@@ -59,6 +60,7 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
   const handleCopyCell = (value: unknown) => {
     const text = value === null ? 'NULL' : String(value)
     navigator.clipboard.writeText(text)
+    toast('Copied', { duration: 1500 })
   }
 
   const handleExportCSV = () => {
@@ -219,6 +221,15 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, className, editable,
         if (selectedCell) {
           const cell = sortedRows[selectedCell.row]?.[selectedCell.col]
           handleStartEdit(selectedCell.row, selectedCell.col, cell)
+        }
+        break
+      case 'c':
+        if (e.metaKey || e.ctrlKey) {
+          e.preventDefault()
+          if (selectedCell) {
+            const cell = sortedRows[selectedCell.row]?.[selectedCell.col]
+            handleCopyCell(cell)
+          }
         }
         break
       case 'Escape':

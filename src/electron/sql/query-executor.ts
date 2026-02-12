@@ -78,14 +78,22 @@ export async function executeQuery(sql: string, params?: unknown[]): Promise<SQL
       const rows = (result.rows ?? []) as unknown[][]
 
       // Convert Date objects and LOBs to strings for serialization
-      const serializedRows = rows.map((row) =>
-        row.map((cell) => {
+      const serializedRows = await Promise.all(rows.map(async (row) =>
+        Promise.all(row.map(async (cell, colIdx) => {
           if (cell === null || cell === undefined) return null
           if (cell instanceof Date) return cell.toISOString()
-          if (typeof cell === 'object' && 'getData' in cell) return '[LOB]'
+          if (typeof cell === 'object' && 'getData' in cell) {
+            const colType = columns[colIdx]?.type
+            if (colType === 'BLOB') return '[BLOB]'
+            try {
+              return await (cell as { getData(): Promise<string> }).getData()
+            } catch {
+              return '[LOB]'
+            }
+          }
           return cell
-        })
-      )
+        }))
+      ))
 
       return {
         queryId,
