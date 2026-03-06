@@ -2,6 +2,7 @@ import { useState, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { TaskCard } from '@/ui/components/ai-automation/TaskCard'
 import { NewTaskDialog } from '@/ui/components/ai-automation/NewTaskDialog'
+import { AITaskDetail } from './AITaskDetail'
 import { Button } from '@/components/ui/button'
 import { Plus, Settings } from 'lucide-react'
 
@@ -23,7 +24,7 @@ export const AIKanban: FC<AIKanbanProps> = ({ onOpenSettings }) => {
   const { tasks, moveTaskPhase } = useAIAutomation()
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
-  const [, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   const tasksByPhase = (phase: AITaskPhase) => tasks.filter(t => t.phase === phase)
 
@@ -59,6 +60,14 @@ export const AIKanban: FC<AIKanbanProps> = ({ onOpenSettings }) => {
   const runningAgents = tasks.filter(t =>
     ['PLANNING', 'IN_PROGRESS', 'AGENT_REVIEW'].includes(t.phase) && t.activeProcessPid
   ).length
+
+  if (selectedTaskId) {
+    return (
+      <div className="h-full">
+        <AITaskDetail taskId={selectedTaskId} onBack={() => setSelectedTaskId(null)} />
+      </div>
+    )
+  }
 
   return (
     <div className="h-full flex flex-col">
