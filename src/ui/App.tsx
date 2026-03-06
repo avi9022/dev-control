@@ -44,7 +44,7 @@ function App() {
         <div>
           {aiMode ? (
             <div className="h-screen flex flex-col bg-background text-foreground">
-              <AIKanban onOpenSettings={() => {}} />
+              <AIKanban />
             </div>
           ) : (
             <ViewsProvider>

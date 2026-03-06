@@ -3,6 +3,7 @@ import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { TaskCard } from '@/ui/components/ai-automation/TaskCard'
 import { NewTaskDialog } from '@/ui/components/ai-automation/NewTaskDialog'
 import { AITaskDetail } from './AITaskDetail'
+import { AISettings } from './AISettings'
 import { Button } from '@/components/ui/button'
 import { Plus, Settings } from 'lucide-react'
 
@@ -16,15 +17,12 @@ const PHASES: { phase: AITaskPhase; label: string }[] = [
   { phase: 'DONE', label: 'Done' },
 ]
 
-interface AIKanbanProps {
-  onOpenSettings: () => void
-}
-
-export const AIKanban: FC<AIKanbanProps> = ({ onOpenSettings }) => {
+export const AIKanban: FC = () => {
   const { tasks, moveTaskPhase } = useAIAutomation()
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
 
   const tasksByPhase = (phase: AITaskPhase) => tasks.filter(t => t.phase === phase)
 
@@ -61,6 +59,14 @@ export const AIKanban: FC<AIKanbanProps> = ({ onOpenSettings }) => {
     ['PLANNING', 'IN_PROGRESS', 'AGENT_REVIEW'].includes(t.phase) && t.activeProcessPid
   ).length
 
+  if (showSettings) {
+    return (
+      <div className="h-full">
+        <AISettings onBack={() => setShowSettings(false)} />
+      </div>
+    )
+  }
+
   if (selectedTaskId) {
     return (
       <div className="h-full">
@@ -82,7 +88,7 @@ export const AIKanban: FC<AIKanbanProps> = ({ onOpenSettings }) => {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onOpenSettings}>
+          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
             <Settings className="h-4 w-4 mr-1" />
             Settings
           </Button>
