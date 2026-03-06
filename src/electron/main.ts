@@ -44,12 +44,20 @@ import { exportPostmanCollection } from './api-client/postman-exporter.js'
 import { dockerManager } from './docker/docker-manager.js'
 // MongoDB
 import { mongoManager } from './mongodb/mongo-manager.js'
+// AI Automation
+import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow } from './ai-automation/task-manager.js'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
 import { getCollections, createCollection as mongoCreateCol, dropCollection, renameCollection, getCollectionStats } from './mongodb/collection-operations.js'
 import { findDocuments, findDocumentById, insertDocument, updateDocument, deleteDocument as mongoDeleteDoc, insertMany, deleteMany } from './mongodb/document-operations.js'
 import { explainQuery, runAggregation } from './mongodb/query-executor.js'
 import { getIndexes, createIndex, dropIndex } from './mongodb/index-operations.js'
 import { analyzeSchema } from './mongodb/schema-analyzer.js'
+
+// Force X11 on Linux so globalShortcut works when app is not focused.
+// Wayland blocks apps from grabbing global keyboard shortcuts.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('ozone-platform-hint', 'x11')
+}
 
 const queuePollIntervals = new Map<string, NodeJS.Timeout>();
 
@@ -97,6 +105,7 @@ const showOverlay = () => {
   const windowHeight = 450
 
   // Create new window on current space
+  const isMac = process.platform === 'darwin'
   overlayWindow = new BrowserWindow({
     x: x + width - windowWidth - 20,
     y: y + 50,
@@ -109,10 +118,8 @@ const showOverlay = () => {
     show: false,
     hasShadow: true,
     fullscreenable: false,
-    // macOS: use panel type to stay on current space
-    type: process.platform === 'darwin' ? 'panel' : undefined,
-    vibrancy: 'under-window',
-    visualEffectState: 'active',
+    type: isMac ? 'panel' : 'toolbar',
+    ...(isMac && { vibrancy: 'under-window', visualEffectState: 'active' }),
     webPreferences: {
       preload: getPreloadPath(),
       nodeIntegration: false,
@@ -121,11 +128,12 @@ const showOverlay = () => {
   })
 
   // Set to appear on all workspaces and stay on top
-  if (process.platform === 'darwin') {
+  if (isMac) {
     overlayWindow.setAlwaysOnTop(true, 'pop-up-menu')
     overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   } else {
-    overlayWindow.setAlwaysOnTop(true)
+    overlayWindow.setAlwaysOnTop(true, 'pop-up-menu')
+    overlayWindow.setVisibleOnAllWorkspaces(true)
   }
 
   const isLocal = isDev()
@@ -139,6 +147,12 @@ const showOverlay = () => {
   overlayWindow.once('ready-to-show', () => {
     if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.show()
+      // On Linux, re-assert always-on-top after show to ensure WM respects it
+      if (!isMac) {
+        overlayWindow.setAlwaysOnTop(true, 'pop-up-menu')
+        overlayWindow.moveTop()
+        overlayWindow.focus()
+      }
     }
   })
 
@@ -210,6 +224,9 @@ app.on("ready", async () => {
   // Ensure logs directory exists
   ensureLogsDirectory()
 
+  // Initialize AI task manager
+  setTaskManagerMainWindow(mainWindow)
+
   // Initialize broker manager
   brokerManager.setMainWindow(mainWindow)
   brokerManager.testConnection()
@@ -231,15 +248,29 @@ app.on("ready", async () => {
   // Setup tray (overlay window is created on-demand to appear on current space)
   tray = createTray()
 
-  // Register global shortcut (Cmd+Shift+T on macOS, Ctrl+Shift+T on other platforms)
-  const shortcut = process.platform === 'darwin' ? 'Command+Shift+T' : 'Ctrl+Shift+T'
-  const registered = globalShortcut.register(shortcut, () => {
-    toggleOverlay()
-  })
+  // Register global shortcut for overlay toggle
+  const todoSettings = store.get('todoSettings')
+  const initialShortcut = todoSettings?.shortcut || 'CommandOrControl+Shift+T'
+  let currentShortcut = initialShortcut
 
-  if (!registered) {
-    console.warn('Failed to register global shortcut for Todo Widget')
+  const registerOverlayShortcut = (accelerator: string) => {
+    globalShortcut.unregister(currentShortcut)
+    const registered = globalShortcut.register(accelerator, () => {
+      toggleOverlay()
+    })
+    if (registered) {
+      currentShortcut = accelerator
+    } else {
+      console.warn('Failed to register global shortcut:', accelerator)
+      // Re-register previous shortcut as fallback
+      globalShortcut.register(currentShortcut, () => {
+        toggleOverlay()
+      })
+    }
+    return registered
   }
+
+  registerOverlayShortcut(initialShortcut)
 
   // Watch todos folder for external file changes
   const todoFolder = getTodoFolderPath()
@@ -290,11 +321,15 @@ app.on("ready", async () => {
   })
 
   ipcMainHandle('getTodoSettings', () => {
-    return store.get('todoSettings') || { autoHide: false }
+    return store.get('todoSettings') || { autoHide: false, opacity: 10, bgColor: '#ffffff', shortcut: 'CommandOrControl+Shift+T' }
   })
 
-  ipcMainHandle('setTodoSettings', (_event, settings: { autoHide: boolean }) => {
+  ipcMainHandle('setTodoSettings', (_event, settings: TodoSettings) => {
+    const prev = store.get('todoSettings')
     store.set('todoSettings', settings)
+    if (settings.shortcut && settings.shortcut !== prev?.shortcut) {
+      registerOverlayShortcut(settings.shortcut)
+    }
   })
 
   ipcMainHandle('hideOverlay', () => {
@@ -618,6 +653,43 @@ app.on("ready", async () => {
   })
   ipcMainHandle('mongoDeleteSavedQuery', (_event, id: string) => {
     store.set('mongoSavedQueries', store.get('mongoSavedQueries').filter(q => q.id !== id))
+  })
+
+  // ─── AI Automation handlers ───
+  ipcMainHandle('aiGetTasks', async () => {
+    return getTasks()
+  })
+
+  ipcMainHandle('aiCreateTask', async (_event, title, description, gitStrategy, maxReviewCycles) => {
+    return aiCreateTask(title, description, gitStrategy, maxReviewCycles)
+  })
+
+  ipcMainHandle('aiUpdateTask', async (_event, id, updates) => {
+    aiUpdateTask(id, updates)
+  })
+
+  ipcMainHandle('aiDeleteTask', async (_event, id) => {
+    aiDeleteTask(id)
+  })
+
+  ipcMainHandle('aiMoveTaskPhase', async (_event, id, targetPhase) => {
+    moveTaskPhase(id, targetPhase)
+  })
+
+  ipcMainHandle('aiStopTask', async (_event, _id) => {
+    // Will be implemented when agent-runner is added
+  })
+
+  ipcMainHandle('aiSendTaskInput', async (_event, _taskId, _input) => {
+    // Will be implemented when agent-runner is added
+  })
+
+  ipcMainHandle('aiGetSettings', async () => {
+    return getAISettings()
+  })
+
+  ipcMainHandle('aiUpdateSettings', async (_event, updates) => {
+    updateAISettings(updates)
   })
 
   store.onDidChange('directories', (newVal) => {

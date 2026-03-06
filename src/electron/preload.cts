@@ -240,7 +240,26 @@ electron.contextBridge.exposeInMainWorld("electron", {
   subscribeMongoConnectionState: (callback) =>
     ipcOn('subscribeMongoConnectionState', (state) => {
       callback(state);
-    })
+    }),
+  // AI Automation API
+  aiGetTasks: () => ipcInvoke('aiGetTasks'),
+  aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number) =>
+    ipcInvoke('aiCreateTask', title, description, gitStrategy, maxReviewCycles),
+  aiUpdateTask: (id: string, updates: Partial<AITask>) => ipcInvoke('aiUpdateTask', id, updates),
+  aiDeleteTask: (id: string) => ipcInvoke('aiDeleteTask', id),
+  aiMoveTaskPhase: (id: string, targetPhase: AITaskPhase) => ipcInvoke('aiMoveTaskPhase', id, targetPhase),
+  aiStopTask: (id: string) => ipcInvoke('aiStopTask', id),
+  aiSendTaskInput: (taskId: string, input: string) => ipcInvoke('aiSendTaskInput', taskId, input),
+  aiGetSettings: () => ipcInvoke('aiGetSettings'),
+  aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => ipcInvoke('aiUpdateSettings', updates),
+  subscribeAITasks: (callback: (tasks: AITask[]) => void) =>
+    ipcOn('aiTasks', (tasks) => {
+      callback(tasks);
+    }),
+  subscribeAITaskOutput: (callback: (data: AITaskOutput) => void) =>
+    ipcOn('aiTaskOutput', (data) => {
+      callback(data);
+    }),
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

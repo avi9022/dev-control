@@ -12,6 +12,9 @@ type Schema = {
   todoFolderPath: string | undefined
   todoSettings: {
     autoHide: boolean
+    opacity: number
+    bgColor: string
+    shortcut: string
   }
   // Broker settings
   activeBroker: BrokerType
@@ -46,6 +49,9 @@ type Schema = {
     queryTimeout: number
   }
   mongoRecentDatabases: Record<string, string>
+  // AI Automation settings
+  aiTasks: AITask[]
+  aiAutomationSettings: AIAutomationSettings
 };
 
 const DEFAULT_DYNAMODB_CONNECTION: DynamoDBConnectionConfig = {
@@ -90,7 +96,10 @@ export const store = new Store<Schema>({
     },
     todoFolderPath: undefined,
     todoSettings: {
-      autoHide: false
+      autoHide: false,
+      opacity: 10,
+      bgColor: '#ffffff',
+      shortcut: 'CommandOrControl+Shift+T'
     },
     activeBroker: 'elasticmq',
     brokerConfigs: DEFAULT_BROKER_CONFIGS,
@@ -122,7 +131,21 @@ export const store = new Store<Schema>({
       maxSchemaAnalysisDocs: 1000,
       queryTimeout: 30000
     },
-    mongoRecentDatabases: {}
+    mongoRecentDatabases: {},
+    // AI Automation defaults
+    aiTasks: [],
+    aiAutomationSettings: {
+      maxConcurrency: 1,
+      defaultMaxReviewCycles: 3,
+      defaultGitStrategy: 'branch' as AIGitStrategy,
+      phasePrompts: {
+        planning: '',
+        working: '',
+        reviewing: ''
+      },
+      globalRules: '',
+      knowledgeDocs: []
+    }
   },
 });
 
