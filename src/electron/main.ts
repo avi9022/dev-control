@@ -46,6 +46,7 @@ import { dockerManager } from './docker/docker-manager.js'
 import { mongoManager } from './mongodb/mongo-manager.js'
 // AI Automation
 import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow } from './ai-automation/task-manager.js'
+import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents } from './ai-automation/agent-runner.js'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
 import { getCollections, createCollection as mongoCreateCol, dropCollection, renameCollection, getCollectionStats } from './mongodb/collection-operations.js'
 import { findDocuments, findDocumentById, insertDocument, updateDocument, deleteDocument as mongoDeleteDoc, insertMany, deleteMany } from './mongodb/document-operations.js'
@@ -226,6 +227,7 @@ app.on("ready", async () => {
 
   // Initialize AI task manager
   setTaskManagerMainWindow(mainWindow)
+  setAgentMainWindow(mainWindow)
 
   // Initialize broker manager
   brokerManager.setMainWindow(mainWindow)
@@ -674,14 +676,17 @@ app.on("ready", async () => {
 
   ipcMainHandle('aiMoveTaskPhase', async (_event, id, targetPhase) => {
     moveTaskPhase(id, targetPhase)
+    if (targetPhase === 'TODO') {
+      enqueueTask(id)
+    }
   })
 
-  ipcMainHandle('aiStopTask', async (_event, _id) => {
-    // Will be implemented when agent-runner is added
+  ipcMainHandle('aiStopTask', async (_event, id) => {
+    await stopAgent(id)
   })
 
-  ipcMainHandle('aiSendTaskInput', async (_event, _taskId, _input) => {
-    // Will be implemented when agent-runner is added
+  ipcMainHandle('aiSendTaskInput', async (_event, taskId, input) => {
+    sendInput(taskId, input)
   })
 
   ipcMainHandle('aiGetSettings', async () => {
@@ -714,6 +719,9 @@ app.on('before-quit', async (event) => {
 
   // Stop all running service processes
   await stopAllProcesses()
+
+  // Stop all running AI agent processes
+  await stopAllAgents()
 
   // Clear polling intervals
   if (portPollingInterval) {
