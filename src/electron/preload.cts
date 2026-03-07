@@ -267,6 +267,10 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('aiTaskOutput', (data) => {
       callback(data);
     }),
+  subscribeAIKnowledgeGenProgress: (callback: (status: string) => void) =>
+    ipcOn('aiKnowledgeGenProgress', (status) => {
+      callback(status);
+    }),
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

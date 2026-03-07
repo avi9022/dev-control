@@ -1586,6 +1586,10 @@ type EventPayloadMapping = {
     return: AITaskOutput;
     args: [AITaskOutput];
   }
+  aiKnowledgeGenProgress: {
+    return: string;
+    args: [string];
+  }
 };
 
 interface Window {
@@ -1802,5 +1806,6 @@ interface Window {
     aiGenerateKnowledgeDoc: (projectPath: string) => Promise<AIKnowledgeDoc>
     subscribeAITasks: (callback: (tasks: AITask[]) => void) => () => void
     subscribeAITaskOutput: (callback: (data: AITaskOutput) => void) => () => void
+    subscribeAIKnowledgeGenProgress: (callback: (status: string) => void) => () => void
   }
 }

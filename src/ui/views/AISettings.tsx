@@ -256,7 +256,7 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
   const [generatePath, setGeneratePath] = useState('')
   const [generating, setGenerating] = useState(false)
 
-  const { tasks } = useAIAutomation()
+  const { tasks, knowledgeGenStatus } = useAIAutomation()
 
   const knownPaths = [...new Set(
     tasks.flatMap(t => t.projectPaths || [])
@@ -410,6 +410,12 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
               )}
             </Button>
           </div>
+          {generating && knowledgeGenStatus && (
+            <div className="flex items-center gap-2 text-xs text-neutral-400">
+              <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
+              <span className="truncate">{knowledgeGenStatus}</span>
+            </div>
+          )}
         </div>
       )}
 

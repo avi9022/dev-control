@@ -1,6 +1,13 @@
 import { spawn, execFileSync } from 'child_process'
+import { BrowserWindow } from 'electron'
+import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 
 let resolvedClaudePath: string | null = null
+let mainWindow: BrowserWindow | null = null
+
+export function setKnowledgeGenMainWindow(window: BrowserWindow) {
+  mainWindow = window
+}
 
 function getClaudePath(): string {
   if (resolvedClaudePath) return resolvedClaudePath
@@ -10,6 +17,12 @@ function getClaudePath(): string {
     resolvedClaudePath = 'claude'
   }
   return resolvedClaudePath
+}
+
+function emitProgress(status: string) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    ipcWebContentsSend('aiKnowledgeGenProgress', mainWindow.webContents, status)
+  }
 }
 
 const KNOWLEDGE_SYSTEM_PROMPT = `You are a codebase analyst. Your job is to explore this project and produce a comprehensive knowledge document in markdown.
@@ -33,6 +46,26 @@ Be specific and reference actual file paths. Keep it concise — aim for a docum
 
 Output ONLY the markdown document, no preamble or explanation.`
 
+function formatToolName(event: Record<string, unknown>): string | null {
+  if (event.type === 'assistant') {
+    const content = (event.message as Record<string, unknown>)?.content
+    if (Array.isArray(content)) {
+      for (const block of content) {
+        if (block.type === 'tool_use') {
+          const name = block.name as string
+          const input = block.input as Record<string, unknown> | undefined
+          if (name === 'Read' && input?.file_path) return `Reading ${(input.file_path as string).split('/').pop()}`
+          if (name === 'Glob' && input?.pattern) return `Searching ${input.pattern}`
+          if (name === 'Grep' && input?.pattern) return `Grepping "${input.pattern}"`
+          if ((name === 'Bash' || name === 'bash') && input?.command) return `Running ${(input.command as string).slice(0, 50)}`
+          return `Using ${name}`
+        }
+      }
+    }
+  }
+  return null
+}
+
 export function generateKnowledgeDoc(projectPath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const claudePath = getClaudePath()
@@ -48,6 +81,8 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
       `Explore and document this project at: ${projectPath}`,
     ]
 
+    emitProgress('Starting Claude...')
+
     const child = spawn(claudePath, args, {
       cwd: projectPath,
       env: { ...process.env },
@@ -58,8 +93,10 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
 
     let fullOutput = ''
     let stdoutBuffer = ''
+    let toolCount = 0
 
-    function extractText(event: Record<string, unknown>) {
+    function processEvent(event: Record<string, unknown>) {
+      // Extract text output
       if (event.type === 'assistant') {
         const content = (event.message as Record<string, unknown>)?.content
         if (Array.isArray(content)) {
@@ -72,6 +109,17 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
       } else if (event.type === 'result' && event.result) {
         fullOutput += event.result
       }
+
+      // Emit progress for tool use
+      const toolStatus = formatToolName(event)
+      if (toolStatus) {
+        toolCount++
+        emitProgress(`${toolStatus} (${toolCount} operations)`)
+      }
+
+      if (event.type === 'system' && (event.subtype as string) === 'init') {
+        emitProgress('Agent initialized, exploring codebase...')
+      }
     }
 
     child.stdout?.on('data', (data: Buffer) => {
@@ -82,7 +130,7 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
       for (const line of lines) {
         if (!line.trim()) continue
         try {
-          extractText(JSON.parse(line))
+          processEvent(JSON.parse(line))
         } catch {
           // Not JSON, skip
         }
@@ -97,20 +145,23 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
     child.on('exit', (code) => {
       if (stdoutBuffer.trim()) {
         try {
-          extractText(JSON.parse(stdoutBuffer))
+          processEvent(JSON.parse(stdoutBuffer))
         } catch {
           // ignore
         }
       }
 
       if (code !== 0 && !fullOutput.trim()) {
+        emitProgress('')
         reject(new Error(`Claude exited with code ${code}: ${stderrOutput.slice(0, 500)}`))
       } else {
+        emitProgress('')
         resolve(fullOutput.trim())
       }
     })
 
     child.on('error', (err) => {
+      emitProgress('')
       reject(new Error(`Failed to spawn claude: ${err.message}`))
     })
   })
