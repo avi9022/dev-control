@@ -49,7 +49,7 @@ import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, delet
 import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory } from './ai-automation/agent-runner.js'
 import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
 import { listTaskDirFiles, readTaskDirFile } from './ai-automation/task-dir-manager.js'
-import { generateKnowledgeDoc, setKnowledgeGenMainWindow } from './ai-automation/knowledge-generator.js'
+import { generateKnowledgeDoc } from './ai-automation/knowledge-generator.js'
 import { randomUUID } from 'crypto'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
 import { getCollections, createCollection as mongoCreateCol, dropCollection, renameCollection, getCollectionStats } from './mongodb/collection-operations.js'
@@ -234,7 +234,6 @@ app.on("ready", async () => {
   migrateExistingTasks()
   setTaskManagerMainWindow(mainWindow)
   setAgentMainWindow(mainWindow)
-  setKnowledgeGenMainWindow(mainWindow)
 
   // Initialize broker manager
   brokerManager.setMainWindow(mainWindow)
