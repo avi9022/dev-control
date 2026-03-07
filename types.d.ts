@@ -570,9 +570,18 @@ interface MongoSavedQuery {
 }
 
 // ─── AI Automation Types ───
-type AITaskPhase = 'BACKLOG' | 'TODO' | 'PLANNING' | 'IN_PROGRESS' | 'AGENT_REVIEW' | 'HUMAN_REVIEW' | 'DONE'
-type AIAgentRole = 'planner' | 'worker' | 'reviewer'
-type AIGitStrategy = 'worktree' | 'branch' | 'none'
+type AITaskPhase = 'BACKLOG' | 'DONE' | string
+type AIGitStrategy = 'worktree' | 'none'
+
+interface AIPipelinePhase {
+  id: string
+  name: string
+  type: 'agent' | 'manual'
+  prompt?: string
+  allowedTools?: string
+  rejectPattern?: string
+  rejectTarget?: string
+}
 
 interface AITask {
   id: string
@@ -582,21 +591,26 @@ interface AITask {
   createdAt: string
   updatedAt: string
   gitStrategy: AIGitStrategy
+  baseBranch?: string
+  customBranchName?: string
+  worktreeDir?: string
   branchName?: string
   worktreePath?: string
-  plan?: string
+  projectPaths?: string[]
+  plan?: string               // Deprecated — use task directory files
+  taskDirPath?: string
   reviewComments?: AIReviewComment[]
   humanComments?: AIHumanComment[]
   reviewCycleCount: number
   maxReviewCycles: number
   activeProcessPid?: number
-  currentAgentRole?: AIAgentRole
+  currentPhaseName?: string
   needsUserInput: boolean
   phaseHistory: AIPhaseHistoryEntry[]
 }
 
 interface AIPhaseHistoryEntry {
-  phase: AITaskPhase
+  phase: string
   enteredAt: string
   exitedAt?: string
 }
@@ -628,6 +642,9 @@ interface AIAutomationSettings {
   maxConcurrency: number
   defaultMaxReviewCycles: number
   defaultGitStrategy: AIGitStrategy
+  defaultBaseBranch: string
+  defaultWorktreeDir: string
+  pipeline: AIPipelinePhase[]
   phasePrompts: {
     planning: string
     working: string
@@ -1502,7 +1519,11 @@ type EventPayloadMapping = {
   }
   aiCreateTask: {
     return: AITask;
-    args: [string, string, AIGitStrategy, number];
+    args: [string, string, AIGitStrategy, number, string[]?, string?, string?, string?];
+  }
+  aiSelectWorktreeDir: {
+    return: string | null;
+    args: [];
   }
   aiUpdateTask: {
     return: void;
@@ -1514,7 +1535,7 @@ type EventPayloadMapping = {
   }
   aiMoveTaskPhase: {
     return: void;
-    args: [string, AITaskPhase];
+    args: [string, string];
   }
   aiStopTask: {
     return: void;
@@ -1522,6 +1543,26 @@ type EventPayloadMapping = {
   }
   aiSendTaskInput: {
     return: void;
+    args: [string, string];
+  }
+  aiGetTaskOutputHistory: {
+    return: string[];
+    args: [string];
+  }
+  aiGetTaskDiff: {
+    return: string;
+    args: [string];
+  }
+  aiRemoveWorktree: {
+    return: void;
+    args: [string];
+  }
+  aiGetTaskFiles: {
+    return: string[];
+    args: [string];
+  }
+  aiReadTaskFile: {
+    return: string;
     args: [string, string];
   }
   aiGetSettings: {
@@ -1739,12 +1780,18 @@ interface Window {
     subscribeMongoConnectionState: (callback: (state: MongoConnectionState) => void) => () => void
     // AI Automation API
     aiGetTasks: () => Promise<AITask[]>
-    aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number) => Promise<AITask>
+    aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number, projectPaths?: string[], baseBranch?: string, customBranchName?: string, worktreeDir?: string) => Promise<AITask>
+    aiSelectWorktreeDir: () => Promise<string | null>
     aiUpdateTask: (id: string, updates: Partial<AITask>) => Promise<void>
     aiDeleteTask: (id: string) => Promise<void>
-    aiMoveTaskPhase: (id: string, targetPhase: AITaskPhase) => Promise<void>
+    aiMoveTaskPhase: (id: string, targetPhase: string) => Promise<void>
+    aiGetTaskFiles: (taskId: string) => Promise<string[]>
+    aiReadTaskFile: (taskId: string, filename: string) => Promise<string>
     aiStopTask: (id: string) => Promise<void>
     aiSendTaskInput: (taskId: string, input: string) => Promise<void>
+    aiGetTaskOutputHistory: (taskId: string) => Promise<string[]>
+    aiGetTaskDiff: (taskId: string) => Promise<string>
+    aiRemoveWorktree: (taskId: string) => Promise<void>
     aiGetSettings: () => Promise<AIAutomationSettings>
     aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => Promise<void>
     subscribeAITasks: (callback: (tasks: AITask[]) => void) => () => void
