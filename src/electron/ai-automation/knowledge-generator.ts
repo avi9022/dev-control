@@ -88,8 +88,9 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
       }
     })
 
-    child.stderr?.on('data', () => {
-      // Ignore stderr
+    let stderrOutput = ''
+    child.stderr?.on('data', (data: Buffer) => {
+      stderrOutput += data.toString()
     })
 
     child.on('exit', (code) => {
@@ -102,7 +103,7 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
       }
 
       if (code !== 0 && !fullOutput.trim()) {
-        reject(new Error(`Claude exited with code ${code}`))
+        reject(new Error(`Claude exited with code ${code}: ${stderrOutput.slice(0, 500)}`))
       } else {
         resolve(fullOutput.trim())
       }
