@@ -39,6 +39,7 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
 
     const args = [
       '--print',
+      '--verbose',
       '--output-format', 'stream-json',
       '--dangerously-skip-permissions',
       '--allowedTools', 'Read,Glob,Grep,Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(git:*)',
