@@ -1,17 +1,9 @@
-import { store } from '../storage/store.js'
+import { store, DEFAULT_PIPELINE } from '../storage/store.js'
 import { randomUUID } from 'crypto'
 import { BrowserWindow } from 'electron'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
-
-const VALID_TRANSITIONS: Record<AITaskPhase, AITaskPhase[]> = {
-  'BACKLOG': ['TODO'],
-  'TODO': ['BACKLOG', 'PLANNING'],
-  'PLANNING': ['IN_PROGRESS', 'TODO'],
-  'IN_PROGRESS': ['AGENT_REVIEW', 'TODO'],
-  'AGENT_REVIEW': ['IN_PROGRESS', 'HUMAN_REVIEW'],
-  'HUMAN_REVIEW': ['DONE', 'IN_PROGRESS'],
-  'DONE': []
-}
+import { cleanupWorktree } from './worktree-manager.js'
+import { getOrCreateTaskDir, cleanupTaskDir } from './task-dir-manager.js'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -38,17 +30,28 @@ export function createTask(
   title: string,
   description: string,
   gitStrategy: AIGitStrategy,
-  maxReviewCycles: number
+  maxReviewCycles: number,
+  projectPaths?: string[],
+  baseBranch?: string,
+  customBranchName?: string,
+  worktreeDir?: string
 ): AITask {
   const now = new Date().toISOString()
+  const id = randomUUID()
+  const taskDir = getOrCreateTaskDir(id)
   const task: AITask = {
-    id: randomUUID(),
+    id,
     title,
     description,
     phase: 'BACKLOG',
     createdAt: now,
     updatedAt: now,
     gitStrategy,
+    baseBranch: baseBranch || undefined,
+    customBranchName: customBranchName || undefined,
+    worktreeDir: worktreeDir || undefined,
+    projectPaths: projectPaths?.length ? projectPaths : undefined,
+    taskDirPath: taskDir,
     maxReviewCycles,
     reviewCycleCount: 0,
     needsUserInput: false,
@@ -73,19 +76,52 @@ export function updateTask(id: string, updates: Partial<AITask>) {
 }
 
 export function deleteTask(id: string) {
+  const task = store.get('aiTasks').find(t => t.id === id)
+  // Cleanup worktree if it exists
+  if (task?.worktreePath && task.projectPaths?.[0]) {
+    try {
+      cleanupWorktree(task.projectPaths[0], task.worktreePath)
+    } catch {
+      // Best effort cleanup
+    }
+  }
+  // Cleanup task directory
+  cleanupTaskDir(id)
   const tasks = store.get('aiTasks').filter(t => t.id !== id)
   store.set('aiTasks', tasks)
   broadcastTasks()
 }
 
-export function moveTaskPhase(id: string, targetPhase: AITaskPhase): AITask {
+function isValidTransition(from: string, to: string, pipeline: AIPipelinePhase[]): boolean {
+  const phaseIds = pipeline.map(p => p.id)
+  const allPhases = ['BACKLOG', ...phaseIds, 'DONE']
+  const fromIndex = allPhases.indexOf(from)
+  const toIndex = allPhases.indexOf(to)
+
+  // BACKLOG can go to first pipeline phase
+  if (from === 'BACKLOG' && toIndex === 1) return true
+  // First pipeline phase can go back to BACKLOG
+  if (to === 'BACKLOG' && fromIndex === 1) return true
+  // Forward by one step
+  if (toIndex === fromIndex + 1) return true
+  // Reject routing: any pipeline phase can go to any other pipeline phase
+  if (from !== 'BACKLOG' && from !== 'DONE' && to !== 'BACKLOG' && to !== 'DONE') return true
+  // Moving to DONE from any phase
+  if (to === 'DONE' && from !== 'BACKLOG') return true
+
+  return false
+}
+
+export function moveTaskPhase(id: string, targetPhase: string): AITask {
   const tasks = store.get('aiTasks')
   const index = tasks.findIndex(t => t.id === id)
   if (index === -1) throw new Error(`Task ${id} not found`)
 
   const task = tasks[index]
-  const allowed = VALID_TRANSITIONS[task.phase]
-  if (!allowed.includes(targetPhase)) {
+  const settings = getSettings()
+  const pipeline = settings.pipeline || []
+
+  if (!isValidTransition(task.phase, targetPhase, pipeline)) {
     throw new Error(`Cannot transition from ${task.phase} to ${targetPhase}`)
   }
 
@@ -96,12 +132,17 @@ export function moveTaskPhase(id: string, targetPhase: AITaskPhase): AITask {
   }
   history.push({ phase: targetPhase, enteredAt: now })
 
+  // Look up display name for the phase
+  const phaseConfig = pipeline.find(p => p.id === targetPhase)
+  const currentPhaseName = phaseConfig?.name || targetPhase
+
   tasks[index] = {
     ...task,
     phase: targetPhase,
     updatedAt: now,
     phaseHistory: history,
-    needsUserInput: false
+    needsUserInput: false,
+    currentPhaseName
   }
   store.set('aiTasks', tasks)
   broadcastTasks()
@@ -115,4 +156,72 @@ export function getSettings(): AIAutomationSettings {
 export function updateSettings(updates: Partial<AIAutomationSettings>) {
   const current = store.get('aiAutomationSettings')
   store.set('aiAutomationSettings', { ...current, ...updates })
+}
+
+// --- Migration ---
+
+export function migrateSettings() {
+  const settings = store.get('aiAutomationSettings')
+
+  // If pipeline already exists, skip
+  if (settings.pipeline && settings.pipeline.length > 0) return
+
+  // Initialize default pipeline
+  const pipeline = DEFAULT_PIPELINE.map(p => ({ ...p }))
+
+  // Copy existing phase prompts into pipeline
+  if (settings.phasePrompts) {
+    if (settings.phasePrompts.planning) {
+      const planningPhase = pipeline.find(p => p.id === 'planning')
+      if (planningPhase) planningPhase.prompt = settings.phasePrompts.planning
+    }
+    if (settings.phasePrompts.working) {
+      const workingPhase = pipeline.find(p => p.id === 'in-progress')
+      if (workingPhase) workingPhase.prompt = settings.phasePrompts.working
+    }
+    if (settings.phasePrompts.reviewing) {
+      const reviewPhase = pipeline.find(p => p.id === 'agent-review')
+      if (reviewPhase) reviewPhase.prompt = settings.phasePrompts.reviewing
+    }
+  }
+
+  store.set('aiAutomationSettings', { ...settings, pipeline })
+}
+
+export function migrateExistingTasks() {
+  const settings = getSettings()
+  if (!settings.pipeline || settings.pipeline.length === 0) return
+
+  const tasks = store.get('aiTasks')
+  let changed = false
+
+  const PHASE_MAP: Record<string, string> = {
+    'TODO': settings.pipeline[0]?.id || 'BACKLOG',
+    'PLANNING': 'planning',
+    'IN_PROGRESS': 'in-progress',
+    'AGENT_REVIEW': 'agent-review',
+    'HUMAN_REVIEW': 'human-review',
+  }
+
+  for (const task of tasks) {
+    if (task.phase in PHASE_MAP) {
+      task.phase = PHASE_MAP[task.phase]
+      changed = true
+    }
+    for (const entry of task.phaseHistory) {
+      if (entry.phase in PHASE_MAP) {
+        entry.phase = PHASE_MAP[entry.phase]
+        changed = true
+      }
+    }
+    // Ensure task directory exists
+    if (!task.taskDirPath) {
+      task.taskDirPath = getOrCreateTaskDir(task.id)
+      changed = true
+    }
+  }
+
+  if (changed) {
+    store.set('aiTasks', tasks)
+  }
 }

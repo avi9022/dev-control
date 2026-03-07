@@ -45,8 +45,10 @@ import { dockerManager } from './docker/docker-manager.js'
 // MongoDB
 import { mongoManager } from './mongodb/mongo-manager.js'
 // AI Automation
-import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow } from './ai-automation/task-manager.js'
-import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents } from './ai-automation/agent-runner.js'
+import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks } from './ai-automation/task-manager.js'
+import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory } from './ai-automation/agent-runner.js'
+import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
+import { listTaskDirFiles, readTaskDirFile } from './ai-automation/task-dir-manager.js'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
 import { getCollections, createCollection as mongoCreateCol, dropCollection, renameCollection, getCollectionStats } from './mongodb/collection-operations.js'
 import { findDocuments, findDocumentById, insertDocument, updateDocument, deleteDocument as mongoDeleteDoc, insertMany, deleteMany } from './mongodb/document-operations.js'
@@ -226,6 +228,8 @@ app.on("ready", async () => {
   ensureLogsDirectory()
 
   // Initialize AI task manager
+  migrateSettings()
+  migrateExistingTasks()
   setTaskManagerMainWindow(mainWindow)
   setAgentMainWindow(mainWindow)
 
@@ -662,8 +666,20 @@ app.on("ready", async () => {
     return getTasks()
   })
 
-  ipcMainHandle('aiCreateTask', async (_event, title, description, gitStrategy, maxReviewCycles) => {
-    return aiCreateTask(title, description, gitStrategy, maxReviewCycles)
+  ipcMainHandle('aiCreateTask', async (_event, title, description, gitStrategy, maxReviewCycles, projectPaths, baseBranch, customBranchName, worktreeDir) => {
+    return aiCreateTask(title, description, gitStrategy, maxReviewCycles, projectPaths, baseBranch, customBranchName, worktreeDir)
+  })
+
+  ipcMainHandle('aiSelectWorktreeDir', async () => {
+    const { dialog } = await import('electron')
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Select Worktree Directory'
+    })
+    if (!result.canceled && result.filePaths[0]) {
+      return result.filePaths[0]
+    }
+    return null
   })
 
   ipcMainHandle('aiUpdateTask', async (_event, id, updates) => {
@@ -676,8 +692,12 @@ app.on("ready", async () => {
 
   ipcMainHandle('aiMoveTaskPhase', async (_event, id, targetPhase) => {
     moveTaskPhase(id, targetPhase)
-    if (targetPhase === 'TODO') {
-      enqueueTask(id)
+    if (targetPhase !== 'BACKLOG' && targetPhase !== 'DONE') {
+      const settings = getAISettings()
+      const phaseConfig = settings.pipeline?.find(p => p.id === targetPhase)
+      if (phaseConfig?.type === 'agent') {
+        enqueueTask(id)
+      }
     }
   })
 
@@ -687,6 +707,37 @@ app.on("ready", async () => {
 
   ipcMainHandle('aiSendTaskInput', async (_event, taskId, input) => {
     sendInput(taskId, input)
+  })
+
+  ipcMainHandle('aiGetTaskOutputHistory', async (_event, taskId) => {
+    return getTaskOutputHistory(taskId)
+  })
+
+  ipcMainHandle('aiGetTaskDiff', async (_event, taskId) => {
+    const task = getTasks().find(t => t.id === taskId)
+    if (!task) return ''
+    const diffSource = task.worktreePath || task.projectPaths?.[0]
+    if (!diffSource) return ''
+    try {
+      return getAITaskDiff(diffSource, task.branchName, task.baseBranch)
+    } catch {
+      return ''
+    }
+  })
+
+  ipcMainHandle('aiRemoveWorktree', async (_event, taskId) => {
+    const task = getTasks().find(t => t.id === taskId)
+    if (!task?.worktreePath || !task.projectPaths?.[0]) return
+    cleanupWorktree(task.projectPaths[0], task.worktreePath)
+    aiUpdateTask(taskId, { worktreePath: undefined })
+  })
+
+  ipcMainHandle('aiGetTaskFiles', async (_event, taskId) => {
+    return listTaskDirFiles(taskId)
+  })
+
+  ipcMainHandle('aiReadTaskFile', async (_event, taskId, filename) => {
+    return readTaskDirFile(taskId, filename)
   })
 
   ipcMainHandle('aiGetSettings', async () => {

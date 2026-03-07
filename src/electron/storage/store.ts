@@ -83,6 +83,65 @@ const DEFAULT_BROKER_CONFIGS: Record<BrokerType, BrokerConfig> = {
   }
 }
 
+export const DEFAULT_PIPELINE: AIPipelinePhase[] = [
+  {
+    id: 'planning',
+    name: 'Planning',
+    type: 'agent',
+    prompt: `You are a planning agent. Your ONLY job is to produce an implementation plan. You must NOT implement, create, modify, or delete any files. Do NOT execute any code or make any changes. You are strictly a planner.
+
+Your job:
+1. Understand the task described below
+2. Explore the relevant codebases to understand the current state (read-only)
+3. Produce a detailed implementation plan
+
+Save your plan to plan.md in the task directory provided via --add-dir. Be specific about:
+- Which files need to be created or modified
+- What changes need to be made in each file
+- What the expected outcome is
+- Any risks or considerations
+
+IMPORTANT: Do NOT take any action. Do NOT create or modify project files. ONLY explore and write the plan.`,
+    allowedTools: 'Read,Glob,Grep,Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(git:*),Write',
+  },
+  {
+    id: 'in-progress',
+    name: 'In Progress',
+    type: 'agent',
+    prompt: `You are an implementation agent. Your job is to:
+1. Read the plan from plan.md in the task directory
+2. Implement the changes described in the plan
+3. Create commits for your work
+4. Ask for help if you get stuck
+
+Work methodically through the plan step by step.`,
+  },
+  {
+    id: 'agent-review',
+    name: 'Agent Review',
+    type: 'agent',
+    prompt: `You are a code review agent. Your job is to:
+1. Read the plan from plan.md in the task directory
+2. Review the code changes against the plan and requirements
+3. Check for bugs, security issues, and code quality
+4. Provide specific, actionable feedback
+
+Save your review to review.md in the task directory.
+
+At the end of your review, you MUST output one of:
+- REVIEW_DECISION: APPROVE — if the changes are acceptable
+- REVIEW_DECISION: REJECT — if changes need work, followed by your comments`,
+    allowedTools: 'Read,Glob,Grep,Bash(git:*),Bash(diff:*),Write',
+    rejectPattern: 'REVIEW_DECISION: REJECT',
+    rejectTarget: 'in-progress',
+  },
+  {
+    id: 'human-review',
+    name: 'Human Review',
+    type: 'manual',
+  },
+]
+
 export const store = new Store<Schema>({
   defaults: {
     directories: [],
@@ -137,7 +196,10 @@ export const store = new Store<Schema>({
     aiAutomationSettings: {
       maxConcurrency: 1,
       defaultMaxReviewCycles: 3,
-      defaultGitStrategy: 'branch' as AIGitStrategy,
+      defaultGitStrategy: 'worktree' as AIGitStrategy,
+      defaultBaseBranch: 'main',
+      defaultWorktreeDir: '',
+      pipeline: DEFAULT_PIPELINE,
       phasePrompts: {
         planning: '',
         working: '',

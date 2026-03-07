@@ -1,35 +1,7 @@
 import { getSettings } from './task-manager.js'
+import { listTaskDirFiles, readTaskDirFile } from './task-dir-manager.js'
 
-const DEFAULT_PLANNER_PROMPT = `You are a planning agent. Your job is to:
-1. Understand the task described below
-2. Explore the relevant codebases to understand the current state
-3. Ask clarifying questions if anything is unclear
-4. Produce a detailed implementation plan
-
-Output your plan in markdown format. Be specific about:
-- Which files need to be created or modified
-- What changes need to be made
-- What the expected outcome is
-- Any risks or considerations`
-
-const DEFAULT_WORKER_PROMPT = `You are an implementation agent. Your job is to:
-1. Follow the plan provided below
-2. Implement the changes described in the plan
-3. Create commits for your work
-4. Ask for help if you get stuck
-
-Work methodically through the plan step by step.`
-
-const DEFAULT_REVIEWER_PROMPT = `You are a code review agent. Your job is to:
-1. Review the code changes against the plan and requirements
-2. Check for bugs, security issues, and code quality
-3. Provide specific, actionable feedback
-
-At the end of your review, you MUST output one of:
-- REVIEW_DECISION: APPROVE — if the changes are acceptable
-- REVIEW_DECISION: REJECT — if changes need work, followed by your comments`
-
-export function buildPrompt(task: AITask, role: AIAgentRole): string {
+export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string {
   const settings = getSettings()
   const parts: string[] = []
 
@@ -39,12 +11,9 @@ export function buildPrompt(task: AITask, role: AIAgentRole): string {
   }
 
   // 2. Phase-specific prompt
-  const phasePrompt = role === 'planner'
-    ? (settings.phasePrompts.planning || DEFAULT_PLANNER_PROMPT)
-    : role === 'worker'
-    ? (settings.phasePrompts.working || DEFAULT_WORKER_PROMPT)
-    : (settings.phasePrompts.reviewing || DEFAULT_REVIEWER_PROMPT)
-  parts.push(`## Agent Instructions\n\n${phasePrompt}`)
+  if (phaseConfig.prompt) {
+    parts.push(`## Agent Instructions\n\n${phaseConfig.prompt}`)
+  }
 
   // 3. Knowledge docs
   if (settings.knowledgeDocs.length > 0) {
@@ -53,28 +22,52 @@ export function buildPrompt(task: AITask, role: AIAgentRole): string {
   }
 
   // 4. Task context
-  parts.push(`## Task\n\n**Title:** ${task.title}\n\n**Description:** ${task.description}`)
+  let taskContext = `## Task\n\n**Title:** ${task.title}\n\n**Description:** ${task.description}`
+  if (task.projectPaths && task.projectPaths.length > 0) {
+    const workingDir = task.worktreePath || task.projectPaths[0]
+    taskContext += `\n\n**Working Directory:** ${workingDir}\n\nIMPORTANT: All file reads, writes, and modifications MUST use paths within ${workingDir}. Do NOT access or modify files in any other directory.`
+    if (task.worktreePath) {
+      taskContext += `\n\nThis is a git worktree. The original project is at ${task.projectPaths[0]} — do NOT modify files there.`
+    }
+    if (task.projectPaths.length > 1) {
+      taskContext += `\nYou also have access to: ${task.projectPaths.slice(1).join(', ')}`
+    }
+  }
+  parts.push(taskContext)
 
-  if (role === 'worker' && task.plan) {
-    parts.push(`## Plan\n\n${task.plan}`)
+  // 5. Task directory context
+  if (task.taskDirPath) {
+    const files = listTaskDirFiles(task.id)
+    if (files.length > 0) {
+      let dirContext = `## Task Directory\n\nPath: ${task.taskDirPath}\n\nFiles available:\n`
+      for (const file of files) {
+        dirContext += `- ${file}\n`
+        const content = readTaskDirFile(task.id, file)
+        if (content && content.length < 10000) {
+          dirContext += `\n\`\`\`\n${content}\n\`\`\`\n`
+        }
+      }
+      dirContext += `\nYou can read and write files in this directory. Use it for plans, reviews, and other artifacts.`
+      parts.push(dirContext)
+    } else {
+      parts.push(`## Task Directory\n\nPath: ${task.taskDirPath}\n\nThis directory is empty. You can write files here (plans, reviews, notes) for use in subsequent phases.`)
+    }
   }
 
-  if (role === 'worker' && task.reviewComments && task.reviewComments.length > 0) {
-    const comments = task.reviewComments.map(c =>
-      `- ${c.file}${c.line ? `:${c.line}` : ''} [${c.severity}]: ${c.comment}`
-    ).join('\n')
-    parts.push(`## Review Comments to Address\n\n${comments}`)
-  }
-
-  if (role === 'worker' && task.humanComments && task.humanComments.length > 0) {
+  // 6. Human review comments
+  if (task.humanComments && task.humanComments.length > 0) {
     const comments = task.humanComments.map(c =>
       `- ${c.file}:${c.line}: ${c.comment}`
     ).join('\n')
     parts.push(`## Human Review Comments to Address\n\n${comments}`)
   }
 
-  if (role === 'reviewer' && task.plan) {
-    parts.push(`## Original Plan\n\n${task.plan}`)
+  // 7. Agent review comments
+  if (task.reviewComments && task.reviewComments.length > 0) {
+    const comments = task.reviewComments.map(c =>
+      `- ${c.file}${c.line ? `:${c.line}` : ''} [${c.severity}]: ${c.comment}`
+    ).join('\n')
+    parts.push(`## Agent Review Comments to Address\n\n${comments}`)
   }
 
   return parts.join('\n\n---\n\n')

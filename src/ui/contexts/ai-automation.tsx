@@ -3,10 +3,10 @@ import { createContext, useContext, useEffect, useState, useCallback, type FC, t
 interface AIAutomationContextType {
   tasks: AITask[]
   settings: AIAutomationSettings | null
-  createTask: (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number) => Promise<AITask>
+  createTask: (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number, projectPaths?: string[], baseBranch?: string, customBranchName?: string, worktreeDir?: string) => Promise<AITask>
   updateTask: (id: string, updates: Partial<AITask>) => Promise<void>
   deleteTask: (id: string) => Promise<void>
-  moveTaskPhase: (id: string, targetPhase: AITaskPhase) => Promise<void>
+  moveTaskPhase: (id: string, targetPhase: string) => Promise<void>
   stopTask: (id: string) => Promise<void>
   sendTaskInput: (taskId: string, input: string) => Promise<void>
   updateSettings: (updates: Partial<AIAutomationSettings>) => Promise<void>
@@ -31,8 +31,8 @@ export const AIAutomationProvider: FC<PropsWithChildren> = ({ children }) => {
     return unsubscribe
   }, [])
 
-  const createTask = useCallback(async (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number) => {
-    return window.electron.aiCreateTask(title, description, gitStrategy, maxReviewCycles)
+  const createTask = useCallback(async (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number, projectPaths?: string[], baseBranch?: string, customBranchName?: string, worktreeDir?: string) => {
+    return window.electron.aiCreateTask(title, description, gitStrategy, maxReviewCycles, projectPaths, baseBranch, customBranchName, worktreeDir)
   }, [])
 
   const updateTask = useCallback(async (id: string, updates: Partial<AITask>) => {
@@ -43,7 +43,7 @@ export const AIAutomationProvider: FC<PropsWithChildren> = ({ children }) => {
     await window.electron.aiDeleteTask(id)
   }, [])
 
-  const moveTaskPhase = useCallback(async (id: string, targetPhase: AITaskPhase) => {
+  const moveTaskPhase = useCallback(async (id: string, targetPhase: string) => {
     await window.electron.aiMoveTaskPhase(id, targetPhase)
   }, [])
 

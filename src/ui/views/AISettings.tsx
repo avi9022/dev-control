@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Folder, ChevronUp, ChevronDown } from 'lucide-react'
 
 interface AISettingsProps {
   onBack: () => void
@@ -26,20 +26,20 @@ export const AISettings: FC<AISettingsProps> = ({ onBack }) => {
         <h2 className="text-lg font-semibold text-white">AI Automation Settings</h2>
       </div>
 
-      <Tabs defaultValue="knowledge" className="flex-1 flex flex-col min-h-0">
+      <Tabs defaultValue="pipeline" className="flex-1 flex flex-col min-h-0">
         <TabsList className="mx-4 mt-2 w-fit">
+          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge Docs</TabsTrigger>
-          <TabsTrigger value="prompts">Phase Prompts</TabsTrigger>
           <TabsTrigger value="rules">Global Rules</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="knowledge" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
-          <KnowledgeDocsTab settings={settings} updateSettings={updateSettings} />
+        <TabsContent value="pipeline" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+          <PipelineTab settings={settings} updateSettings={updateSettings} />
         </TabsContent>
 
-        <TabsContent value="prompts" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
-          <PhasePromptsTab settings={settings} updateSettings={updateSettings} />
+        <TabsContent value="knowledge" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+          <KnowledgeDocsTab settings={settings} updateSettings={updateSettings} />
         </TabsContent>
 
         <TabsContent value="rules" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
@@ -68,6 +68,186 @@ export const AISettings: FC<AISettingsProps> = ({ onBack }) => {
 interface SettingsTabProps {
   settings: AIAutomationSettings
   updateSettings: (updates: Partial<AIAutomationSettings>) => void
+}
+
+const PipelineTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
+  const pipeline = settings.pipeline || []
+
+  const addPhase = () => {
+    const newPhase: AIPipelinePhase = {
+      id: crypto.randomUUID(),
+      name: 'New Phase',
+      type: 'agent',
+      prompt: '',
+    }
+    updateSettings({ pipeline: [...pipeline, newPhase] })
+  }
+
+  const updatePhase = (id: string, updates: Partial<AIPipelinePhase>) => {
+    updateSettings({
+      pipeline: pipeline.map(p => p.id === id ? { ...p, ...updates } : p)
+    })
+  }
+
+  const deletePhase = (id: string) => {
+    updateSettings({
+      pipeline: pipeline
+        .filter(p => p.id !== id)
+        .map(p => p.rejectTarget === id ? { ...p, rejectTarget: undefined, rejectPattern: undefined } : p)
+    })
+  }
+
+  const movePhase = (index: number, direction: -1 | 1) => {
+    const newPipeline = [...pipeline]
+    const target = index + direction
+    if (target < 0 || target >= newPipeline.length) return
+    ;[newPipeline[index], newPipeline[target]] = [newPipeline[target], newPipeline[index]]
+    updateSettings({ pipeline: newPipeline })
+  }
+
+  return (
+    <div className="space-y-4 mt-4">
+      <p className="text-sm text-neutral-400">
+        Configure the phases a task flows through between Backlog and Done. Each phase is either an AI agent step or a manual human step.
+      </p>
+
+      <div className="px-3 py-2 rounded bg-neutral-800/50 border border-neutral-700 text-sm text-neutral-400">
+        Backlog (fixed)
+      </div>
+
+      {pipeline.map((phase, index) => (
+        <PipelinePhaseCard
+          key={phase.id}
+          phase={phase}
+          index={index}
+          total={pipeline.length}
+          allPhases={pipeline}
+          onUpdate={(updates) => updatePhase(phase.id, updates)}
+          onDelete={() => deletePhase(phase.id)}
+          onMove={(dir) => movePhase(index, dir)}
+        />
+      ))}
+
+      <Button size="sm" onClick={addPhase}>
+        <Plus className="h-4 w-4 mr-1" /> Add Phase
+      </Button>
+
+      <div className="px-3 py-2 rounded bg-neutral-800/50 border border-neutral-700 text-sm text-neutral-400">
+        Done (fixed)
+      </div>
+    </div>
+  )
+}
+
+const PipelinePhaseCard: FC<{
+  phase: AIPipelinePhase
+  index: number
+  total: number
+  allPhases: AIPipelinePhase[]
+  onUpdate: (updates: Partial<AIPipelinePhase>) => void
+  onDelete: () => void
+  onMove: (direction: -1 | 1) => void
+}> = ({ phase, index, total, allPhases, onUpdate, onDelete, onMove }) => {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="border border-neutral-700 rounded-md overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 bg-neutral-800/50">
+        <div className="flex flex-col gap-0.5">
+          <button onClick={() => onMove(-1)} disabled={index === 0} className="text-neutral-500 hover:text-white disabled:opacity-30">
+            <ChevronUp className="h-3 w-3" />
+          </button>
+          <button onClick={() => onMove(1)} disabled={index === total - 1} className="text-neutral-500 hover:text-white disabled:opacity-30">
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        </div>
+        <button className="flex-1 text-left" onClick={() => setExpanded(!expanded)}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-white">{phase.name}</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded ${phase.type === 'agent' ? 'bg-blue-900/50 text-blue-300' : 'bg-neutral-700 text-neutral-300'}`}>
+              {phase.type}
+            </span>
+            {phase.rejectPattern && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-300">has routing</span>
+            )}
+          </div>
+        </button>
+        <Button variant="ghost" size="sm" onClick={onDelete}>
+          <Trash2 className="h-3.5 w-3.5 text-red-400" />
+        </Button>
+      </div>
+
+      {expanded && (
+        <div className="px-3 py-3 space-y-3 border-t border-neutral-700">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Label>Name</Label>
+              <Input value={phase.name} onChange={e => onUpdate({ name: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Type</Label>
+              <Select value={phase.type} onValueChange={v => onUpdate({ type: v as 'agent' | 'manual' })}>
+                <SelectTrigger className="mt-1 w-32"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {phase.type === 'agent' && (
+            <>
+              <div>
+                <Label>System Prompt</Label>
+                <Textarea
+                  value={phase.prompt || ''}
+                  onChange={e => onUpdate({ prompt: e.target.value })}
+                  placeholder="Instructions for the AI agent in this phase..."
+                  rows={6}
+                  className="mt-1 font-mono text-sm"
+                />
+              </div>
+              <div>
+                <Label>Allowed Tools <span className="text-neutral-500 font-normal">(optional)</span></Label>
+                <Input
+                  value={phase.allowedTools || ''}
+                  onChange={e => onUpdate({ allowedTools: e.target.value })}
+                  placeholder="Leave empty for all tools, or e.g. Read,Glob,Grep,Bash(git:*)"
+                  className="mt-1 font-mono text-sm"
+                />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Label>Reject Pattern <span className="text-neutral-500 font-normal">(optional)</span></Label>
+                  <Input
+                    value={phase.rejectPattern || ''}
+                    onChange={e => onUpdate({ rejectPattern: e.target.value })}
+                    placeholder="e.g. REVIEW_DECISION: REJECT"
+                    className="mt-1 font-mono text-sm"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label>Reject Target</Label>
+                  <Select
+                    value={phase.rejectTarget || ''}
+                    onValueChange={v => onUpdate({ rejectTarget: v || undefined })}
+                  >
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select phase..." /></SelectTrigger>
+                    <SelectContent>
+                      {allPhases.filter(p => p.id !== phase.id).map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
@@ -160,38 +340,6 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
   )
 }
 
-const PhasePromptsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
-  const updatePhasePrompt = (phase: 'planning' | 'working' | 'reviewing', value: string) => {
-    updateSettings({
-      phasePrompts: { ...settings.phasePrompts, [phase]: value }
-    })
-  }
-
-  const phaseDescriptions = {
-    planning: 'The planner explores codebases, asks clarifying questions, and produces implementation plans.',
-    working: 'The worker implements changes according to the plan, creates commits.',
-    reviewing: 'The reviewer checks code changes against the plan and rules, approves or rejects.'
-  }
-
-  return (
-    <div className="space-y-6 mt-4">
-      {(['planning', 'working', 'reviewing'] as const).map(phase => (
-        <div key={phase}>
-          <Label className="capitalize text-white">{phase} Agent Prompt</Label>
-          <p className="text-xs text-neutral-500 mt-0.5 mb-2">{phaseDescriptions[phase]}</p>
-          <Textarea
-            value={settings.phasePrompts[phase]}
-            onChange={e => updatePhasePrompt(phase, e.target.value)}
-            placeholder={`Custom system prompt for the ${phase} agent. Leave empty to use the default prompt...`}
-            rows={6}
-            className="font-mono text-sm"
-          />
-        </div>
-      ))}
-    </div>
-  )
-}
-
 const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
   return (
     <div className="space-y-4 mt-4 max-w-md">
@@ -222,16 +370,48 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
       <div>
         <Label>Default Git Strategy</Label>
         <p className="text-xs text-neutral-500 mb-1">How the agent manages code changes for new tasks.</p>
-        <Select value={settings.defaultGitStrategy} onValueChange={v => updateSettings({ defaultGitStrategy: v as AIGitStrategy })}>
+        <Select value={settings.defaultGitStrategy === 'none' ? 'none' : 'worktree'} onValueChange={v => updateSettings({ defaultGitStrategy: v as AIGitStrategy })}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="branch">Branch</SelectItem>
             <SelectItem value="worktree">Worktree</SelectItem>
             <SelectItem value="none">None</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+      <div>
+        <Label>Default Base Branch</Label>
+        <p className="text-xs text-neutral-500 mb-1">Branch to create task branches from. Can be overridden per task.</p>
+        <Input
+          value={settings.defaultBaseBranch}
+          onChange={e => updateSettings({ defaultBaseBranch: e.target.value })}
+          placeholder="main"
+          className="w-48"
+        />
+      </div>
+      <div>
+        <Label>Default Worktree Directory</Label>
+        <p className="text-xs text-neutral-500 mb-1">Where git worktrees are created. Leave empty to use app data directory. Can be overridden per task.</p>
+        <div className="flex gap-2">
+          <Input
+            value={settings.defaultWorktreeDir}
+            onChange={e => updateSettings({ defaultWorktreeDir: e.target.value })}
+            placeholder="Auto (app data directory)"
+            className="w-64"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="px-3 shrink-0"
+            onClick={async () => {
+              const selected = await window.electron.aiSelectWorktreeDir()
+              if (selected) updateSettings({ defaultWorktreeDir: selected })
+            }}
+          >
+            <Folder className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   )

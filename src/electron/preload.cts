@@ -243,13 +243,19 @@ electron.contextBridge.exposeInMainWorld("electron", {
     }),
   // AI Automation API
   aiGetTasks: () => ipcInvoke('aiGetTasks'),
-  aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number) =>
-    ipcInvoke('aiCreateTask', title, description, gitStrategy, maxReviewCycles),
+  aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number, projectPaths?: string[], baseBranch?: string, customBranchName?: string, worktreeDir?: string) =>
+    ipcInvoke('aiCreateTask', title, description, gitStrategy, maxReviewCycles, projectPaths, baseBranch, customBranchName, worktreeDir),
+  aiSelectWorktreeDir: () => ipcInvoke('aiSelectWorktreeDir'),
   aiUpdateTask: (id: string, updates: Partial<AITask>) => ipcInvoke('aiUpdateTask', id, updates),
   aiDeleteTask: (id: string) => ipcInvoke('aiDeleteTask', id),
-  aiMoveTaskPhase: (id: string, targetPhase: AITaskPhase) => ipcInvoke('aiMoveTaskPhase', id, targetPhase),
+  aiMoveTaskPhase: (id: string, targetPhase: string) => ipcInvoke('aiMoveTaskPhase', id, targetPhase),
   aiStopTask: (id: string) => ipcInvoke('aiStopTask', id),
   aiSendTaskInput: (taskId: string, input: string) => ipcInvoke('aiSendTaskInput', taskId, input),
+  aiGetTaskOutputHistory: (taskId: string) => ipcInvoke('aiGetTaskOutputHistory', taskId),
+  aiGetTaskDiff: (taskId: string) => ipcInvoke('aiGetTaskDiff', taskId),
+  aiRemoveWorktree: (taskId: string) => ipcInvoke('aiRemoveWorktree', taskId),
+  aiGetTaskFiles: (taskId: string) => ipcInvoke('aiGetTaskFiles', taskId),
+  aiReadTaskFile: (taskId: string, filename: string) => ipcInvoke('aiReadTaskFile', taskId, filename),
   aiGetSettings: () => ipcInvoke('aiGetSettings'),
   aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => ipcInvoke('aiUpdateSettings', updates),
   subscribeAITasks: (callback: (tasks: AITask[]) => void) =>

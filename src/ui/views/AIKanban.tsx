@@ -7,30 +7,27 @@ import { AISettings } from './AISettings'
 import { Button } from '@/components/ui/button'
 import { Plus, Settings } from 'lucide-react'
 
-const PHASES: { phase: AITaskPhase; label: string }[] = [
-  { phase: 'BACKLOG', label: 'Backlog' },
-  { phase: 'TODO', label: 'Todo' },
-  { phase: 'PLANNING', label: 'Planning' },
-  { phase: 'IN_PROGRESS', label: 'In Progress' },
-  { phase: 'AGENT_REVIEW', label: 'Agent Review' },
-  { phase: 'HUMAN_REVIEW', label: 'Human Review' },
-  { phase: 'DONE', label: 'Done' },
-]
-
 export const AIKanban: FC = () => {
-  const { tasks, moveTaskPhase } = useAIAutomation()
+  const { tasks, moveTaskPhase, deleteTask, settings } = useAIAutomation()
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
 
-  const tasksByPhase = (phase: AITaskPhase) => tasks.filter(t => t.phase === phase)
+  const pipeline = settings?.pipeline || []
+  const columns: { id: string; label: string }[] = [
+    { id: 'BACKLOG', label: 'Backlog' },
+    ...pipeline.map(p => ({ id: p.id, label: p.name })),
+    { id: 'DONE', label: 'Done' },
+  ]
+
+  const tasksByPhase = (phaseId: string) => tasks.filter(t => t.phase === phaseId)
 
   const handleDragStart = (taskId: string) => {
     setDraggedTaskId(taskId)
   }
 
-  const handleDrop = async (targetPhase: AITaskPhase) => {
+  const handleDrop = async (targetPhase: string) => {
     if (!draggedTaskId) return
     const task = tasks.find(t => t.id === draggedTaskId)
     if (!task || task.phase === targetPhase) {
@@ -38,11 +35,11 @@ export const AIKanban: FC = () => {
       return
     }
 
-    // Only allow manual Backlog <-> Todo drag
-    const isBacklogTodo =
-      (task.phase === 'BACKLOG' && targetPhase === 'TODO') ||
-      (task.phase === 'TODO' && targetPhase === 'BACKLOG')
-    if (!isBacklogTodo) {
+    const firstPhase = pipeline.length > 0 ? pipeline[0].id : null
+    const isAllowed =
+      (task.phase === 'BACKLOG' && targetPhase === firstPhase) ||
+      (task.phase === firstPhase && targetPhase === 'BACKLOG')
+    if (!isAllowed) {
       setDraggedTaskId(null)
       return
     }
@@ -55,8 +52,9 @@ export const AIKanban: FC = () => {
     setDraggedTaskId(null)
   }
 
+  const agentPhaseIds = pipeline.filter(p => p.type === 'agent').map(p => p.id)
   const runningAgents = tasks.filter(t =>
-    ['PLANNING', 'IN_PROGRESS', 'AGENT_REVIEW'].includes(t.phase) && t.activeProcessPid
+    agentPhaseIds.includes(t.phase) && t.activeProcessPid
   ).length
 
   if (showSettings) {
@@ -102,14 +100,14 @@ export const AIKanban: FC = () => {
       {/* Kanban columns */}
       <div className="flex-1 overflow-x-auto p-4">
         <div className="flex gap-3 h-full min-w-max">
-          {PHASES.map(({ phase, label }) => {
-            const phaseTasks = tasksByPhase(phase)
+          {columns.map(({ id, label }) => {
+            const phaseTasks = tasksByPhase(id)
             return (
               <div
-                key={phase}
+                key={id}
                 className="w-[250px] flex flex-col bg-neutral-900/50 rounded-lg border border-neutral-800"
                 onDragOver={e => e.preventDefault()}
-                onDrop={() => handleDrop(phase)}
+                onDrop={() => handleDrop(id)}
               >
                 <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
                   <h3 className="text-sm font-medium text-neutral-300">{label}</h3>
@@ -122,7 +120,7 @@ export const AIKanban: FC = () => {
                       draggable
                       onDragStart={() => handleDragStart(task.id)}
                     >
-                      <TaskCard task={task} onClick={(t) => setSelectedTaskId(t.id)} />
+                      <TaskCard task={task} onClick={(t) => setSelectedTaskId(t.id)} onDelete={deleteTask} />
                     </div>
                   ))}
                 </div>
