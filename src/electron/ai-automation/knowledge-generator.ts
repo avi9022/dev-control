@@ -1,13 +1,6 @@
 import { spawn, execFileSync } from 'child_process'
-import { BrowserWindow } from 'electron'
-import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 
 let resolvedClaudePath: string | null = null
-let mainWindow: BrowserWindow | null = null
-
-export function setKnowledgeGenMainWindow(window: BrowserWindow) {
-  mainWindow = window
-}
 
 function getClaudePath(): string {
   if (resolvedClaudePath) return resolvedClaudePath
@@ -17,12 +10,6 @@ function getClaudePath(): string {
     resolvedClaudePath = 'claude'
   }
   return resolvedClaudePath
-}
-
-function emitProgress(status: string) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    ipcWebContentsSend('aiKnowledgeGenProgress', mainWindow.webContents, status)
-  }
 }
 
 const KNOWLEDGE_SYSTEM_PROMPT = `You are a codebase analyst. Your job is to explore this project and produce a comprehensive knowledge document in markdown.
@@ -66,7 +53,7 @@ function formatToolName(event: Record<string, unknown>): string | null {
   return null
 }
 
-export function generateKnowledgeDoc(projectPath: string): Promise<string> {
+export function generateKnowledgeDoc(projectPath: string, onProgress?: (status: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const claudePath = getClaudePath()
 
@@ -81,7 +68,7 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
       `Explore and document this project at: ${projectPath}`,
     ]
 
-    emitProgress('Starting Claude...')
+    onProgress?.('Starting Claude...')
 
     const child = spawn(claudePath, args, {
       cwd: projectPath,
@@ -96,7 +83,6 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
     let toolCount = 0
 
     function processEvent(event: Record<string, unknown>) {
-      // Extract text output
       if (event.type === 'assistant') {
         const content = (event.message as Record<string, unknown>)?.content
         if (Array.isArray(content)) {
@@ -110,15 +96,14 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
         fullOutput += event.result
       }
 
-      // Emit progress for tool use
       const toolStatus = formatToolName(event)
       if (toolStatus) {
         toolCount++
-        emitProgress(`${toolStatus} (${toolCount} operations)`)
+        onProgress?.(`${toolStatus} (${toolCount} operations)`)
       }
 
       if (event.type === 'system' && (event.subtype as string) === 'init') {
-        emitProgress('Agent initialized, exploring codebase...')
+        onProgress?.('Exploring codebase...')
       }
     }
 
@@ -152,16 +137,13 @@ export function generateKnowledgeDoc(projectPath: string): Promise<string> {
       }
 
       if (code !== 0 && !fullOutput.trim()) {
-        emitProgress('')
         reject(new Error(`Claude exited with code ${code}: ${stderrOutput.slice(0, 500)}`))
       } else {
-        emitProgress('')
         resolve(fullOutput.trim())
       }
     })
 
     child.on('error', (err) => {
-      emitProgress('')
       reject(new Error(`Failed to spawn claude: ${err.message}`))
     })
   })

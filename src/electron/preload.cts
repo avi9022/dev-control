@@ -267,9 +267,9 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('aiTaskOutput', (data) => {
       callback(data);
     }),
-  subscribeAIKnowledgeGenProgress: (callback: (status: string) => void) =>
-    ipcOn('aiKnowledgeGenProgress', (status) => {
-      callback(status);
+  subscribeAISettings: (callback: (settings: AIAutomationSettings) => void) =>
+    ipcOn('aiSettings', (settings) => {
+      callback(settings);
     }),
 } satisfies Window['electron'])
 
