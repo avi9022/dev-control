@@ -258,6 +258,7 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiReadTaskFile: (taskId: string, filename: string) => ipcInvoke('aiReadTaskFile', taskId, filename),
   aiGetSettings: () => ipcInvoke('aiGetSettings'),
   aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => ipcInvoke('aiUpdateSettings', updates),
+  aiGenerateKnowledgeDoc: (projectPath: string) => ipcInvoke('aiGenerateKnowledgeDoc', projectPath),
   subscribeAITasks: (callback: (tasks: AITask[]) => void) =>
     ipcOn('aiTasks', (tasks) => {
       callback(tasks);

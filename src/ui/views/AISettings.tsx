@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Plus, Trash2, Folder, ChevronUp, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Folder, ChevronUp, ChevronDown, Wand2, Loader2 } from 'lucide-react'
 
 interface AISettingsProps {
   onBack: () => void
@@ -252,6 +252,15 @@ const PipelinePhaseCard: FC<{
 
 const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [generateOpen, setGenerateOpen] = useState(false)
+  const [generatePath, setGeneratePath] = useState('')
+  const [generating, setGenerating] = useState(false)
+
+  const { tasks } = useAIAutomation()
+
+  const knownPaths = [...new Set(
+    tasks.flatMap(t => t.projectPaths || [])
+  )]
 
   const addDoc = () => {
     const newDoc: AIKnowledgeDoc = {
@@ -278,6 +287,30 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
     if (editingId === id) setEditingId(null)
   }
 
+  const handleGenerate = async () => {
+    if (!generatePath) return
+
+    const existing = settings.knowledgeDocs.find(d => d.sourcePath === generatePath)
+    if (existing) {
+      if (!confirm(`A knowledge doc already exists for "${generatePath.split('/').pop()}". Replace it?`)) {
+        return
+      }
+    }
+
+    setGenerating(true)
+    try {
+      await window.electron.aiGenerateKnowledgeDoc(generatePath)
+      const updated = await window.electron.aiGetSettings()
+      updateSettings({ knowledgeDocs: updated.knowledgeDocs })
+      setGenerateOpen(false)
+      setGeneratePath('')
+    } catch (err) {
+      alert(`Generation failed: ${(err as Error).message}`)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   const editingDoc = settings.knowledgeDocs.find(d => d.id === editingId)
 
   if (editingDoc) {
@@ -291,6 +324,9 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
           onChange={e => updateDoc(editingDoc.id, { title: e.target.value })}
           className="text-lg font-semibold"
         />
+        {editingDoc.sourcePath && (
+          <p className="text-xs text-neutral-500">Source: {editingDoc.sourcePath}</p>
+        )}
         <Textarea
           value={editingDoc.content}
           onChange={e => updateDoc(editingDoc.id, { content: e.target.value })}
@@ -308,11 +344,76 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
         <p className="text-sm text-neutral-400">
           Knowledge documents describe your system. Agents use these as context when planning and working.
         </p>
-        <Button size="sm" onClick={addDoc}>
-          <Plus className="h-4 w-4 mr-1" /> Add Doc
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setGenerateOpen(true)}>
+            <Wand2 className="h-4 w-4 mr-1" /> Auto-Generate
+          </Button>
+          <Button size="sm" onClick={addDoc}>
+            <Plus className="h-4 w-4 mr-1" /> Add Doc
+          </Button>
+        </div>
       </div>
-      {settings.knowledgeDocs.length === 0 ? (
+
+      {generateOpen && (
+        <div className="p-4 border border-neutral-700 rounded-md bg-neutral-800/50 space-y-3">
+          <h4 className="text-sm font-medium text-white">Generate Knowledge Doc</h4>
+          <p className="text-xs text-neutral-400">Select a project to explore. Claude will analyze the codebase and generate a knowledge document.</p>
+
+          {knownPaths.length > 0 && (
+            <div>
+              <Label className="text-xs">From existing tasks</Label>
+              <Select value={generatePath} onValueChange={setGeneratePath}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select a project..." /></SelectTrigger>
+                <SelectContent>
+                  {knownPaths.map(p => (
+                    <SelectItem key={p} value={p}>{p.split('/').pop()}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div>
+            <Label className="text-xs">Or choose a folder</Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                value={generatePath}
+                onChange={e => setGeneratePath(e.target.value)}
+                placeholder="/path/to/project"
+                className="font-mono text-sm"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-3 shrink-0"
+                onClick={async () => {
+                  const selected = await window.electron.aiSelectWorktreeDir()
+                  if (selected) setGeneratePath(selected)
+                }}
+              >
+                <Folder className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" onClick={() => { setGenerateOpen(false); setGeneratePath('') }} disabled={generating}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleGenerate} disabled={!generatePath || generating}>
+              {generating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Generating...
+                </>
+              ) : (
+                'Generate'
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {settings.knowledgeDocs.length === 0 && !generateOpen ? (
         <div className="text-neutral-600 text-sm py-8 text-center border border-dashed border-neutral-700 rounded">
           No knowledge docs yet. Add one to help agents understand your projects.
         </div>
@@ -327,7 +428,9 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300">auto-generated</span>
                   )}
                 </div>
-                <p className="text-xs text-neutral-500 mt-0.5">Updated {new Date(doc.updatedAt).toLocaleDateString()}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  {doc.sourcePath ? doc.sourcePath : `Updated ${new Date(doc.updatedAt).toLocaleDateString()}`}
+                </p>
               </div>
               <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deleteDoc(doc.id) }}>
                 <Trash2 className="h-4 w-4 text-red-400" />
