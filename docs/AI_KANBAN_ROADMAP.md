@@ -9,6 +9,7 @@
 - [x] **F4**: Auto-Generate Knowledge Docs — Claude explores codebase, generates structured markdown
 - [x] **F5**: Customizable Pipeline — user-configurable phases replacing hardcoded columns
 - [x] **F15**: Edit Task & Workspace Restructure — edit task in BACKLOG, file attachments (create + detail), per-task workspace dirs, configurable taskDataRoot, worktrees array migration
+- [x] **F13**: Task File Management — never-overwrite rule with numbered suffixes, phase cycle count in prompts, file include/exclude toggles, delete agent files, description in TaskFilesTab
 
 ## Planned Features
 
@@ -19,7 +20,6 @@
 - [ ] **F10**: Cost & Usage Tracking — parse Claude output for token usage, aggregate per task
 - [ ] **F11**: Import from External Trackers — import tickets from Jira (via MCP) or GitHub Issues (via `gh` CLI) into backlog
 - [ ] **F12**: General Review Comments — add non-line-specific review comments (overall feedback)
-- [ ] **F13**: Per-Review-Cycle File Separation — save each review cycle's comments in separate files
 - [ ] **F14**: Expandable Diff Viewer — collapsible/expandable file sections in diff view
 - [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work
 - [ ] **F17**: Per-Phase Retry Limits — move maxReviewCycles from task to pipeline phase config (`maxRetries` per phase), track retries per-phase instead of globally, remove from task creation dialog
