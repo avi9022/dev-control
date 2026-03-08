@@ -378,7 +378,7 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
                 size="sm"
                 className="px-3 shrink-0"
                 onClick={async () => {
-                  const selected = await window.electron.aiSelectWorktreeDir()
+                  const selected = await window.electron.aiSelectDirectory()
                   if (selected) setGeneratePath(selected)
                 }}
               >
@@ -457,18 +457,6 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
         />
       </div>
       <div>
-        <Label>Default Max Review Cycles</Label>
-        <p className="text-xs text-neutral-500 mb-1">How many times the reviewer can send work back before escalating to human review.</p>
-        <Input
-          type="number"
-          value={settings.defaultMaxReviewCycles}
-          onChange={e => updateSettings({ defaultMaxReviewCycles: Math.max(1, Math.min(10, Number(e.target.value))) })}
-          min={1}
-          max={10}
-          className="w-24"
-        />
-      </div>
-      <div>
         <Label>Default Git Strategy</Label>
         <p className="text-xs text-neutral-500 mb-1">How the agent manages code changes for new tasks.</p>
         <Select value={settings.defaultGitStrategy === 'none' ? 'none' : 'worktree'} onValueChange={v => updateSettings({ defaultGitStrategy: v as AIGitStrategy })}>
@@ -492,13 +480,13 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
         />
       </div>
       <div>
-        <Label>Default Worktree Directory</Label>
-        <p className="text-xs text-neutral-500 mb-1">Where git worktrees are created. Leave empty to use app data directory. Can be overridden per task.</p>
+        <Label>Task Data Directory</Label>
+        <p className="text-xs text-neutral-500 mb-1">Where task workspaces are stored (agent files, attachments, worktrees). Changing this only affects new tasks.</p>
         <div className="flex gap-2">
           <Input
-            value={settings.defaultWorktreeDir}
-            onChange={e => updateSettings({ defaultWorktreeDir: e.target.value })}
-            placeholder="Auto (app data directory)"
+            value={settings.taskDataRoot || ''}
+            onChange={e => updateSettings({ taskDataRoot: e.target.value || undefined })}
+            placeholder="Default (app data directory)"
             className="w-64"
           />
           <Button
@@ -506,8 +494,8 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
             size="sm"
             className="px-3 shrink-0"
             onClick={async () => {
-              const selected = await window.electron.aiSelectWorktreeDir()
-              if (selected) updateSettings({ defaultWorktreeDir: selected })
+              const selected = await window.electron.aiSelectDirectory()
+              if (selected) updateSettings({ taskDataRoot: selected })
             }}
           >
             <Folder className="h-4 w-4" />
