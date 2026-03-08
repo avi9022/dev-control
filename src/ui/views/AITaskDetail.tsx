@@ -4,7 +4,10 @@ import { AgentTerminal } from '@/ui/components/ai-automation/AgentTerminal'
 import { DiffViewer } from '@/ui/components/ai-automation/DiffViewer'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare, Pencil, Plus, X, Paperclip } from 'lucide-react'
 
 interface AITaskDetailProps {
   taskId: string
@@ -12,13 +15,17 @@ interface AITaskDetailProps {
 }
 
 const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
-  const [files, setFiles] = useState<string[]>([])
+  const [agentFiles, setAgentFiles] = useState<string[]>([])
+  const [attachments, setAttachments] = useState<string[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [content, setContent] = useState('')
 
-  useEffect(() => {
-    window.electron.aiGetTaskFiles(taskId).then(setFiles)
-  }, [taskId])
+  const loadFiles = () => {
+    window.electron.aiGetTaskFiles(taskId).then(setAgentFiles)
+    window.electron.aiListTaskAttachments(taskId).then(setAttachments)
+  }
+
+  useEffect(() => { loadFiles() }, [taskId])
 
   useEffect(() => {
     if (selectedFile) {
@@ -26,30 +33,73 @@ const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
     }
   }, [taskId, selectedFile])
 
-  if (files.length === 0) {
-    return <p className="text-neutral-500 text-sm">No task files yet — agents will create files here during execution.</p>
-  }
-
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2 flex-wrap">
-        {files.map(f => (
-          <Button
-            key={f}
-            variant={selectedFile === f ? 'default' : 'outline'}
-            size="sm"
-            className="text-xs"
-            onClick={() => setSelectedFile(f)}
-          >
-            {f}
+    <div className="space-y-4">
+      {/* Attachments section */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Attachments</h3>
+          <Button variant="outline" size="sm" onClick={async () => {
+            const selected = await window.electron.aiSelectFiles()
+            if (selected && selected.length > 0) {
+              await window.electron.aiAttachTaskFiles(taskId, selected)
+              loadFiles()
+            }
+          }}>
+            <Paperclip className="h-3 w-3 mr-1" /> Attach Files
           </Button>
-        ))}
+        </div>
+        {attachments.length === 0 ? (
+          <p className="text-neutral-600 text-xs">No attachments. Click "Attach Files" to add reference files for agents.</p>
+        ) : (
+          <div className="flex gap-2 flex-wrap">
+            {attachments.map(f => (
+              <div key={f} className="flex items-center gap-1 px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-xs text-neutral-300">
+                <Paperclip className="h-3 w-3 text-neutral-500" />
+                {f}
+                <button
+                  onClick={async () => {
+                    await window.electron.aiDeleteTaskAttachment(taskId, f)
+                    loadFiles()
+                  }}
+                  className="ml-1 text-red-400 hover:text-red-300"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      {selectedFile && (
-        <pre className="whitespace-pre-wrap text-sm text-neutral-300 font-mono bg-neutral-900 p-4 rounded border border-neutral-800 max-h-[500px] overflow-y-auto">
-          {content || 'Empty file'}
-        </pre>
-      )}
+
+      {/* Agent files section */}
+      <div>
+        <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Agent Files</h3>
+        {agentFiles.length === 0 ? (
+          <p className="text-neutral-600 text-xs">No agent files yet — agents will create files here during execution.</p>
+        ) : (
+          <>
+            <div className="flex gap-2 flex-wrap">
+              {agentFiles.map(f => (
+                <Button
+                  key={f}
+                  variant={selectedFile === f ? 'default' : 'outline'}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setSelectedFile(f)}
+                >
+                  {f}
+                </Button>
+              ))}
+            </div>
+            {selectedFile && (
+              <pre className="mt-3 whitespace-pre-wrap text-sm text-neutral-300 font-mono bg-neutral-900 p-4 rounded border border-neutral-800 max-h-[500px] overflow-y-auto">
+                {content || 'Empty file'}
+              </pre>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -59,9 +109,40 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   const task = tasks.find(t => t.id === taskId)
   const [reviewComments, setReviewComments] = useState<AIHumanComment[]>([])
 
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editGitStrategy, setEditGitStrategy] = useState<AIGitStrategy>('worktree')
+  const [editBaseBranch, setEditBaseBranch] = useState('')
+  const [editProjectPaths, setEditProjectPaths] = useState<string[]>([])
+
   const pipeline = settings?.pipeline || []
   const currentPhaseConfig = pipeline.find(p => p.id === task?.phase)
   const isManualPhase = currentPhaseConfig?.type === 'manual'
+  const canEdit = task?.phase === 'BACKLOG'
+
+  const startEditing = () => {
+    if (!task) return
+    setEditTitle(task.title)
+    setEditDescription(task.description)
+    setEditGitStrategy(task.gitStrategy)
+    setEditBaseBranch(task.baseBranch || '')
+    setEditProjectPaths(task.projectPaths || [])
+    setEditing(true)
+  }
+
+  const saveEdit = async () => {
+    await updateTask(task!.id, {
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      gitStrategy: editGitStrategy,
+      baseBranch: editBaseBranch.trim() || undefined,
+      projectPaths: editProjectPaths.length > 0 ? editProjectPaths : undefined
+    })
+    setEditing(false)
+  }
+
+  const cancelEdit = () => setEditing(false)
 
   // Load existing comments when task changes
   useEffect(() => {
@@ -147,6 +228,17 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {canEdit && !editing && (
+            <Button variant="outline" size="sm" onClick={startEditing}>
+              <Pencil className="h-3 w-3 mr-1" /> Edit
+            </Button>
+          )}
+          {editing && (
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={cancelEdit}>Cancel</Button>
+              <Button size="sm" onClick={saveEdit}>Save</Button>
+            </div>
+          )}
           {isAgentRunning && (
             <Button variant="destructive" size="sm" onClick={() => stopTask(task.id)}>
               <Square className="h-3 w-3 mr-1" />
@@ -216,66 +308,108 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
           <div className="space-y-4 max-w-2xl">
             <div>
               <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Title</h3>
-              <p className="mt-1 text-sm text-white">{task.title}</p>
+              {editing ? (
+                <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="mt-1" />
+              ) : (
+                <p className="mt-1 text-sm text-white">{task.title}</p>
+              )}
             </div>
-            {task.description && (
-              <div>
-                <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Description</h3>
-                <p className="mt-1 text-sm text-neutral-300 whitespace-pre-wrap">{task.description}</p>
-              </div>
-            )}
-            {task.projectPaths && task.projectPaths.length > 0 && (
-              <div>
-                <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Projects</h3>
-                <div className="mt-1 space-y-1">
-                  {task.projectPaths.map(p => (
-                    <div key={p} className="flex items-center gap-2 text-sm text-neutral-300">
-                      <FolderOpen className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
-                      <span className="font-medium">{p.split('/').pop()}</span>
-                      <span className="text-xs text-neutral-500">{p}</span>
+            <div>
+              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Description</h3>
+              {editing ? (
+                <Textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={6} className="mt-1" />
+              ) : (
+                task.description && <p className="mt-1 text-sm text-neutral-300 whitespace-pre-wrap">{task.description}</p>
+              )}
+            </div>
+            <div>
+              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Projects</h3>
+              {editing ? (
+                <div className="mt-1 space-y-2">
+                  {editProjectPaths.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-sm text-neutral-300 flex-1 truncate">{p}</span>
+                      <Button variant="ghost" size="sm" onClick={() => setEditProjectPaths(prev => prev.filter((_, j) => j !== i))}>
+                        <X className="h-3 w-3 text-red-400" />
+                      </Button>
                     </div>
                   ))}
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    const selected = await window.electron.aiSelectDirectory()
+                    if (selected && !editProjectPaths.includes(selected)) {
+                      setEditProjectPaths(prev => [...prev, selected])
+                    }
+                  }}>
+                    <Plus className="h-3 w-3 mr-1" /> Add Project
+                  </Button>
                 </div>
-              </div>
-            )}
+              ) : (
+                task.projectPaths && task.projectPaths.length > 0 ? (
+                  <div className="mt-1 space-y-1">
+                    {task.projectPaths.map(p => (
+                      <div key={p} className="flex items-center gap-2 text-sm text-neutral-300">
+                        <FolderOpen className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
+                        <span className="font-medium">{p.split('/').pop()}</span>
+                        <span className="text-xs text-neutral-500">{p}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-neutral-500">No projects tagged</p>
+                )
+              )}
+            </div>
             <div className="flex gap-6">
               <div>
                 <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Git Strategy</h3>
-                <p className="mt-1 text-sm text-neutral-300">{task.gitStrategy}</p>
+                {editing ? (
+                  <Select value={editGitStrategy} onValueChange={(v) => setEditGitStrategy(v as AIGitStrategy)}>
+                    <SelectTrigger className="mt-1 w-32"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="worktree">Worktree</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="mt-1 text-sm text-neutral-300">{task.gitStrategy}</p>
+                )}
               </div>
-              <div>
-                <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Max Review Cycles</h3>
-                <p className="mt-1 text-sm text-neutral-300">{task.maxReviewCycles}</p>
-              </div>
-              <div>
-                <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Review Cycles Used</h3>
-                <p className="mt-1 text-sm text-neutral-300">{task.reviewCycleCount}</p>
-              </div>
-            </div>
-            {task.worktreePath && (
-              <div>
-                <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Worktree</h3>
-                <div className="mt-1 flex items-center gap-2">
-                  <GitBranch className="h-3.5 w-3.5 text-neutral-500 flex-shrink-0" />
-                  <span className="text-sm text-neutral-300 font-mono truncate">{task.worktreePath}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                    disabled={isAgentRunning}
-                    onClick={async () => {
-                      if (confirm('Remove this worktree? The branch will be kept.')) {
-                        await window.electron.aiRemoveWorktree(task.id)
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Remove
-                  </Button>
+              {(editing ? editGitStrategy === 'worktree' : task.gitStrategy === 'worktree') && (
+                <div>
+                  <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Base Branch</h3>
+                  {editing ? (
+                    <Input value={editBaseBranch} onChange={e => setEditBaseBranch(e.target.value)} placeholder="main" className="mt-1 w-32" />
+                  ) : (
+                    <p className="mt-1 text-sm text-neutral-300">{task.baseBranch || 'auto'}</p>
+                  )}
                 </div>
+              )}
+            </div>
+            {task.worktrees && task.worktrees.length > 0 && (
+              <div>
+                <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Worktrees</h3>
+                {task.worktrees.map((wt, i) => (
+                  <div key={i} className="mt-1 flex items-center gap-2">
+                    <GitBranch className="h-3.5 w-3.5 text-neutral-500 flex-shrink-0" />
+                    <span className="text-sm text-neutral-300 font-mono truncate">{wt.worktreePath}</span>
+                    <span className="text-xs text-neutral-500">({wt.branchName})</span>
+                  </div>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-1 h-6 px-2 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                  disabled={isAgentRunning}
+                  onClick={async () => {
+                    if (confirm('Remove all worktrees? The branches will be kept.')) {
+                      await window.electron.aiRemoveWorktree(task.id)
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" /> Remove Worktrees
+                </Button>
               </div>
             )}
-            {/* Previous human comments (from earlier review cycles) */}
             {task.humanComments && task.humanComments.length > 0 && !isManualPhase && (
               <div>
                 <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Previous Review Comments</h3>
@@ -337,11 +471,6 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                 </div>
               )
             })}
-            {task.reviewCycleCount > 0 && (
-              <div className="mt-4 text-xs text-neutral-500">
-                Review cycles: {task.reviewCycleCount}/{task.maxReviewCycles}
-              </div>
-            )}
           </div>
         </TabsContent>
       </Tabs>
