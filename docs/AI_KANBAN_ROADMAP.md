@@ -22,6 +22,7 @@
 - [ ] **F12**: General Review Comments — add non-line-specific review comments (overall feedback)
 - [x] **F14**: Large Diff Truncation — files with 200+ changed lines collapsed by default with "Load diff" button
 - [ ] **F18**: Diff Virtualization — virtualized rendering for large diffs to avoid DOM performance issues
+- [ ] **F19**: Agent Comment Resolution — allow agents to mark review comments as resolved after addressing them
 - [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work
 - [ ] **F17**: Per-Phase Retry Limits — move maxReviewCycles from task to pipeline phase config (`maxRetries` per phase), track retries per-phase instead of globally, remove from task creation dialog
 
