@@ -1,17 +1,7 @@
 import { execFileSync } from 'child_process'
 import path from 'path'
 import fs from 'fs'
-import { app } from 'electron'
-
-const WORKTREES_DIR = 'ai-worktrees'
-
-function getWorktreesBase(): string {
-  const base = path.join(app.getPath('userData'), WORKTREES_DIR)
-  if (!fs.existsSync(base)) {
-    fs.mkdirSync(base, { recursive: true })
-  }
-  return base
-}
+import { getWorktreesDir } from './task-dir-manager.js'
 
 function git(args: string[], cwd: string): string {
   return execFileSync('git', args, { cwd, encoding: 'utf-8', timeout: 30000 }).trim()
@@ -52,14 +42,10 @@ export function createBranch(projectPath: string, branchName: string, baseBranch
   return branchName
 }
 
-export function createWorktree(projectPath: string, branchName: string, baseBranch?: string, worktreeDir?: string): string {
-  const worktreesBase = worktreeDir || getWorktreesBase()
-  if (!fs.existsSync(worktreesBase)) {
-    fs.mkdirSync(worktreesBase, { recursive: true })
-  }
-  // Replace slashes in branch name for filesystem safety
-  const safeName = branchName.replace(/\//g, '-')
-  const worktreePath = path.join(worktreesBase, safeName)
+export function createWorktree(taskId: string, projectPath: string, branchName: string, baseBranch?: string): string {
+  const worktreesBase = getWorktreesDir(taskId)
+  const repoName = path.basename(projectPath)
+  const worktreePath = path.join(worktreesBase, repoName)
 
   if (fs.existsSync(worktreePath)) {
     return worktreePath
