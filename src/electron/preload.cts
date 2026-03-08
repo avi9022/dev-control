@@ -243,9 +243,9 @@ electron.contextBridge.exposeInMainWorld("electron", {
     }),
   // AI Automation API
   aiGetTasks: () => ipcInvoke('aiGetTasks'),
-  aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number, projectPaths?: string[], baseBranch?: string, customBranchName?: string, worktreeDir?: string) =>
-    ipcInvoke('aiCreateTask', title, description, gitStrategy, maxReviewCycles, projectPaths, baseBranch, customBranchName, worktreeDir),
-  aiSelectWorktreeDir: () => ipcInvoke('aiSelectWorktreeDir'),
+  aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, projectPaths?: string[], baseBranch?: string, customBranchName?: string) =>
+    ipcInvoke('aiCreateTask', title, description, gitStrategy, projectPaths, baseBranch, customBranchName),
+  aiSelectDirectory: () => ipcInvoke('aiSelectDirectory'),
   aiUpdateTask: (id: string, updates: Partial<AITask>) => ipcInvoke('aiUpdateTask', id, updates),
   aiDeleteTask: (id: string) => ipcInvoke('aiDeleteTask', id),
   aiMoveTaskPhase: (id: string, targetPhase: string) => ipcInvoke('aiMoveTaskPhase', id, targetPhase),
@@ -253,6 +253,10 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiSendTaskInput: (taskId: string, input: string) => ipcInvoke('aiSendTaskInput', taskId, input),
   aiGetTaskOutputHistory: (taskId: string) => ipcInvoke('aiGetTaskOutputHistory', taskId),
   aiGetTaskDiff: (taskId: string) => ipcInvoke('aiGetTaskDiff', taskId),
+  aiAttachTaskFiles: (taskId: string, filePaths: string[]) => ipcInvoke('aiAttachTaskFiles', taskId, filePaths),
+  aiDeleteTaskAttachment: (taskId: string, filename: string) => ipcInvoke('aiDeleteTaskAttachment', taskId, filename),
+  aiListTaskAttachments: (taskId: string) => ipcInvoke('aiListTaskAttachments', taskId),
+  aiSelectFiles: () => ipcInvoke('aiSelectFiles'),
   aiRemoveWorktree: (taskId: string) => ipcInvoke('aiRemoveWorktree', taskId),
   aiGetTaskFiles: (taskId: string) => ipcInvoke('aiGetTaskFiles', taskId),
   aiReadTaskFile: (taskId: string, filename: string) => ipcInvoke('aiReadTaskFile', taskId, filename),

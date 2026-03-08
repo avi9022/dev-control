@@ -45,10 +45,10 @@ import { dockerManager } from './docker/docker-manager.js'
 // MongoDB
 import { mongoManager } from './mongodb/mongo-manager.js'
 // AI Automation
-import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks } from './ai-automation/task-manager.js'
+import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks, migrateTaskWorkspaces } from './ai-automation/task-manager.js'
 import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory } from './ai-automation/agent-runner.js'
 import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
-import { listTaskDirFiles, readTaskDirFile } from './ai-automation/task-dir-manager.js'
+import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, listAttachments } from './ai-automation/task-dir-manager.js'
 import { generateKnowledgeDoc } from './ai-automation/knowledge-generator.js'
 import { randomUUID } from 'crypto'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
@@ -232,6 +232,7 @@ app.on("ready", async () => {
   // Initialize AI task manager
   migrateSettings()
   migrateExistingTasks()
+  migrateTaskWorkspaces()
   setTaskManagerMainWindow(mainWindow)
   setAgentMainWindow(mainWindow)
 
@@ -668,11 +669,11 @@ app.on("ready", async () => {
     return getTasks()
   })
 
-  ipcMainHandle('aiCreateTask', async (_event, title, description, gitStrategy, maxReviewCycles, projectPaths, baseBranch, customBranchName, worktreeDir) => {
-    return aiCreateTask(title, description, gitStrategy, maxReviewCycles, projectPaths, baseBranch, customBranchName, worktreeDir)
+  ipcMainHandle('aiCreateTask', async (_event, title, description, gitStrategy, projectPaths, baseBranch, customBranchName) => {
+    return aiCreateTask(title, description, gitStrategy, projectPaths, baseBranch, customBranchName)
   })
 
-  ipcMainHandle('aiSelectWorktreeDir', async () => {
+  ipcMainHandle('aiSelectDirectory', async () => {
     const { dialog } = await import('electron')
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
@@ -729,9 +730,35 @@ app.on("ready", async () => {
 
   ipcMainHandle('aiRemoveWorktree', async (_event, taskId) => {
     const task = getTasks().find(t => t.id === taskId)
-    if (!task?.worktreePath || !task.projectPaths?.[0]) return
-    cleanupWorktree(task.projectPaths[0], task.worktreePath)
-    aiUpdateTask(taskId, { worktreePath: undefined })
+    if (!task?.worktrees?.length) return
+    for (const wt of task.worktrees) {
+      cleanupWorktree(wt.projectPath, wt.worktreePath)
+    }
+    aiUpdateTask(taskId, { worktrees: [] })
+  })
+
+  ipcMainHandle('aiAttachTaskFiles', async (_event, taskId, filePaths) => {
+    return attachFiles(taskId, filePaths)
+  })
+
+  ipcMainHandle('aiDeleteTaskAttachment', async (_event, taskId, filename) => {
+    deleteAttachment(taskId, filename)
+  })
+
+  ipcMainHandle('aiListTaskAttachments', async (_event, taskId) => {
+    return listAttachments(taskId)
+  })
+
+  ipcMainHandle('aiSelectFiles', async () => {
+    const { dialog } = await import('electron')
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      title: 'Select Files to Attach'
+    })
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths
+    }
+    return null
   })
 
   ipcMainHandle('aiGetTaskFiles', async (_event, taskId) => {
