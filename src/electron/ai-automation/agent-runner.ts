@@ -228,13 +228,13 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   const settings = getSettings()
 
   // Create worktree on first agent phase if needed
-  if (!task.worktreePath && task.projectPaths?.[0] && task.gitStrategy !== 'none') {
+  if (task.worktrees.length === 0 && task.projectPaths?.[0] && task.gitStrategy !== 'none') {
     const branchName = task.customBranchName || generateBranchName(taskId, task.title)
     const baseBranch = task.baseBranch || settings.defaultBaseBranch || undefined
-    const worktreeDir = task.worktreeDir || settings.defaultWorktreeDir || undefined
     try {
-      const worktreePath = createWorktree(task.projectPaths[0], branchName, baseBranch, worktreeDir)
-      updateTask(taskId, { branchName, worktreePath })
+      const worktreePath = createWorktree(taskId, task.projectPaths[0], branchName, baseBranch)
+      const worktree: AITaskWorktree = { projectPath: task.projectPaths[0], worktreePath, branchName }
+      updateTask(taskId, { branchName, worktrees: [worktree] })
       task = getTaskById(taskId)!
       emit(taskId, `\n📁 Created worktree: ${worktreePath} (branch: ${branchName} from ${baseBranch || 'auto'})\n`)
     } catch (err) {
@@ -287,14 +287,14 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
 
   // Determine working directory
   let cwd: string
-  if (task.worktreePath) {
-    cwd = task.worktreePath
+  if (task.worktrees.length > 0) {
+    cwd = task.worktrees[0].worktreePath
   } else {
     cwd = task.projectPaths?.[0] || process.cwd()
   }
 
   const claudePath = getClaudePath()
-  console.log(`[ai-agent] Spawning ${claudePath} for task ${taskId} (phase: ${phaseConfig.name}), cwd: ${cwd}, worktreePath: ${task.worktreePath || 'none'}`)
+  console.log(`[ai-agent] Spawning ${claudePath} for task ${taskId} (phase: ${phaseConfig.name}), cwd: ${cwd}, worktrees: ${task.worktrees.length}`)
 
   const child = spawn(claudePath, args, {
     cwd,
