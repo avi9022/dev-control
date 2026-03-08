@@ -62,7 +62,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
       if (!mentionText) continue
       const matched = directories.find(d => {
         const label = (d.customLabel || d.name).toLowerCase()
-        return label === mentionText || label.includes(mentionText) || mentionText.includes(label)
+        return label === mentionText
       })
       if (matched && !taggedProjects.some(tp => tp.id === matched.id)) {
         setTaggedProjects(prev =>
