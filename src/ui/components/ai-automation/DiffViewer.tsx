@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef, type FC } from 'react'
 import { Button } from '@/components/ui/button'
-import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare } from 'lucide-react'
+import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle } from 'lucide-react'
+
+const LARGE_DIFF_THRESHOLD = 200 // lines changed
 
 interface DiffViewerProps {
   taskId: string
@@ -415,6 +417,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('unified')
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set())
+  const [forcedLargeFiles, setForcedLargeFiles] = useState<Set<string>>(new Set())
   const [activeComment, setActiveComment] = useState<string | null>(null)
 
   useEffect(() => {
@@ -553,32 +556,60 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
               </button>
 
               {/* Diff content */}
-              {!collapsed && (
-                <div className="overflow-x-auto text-neutral-300">
-                  {viewMode === 'unified'
-                    ? <UnifiedView
-                        file={file}
-                        commentMap={commentMap}
-                        activeComment={activeComment}
-                        onStartComment={setActiveComment}
-                        onSubmitComment={handleSubmitComment}
-                        onCancelComment={() => setActiveComment(null)}
-                        onDeleteComment={handleDeleteComment}
-                        readOnly={readOnly}
-                      />
-                    : <SplitView
-                        file={file}
-                        commentMap={commentMap}
-                        activeComment={activeComment}
-                        onStartComment={setActiveComment}
-                        onSubmitComment={handleSubmitComment}
-                        onCancelComment={() => setActiveComment(null)}
-                        onDeleteComment={handleDeleteComment}
-                        readOnly={readOnly}
-                      />
-                  }
-                </div>
-              )}
+              {!collapsed && (() => {
+                const totalLines = stats.added + stats.removed
+                const isLarge = totalLines > LARGE_DIFF_THRESHOLD
+                const isForced = forcedLargeFiles.has(path)
+
+                if (isLarge && !isForced) {
+                  return (
+                    <div className="flex flex-col items-center gap-2 py-6 px-4 bg-neutral-900/30">
+                      <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                      <p className="text-xs text-neutral-400 text-center">
+                        Large diff not rendered — {totalLines} lines changed ({stats.added} additions, {stats.removed} deletions)
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={e => {
+                          e.stopPropagation()
+                          setForcedLargeFiles(prev => new Set([...prev, path]))
+                        }}
+                      >
+                        Load diff
+                      </Button>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div className="overflow-x-auto text-neutral-300">
+                    {viewMode === 'unified'
+                      ? <UnifiedView
+                          file={file}
+                          commentMap={commentMap}
+                          activeComment={activeComment}
+                          onStartComment={setActiveComment}
+                          onSubmitComment={handleSubmitComment}
+                          onCancelComment={() => setActiveComment(null)}
+                          onDeleteComment={handleDeleteComment}
+                          readOnly={readOnly}
+                        />
+                      : <SplitView
+                          file={file}
+                          commentMap={commentMap}
+                          activeComment={activeComment}
+                          onStartComment={setActiveComment}
+                          onSubmitComment={handleSubmitComment}
+                          onCancelComment={() => setActiveComment(null)}
+                          onDeleteComment={handleDeleteComment}
+                          readOnly={readOnly}
+                        />
+                    }
+                  </div>
+                )
+              })()}
             </div>
           )
         })}
