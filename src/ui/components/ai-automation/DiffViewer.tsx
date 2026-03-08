@@ -439,6 +439,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set())
   const [forcedLargeFiles, setForcedLargeFiles] = useState<Set<string>>(new Set())
   const [activeComment, setActiveComment] = useState<string | null>(null)
+  const [showResolved, setShowResolved] = useState(true)
 
   useEffect(() => {
     setLoading(true)
@@ -450,18 +451,21 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
   const files = useMemo(() => rawDiff ? parseDiff(rawDiff) : [], [rawDiff])
 
+  const resolvedCount = comments.filter(c => c.resolved).length
+
   // Build comment lookup map: "file:line" -> comments[] (line-specific only)
   const commentMap = useMemo(() => {
     const map = new Map<string, AIHumanComment[]>()
     for (const c of comments) {
       if (!c.file) continue // skip general comments
+      if (!showResolved && c.resolved) continue
       const key = commentKey(c.file, c.line)
       const arr = map.get(key) || []
       arr.push(c)
       map.set(key, arr)
     }
     return map
-  }, [comments])
+  }, [comments, showResolved])
 
   const handleSubmitComment = (file: string, line: number, text: string) => {
     const newComment: AIHumanComment = {
@@ -525,6 +529,17 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
               {comments.length} comment{comments.length !== 1 ? 's' : ''}
             </span>
           )}
+          {resolvedCount > 0 && (
+            <label className="ml-3 flex items-center gap-1.5 cursor-pointer text-neutral-500 hover:text-neutral-400">
+              <input
+                type="checkbox"
+                checked={showResolved}
+                onChange={e => setShowResolved(e.target.checked)}
+                className="rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0 h-3 w-3"
+              />
+              <span className="text-xs">Show resolved ({resolvedCount})</span>
+            </label>
+          )}
         </div>
         <div className="flex items-center gap-1 bg-neutral-800 rounded p-0.5">
           <Button
@@ -550,7 +565,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
       {/* General comments */}
       {(() => {
-        const generalComments = comments.filter(c => !c.file)
+        const generalComments = comments.filter(c => !c.file && (showResolved || !c.resolved))
         if (generalComments.length === 0) return null
         return (
           <div className="shrink-0 mb-3 space-y-1">
