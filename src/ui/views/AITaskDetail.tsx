@@ -7,18 +7,59 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare, Pencil, Plus, X, Paperclip } from 'lucide-react'
+import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare, Pencil, Plus, X, Paperclip, Check } from 'lucide-react'
 
 interface AITaskDetailProps {
   taskId: string
   onBack: () => void
 }
 
+const FileChip: FC<{
+  filename: string
+  prefix: string
+  excluded: boolean
+  selected: boolean
+  onToggleExclude: () => void
+  onDelete: () => void
+  onSelect: () => void
+}> = ({ filename, prefix, excluded, selected, onToggleExclude, onDelete, onSelect }) => (
+  <div
+    className={`group flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer transition-colors ${
+      selected ? 'bg-neutral-700 border border-neutral-500 text-white' :
+      excluded ? 'bg-neutral-900 border border-neutral-800 text-neutral-600' :
+      'bg-neutral-800 border border-neutral-700 text-neutral-300'
+    }`}
+    onClick={onSelect}
+  >
+    <button
+      onClick={e => { e.stopPropagation(); onToggleExclude() }}
+      className={`flex-shrink-0 w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors ${
+        excluded ? 'border-neutral-600 bg-neutral-800' : 'border-blue-500 bg-blue-600'
+      }`}
+      title={excluded ? 'Include in agent prompts' : 'Exclude from agent prompts'}
+    >
+      {!excluded && <Check className="h-2.5 w-2.5 text-white" />}
+    </button>
+    {prefix === 'attachments' ? <Paperclip className="h-3 w-3 text-neutral-500 flex-shrink-0" /> : null}
+    <span className={excluded ? 'line-through' : ''}>{filename}</span>
+    <button
+      onClick={e => { e.stopPropagation(); onDelete() }}
+      className="ml-1 text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+      title="Delete file"
+    >
+      <X className="h-3 w-3" />
+    </button>
+  </div>
+)
+
 const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
+  const { tasks } = useAIAutomation()
+  const task = tasks.find(t => t.id === taskId)
   const [agentFiles, setAgentFiles] = useState<string[]>([])
   const [attachments, setAttachments] = useState<string[]>([])
-  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<{ name: string; type: 'agent' | 'attachment' } | null>(null)
   const [content, setContent] = useState('')
+  const excluded = task?.excludedFiles || []
 
   const loadFiles = () => {
     window.electron.aiGetTaskFiles(taskId).then(setAgentFiles)
@@ -29,12 +70,23 @@ const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
 
   useEffect(() => {
     if (selectedFile) {
-      window.electron.aiReadTaskFile(taskId, selectedFile).then(setContent)
+      if (selectedFile.type === 'agent') {
+        window.electron.aiReadTaskFile(taskId, selectedFile.name).then(setContent)
+      } else {
+        setContent('(Attachment — preview not available)')
+      }
     }
   }, [taskId, selectedFile])
 
+  const isExcluded = (prefix: string, filename: string) => excluded.includes(`${prefix}/${filename}`)
+
   return (
     <div className="space-y-4">
+      {/* Description */}
+      <p className="text-neutral-500 text-xs leading-relaxed">
+        All files below are included in agent prompts by default. Uncheck a file to exclude it — agents will not see excluded files. Higher-numbered files (e.g., review-2.md) supersede earlier versions. Hover to delete.
+      </p>
+
       {/* Attachments section */}
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -54,19 +106,22 @@ const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
         ) : (
           <div className="flex gap-2 flex-wrap">
             {attachments.map(f => (
-              <div key={f} className="flex items-center gap-1 px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-xs text-neutral-300">
-                <Paperclip className="h-3 w-3 text-neutral-500" />
-                {f}
-                <button
-                  onClick={async () => {
-                    await window.electron.aiDeleteTaskAttachment(taskId, f)
-                    loadFiles()
-                  }}
-                  className="ml-1 text-red-400 hover:text-red-300"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
+              <FileChip
+                key={f}
+                filename={f}
+                prefix="attachments"
+                excluded={isExcluded('attachments', f)}
+                selected={selectedFile?.name === f && selectedFile?.type === 'attachment'}
+                onToggleExclude={async () => {
+                  await window.electron.aiToggleFileExclusion(taskId, `attachments/${f}`)
+                }}
+                onDelete={async () => {
+                  await window.electron.aiDeleteTaskAttachment(taskId, f)
+                  if (selectedFile?.name === f && selectedFile?.type === 'attachment') setSelectedFile(null)
+                  loadFiles()
+                }}
+                onSelect={() => setSelectedFile({ name: f, type: 'attachment' })}
+              />
             ))}
           </div>
         )}
@@ -81,18 +136,28 @@ const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
           <>
             <div className="flex gap-2 flex-wrap">
               {agentFiles.map(f => (
-                <Button
+                <FileChip
                   key={f}
-                  variant={selectedFile === f ? 'default' : 'outline'}
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => setSelectedFile(f)}
-                >
-                  {f}
-                </Button>
+                  filename={f}
+                  prefix="agent"
+                  excluded={isExcluded('agent', f)}
+                  selected={selectedFile?.name === f && selectedFile?.type === 'agent'}
+                  onToggleExclude={async () => {
+                    await window.electron.aiToggleFileExclusion(taskId, `agent/${f}`)
+                  }}
+                  onDelete={async () => {
+                    await window.electron.aiDeleteAgentFile(taskId, f)
+                    if (selectedFile?.name === f && selectedFile?.type === 'agent') {
+                      setSelectedFile(null)
+                      setContent('')
+                    }
+                    loadFiles()
+                  }}
+                  onSelect={() => setSelectedFile({ name: f, type: 'agent' })}
+                />
               ))}
             </div>
-            {selectedFile && (
+            {selectedFile?.type === 'agent' && (
               <pre className="mt-3 whitespace-pre-wrap text-sm text-neutral-300 font-mono bg-neutral-900 p-4 rounded border border-neutral-800 max-h-[500px] overflow-y-auto">
                 {content || 'Empty file'}
               </pre>

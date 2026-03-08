@@ -604,6 +604,7 @@ interface AITask {
   currentPhaseName?: string
   needsUserInput: boolean
   phaseHistory: AIPhaseHistoryEntry[]
+  excludedFiles?: string[]
 }
 
 interface AIPhaseHistoryEntry {
@@ -1537,6 +1538,14 @@ type EventPayloadMapping = {
     return: void;
     args: [string, string];
   }
+  aiDeleteAgentFile: {
+    return: void;
+    args: [string, string];
+  }
+  aiToggleFileExclusion: {
+    return: void;
+    args: [string, string];
+  }
   aiListTaskAttachments: {
     return: string[];
     args: [string];
@@ -1812,6 +1821,8 @@ interface Window {
     aiSelectDirectory: () => Promise<string | null>
     aiAttachTaskFiles: (taskId: string, filePaths: string[]) => Promise<string[]>
     aiDeleteTaskAttachment: (taskId: string, filename: string) => Promise<void>
+    aiDeleteAgentFile: (taskId: string, filename: string) => Promise<void>
+    aiToggleFileExclusion: (taskId: string, filename: string) => Promise<void>
     aiListTaskAttachments: (taskId: string) => Promise<string[]>
     aiSelectFiles: () => Promise<string[] | null>
     aiUpdateTask: (id: string, updates: Partial<AITask>) => Promise<void>

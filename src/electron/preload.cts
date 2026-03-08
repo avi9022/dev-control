@@ -255,6 +255,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiGetTaskDiff: (taskId: string) => ipcInvoke('aiGetTaskDiff', taskId),
   aiAttachTaskFiles: (taskId: string, filePaths: string[]) => ipcInvoke('aiAttachTaskFiles', taskId, filePaths),
   aiDeleteTaskAttachment: (taskId: string, filename: string) => ipcInvoke('aiDeleteTaskAttachment', taskId, filename),
+  aiDeleteAgentFile: (taskId: string, filename: string) => ipcInvoke('aiDeleteAgentFile', taskId, filename),
+  aiToggleFileExclusion: (taskId: string, filename: string) => ipcInvoke('aiToggleFileExclusion', taskId, filename),
   aiListTaskAttachments: (taskId: string) => ipcInvoke('aiListTaskAttachments', taskId),
   aiSelectFiles: () => ipcInvoke('aiSelectFiles'),
   aiRemoveWorktree: (taskId: string) => ipcInvoke('aiRemoveWorktree', taskId),

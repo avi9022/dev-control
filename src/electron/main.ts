@@ -48,7 +48,7 @@ import { mongoManager } from './mongodb/mongo-manager.js'
 import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks, migrateTaskWorkspaces } from './ai-automation/task-manager.js'
 import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory } from './ai-automation/agent-runner.js'
 import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
-import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, listAttachments } from './ai-automation/task-dir-manager.js'
+import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments } from './ai-automation/task-dir-manager.js'
 import { generateKnowledgeDoc } from './ai-automation/knowledge-generator.js'
 import { randomUUID } from 'crypto'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
@@ -743,6 +743,19 @@ app.on("ready", async () => {
 
   ipcMainHandle('aiDeleteTaskAttachment', async (_event, taskId, filename) => {
     deleteAttachment(taskId, filename)
+  })
+
+  ipcMainHandle('aiDeleteAgentFile', async (_event, taskId, filename) => {
+    deleteAgentFile(taskId, filename)
+  })
+
+  ipcMainHandle('aiToggleFileExclusion', async (_event, taskId, filename) => {
+    const task = getTasks().find(t => t.id === taskId)
+    if (!task) return
+    const excluded = task.excludedFiles || []
+    const isExcluded = excluded.includes(filename)
+    const updated = isExcluded ? excluded.filter(f => f !== filename) : [...excluded, filename]
+    aiUpdateTask(taskId, { excludedFiles: updated })
   })
 
   ipcMainHandle('aiListTaskAttachments', async (_event, taskId) => {

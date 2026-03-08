@@ -90,6 +90,11 @@ export function listAttachments(taskId: string): string[] {
   })
 }
 
+export function deleteAgentFile(taskId: string, filename: string): void {
+  const filePath = path.join(getAgentDir(taskId), filename)
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+}
+
 export function migrateTaskDirStructure(taskId: string): void {
   const taskDir = getOrCreateTaskDir(taskId)
   const agentDir = path.join(taskDir, 'agent')
