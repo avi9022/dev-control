@@ -1,13 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ArrowLeft, FolderOpen } from 'lucide-react'
 
 interface SettingsProps {
   onBack: () => void
+  onAppearanceChange: (opacity: number, bgColor: string) => void
 }
 
-export const Settings = ({ onBack }: SettingsProps) => {
+export const Settings = ({ onBack, onAppearanceChange }: SettingsProps) => {
   const [folderPath, setFolderPath] = useState('')
   const [autoHide, setAutoHide] = useState(false)
+  const [opacity, setOpacity] = useState(10)
+  const [bgColor, setBgColor] = useState('#ffffff')
+  const [shortcut, setShortcut] = useState('CommandOrControl+Shift+T')
+  const [isRecording, setIsRecording] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -19,6 +24,9 @@ export const Settings = ({ onBack }: SettingsProps) => {
         ])
         setFolderPath(path)
         setAutoHide(settings.autoHide)
+        setOpacity(settings.opacity ?? 10)
+        setBgColor(settings.bgColor ?? '#ffffff')
+        setShortcut(settings.shortcut ?? 'CommandOrControl+Shift+T')
       } catch (error) {
         console.error('Failed to load settings:', error)
       } finally {
@@ -39,14 +47,78 @@ export const Settings = ({ onBack }: SettingsProps) => {
     }
   }
 
-  const handleAutoHideChange = async (checked: boolean) => {
-    setAutoHide(checked)
+  const saveSettings = async (updates: Partial<TodoSettings>) => {
+    const merged = { autoHide, opacity, bgColor, shortcut, ...updates }
+    onAppearanceChange(merged.opacity, merged.bgColor)
     try {
-      await window.electron.setTodoSettings({ autoHide: checked })
+      await window.electron.setTodoSettings(merged)
     } catch (error) {
       console.error('Failed to save settings:', error)
     }
   }
+
+  const handleAutoHideChange = (checked: boolean) => {
+    setAutoHide(checked)
+    saveSettings({ autoHide: checked })
+  }
+
+  const handleOpacityChange = (value: number) => {
+    setOpacity(value)
+    saveSettings({ opacity: value })
+  }
+
+  const handleBgColorChange = (value: string) => {
+    setBgColor(value)
+    saveSettings({ bgColor: value })
+  }
+
+  const keyToElectron = (e: KeyboardEvent): string | null => {
+    const parts: string[] = []
+    if (e.metaKey || e.ctrlKey) parts.push('CommandOrControl')
+    if (e.altKey) parts.push('Alt')
+    if (e.shiftKey) parts.push('Shift')
+
+    const key = e.key
+    // Ignore standalone modifier presses
+    if (['Control', 'Meta', 'Alt', 'Shift'].includes(key)) return null
+    // Need at least one modifier
+    if (parts.length === 0) return null
+
+    // Map keys to Electron accelerator names
+    const keyMap: Record<string, string> = {
+      ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+      ' ': 'Space', Enter: 'Return', Backspace: 'Backspace', Delete: 'Delete',
+      Escape: 'Escape', Tab: 'Tab',
+    }
+    const mapped = keyMap[key] ?? (key.length === 1 ? key.toUpperCase() : key)
+    parts.push(mapped)
+    return parts.join('+')
+  }
+
+  const formatShortcutDisplay = (accel: string): string => {
+    const isMac = navigator.platform.includes('Mac')
+    return accel
+      .replace(/CommandOrControl/g, isMac ? '\u2318' : 'Ctrl')
+      .replace(/Shift/g, isMac ? '\u21E7' : 'Shift')
+      .replace(/Alt/g, isMac ? '\u2325' : 'Alt')
+      .replace(/\+/g, isMac ? '' : '+')
+  }
+
+  const handleRecordShortcut = useCallback((e: KeyboardEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const accel = keyToElectron(e)
+    if (!accel) return
+    setShortcut(accel)
+    setIsRecording(false)
+    saveSettings({ shortcut: accel })
+  }, [autoHide, opacity, bgColor, shortcut])
+
+  useEffect(() => {
+    if (!isRecording) return
+    window.addEventListener('keydown', handleRecordShortcut, true)
+    return () => window.removeEventListener('keydown', handleRecordShortcut, true)
+  }, [isRecording, handleRecordShortcut])
 
   if (isLoading) {
     return (
@@ -122,6 +194,56 @@ export const Settings = ({ onBack }: SettingsProps) => {
           </label>
         </div>
 
+        {/* Appearance */}
+        <div className="space-y-3">
+          <label className="text-xs font-medium text-neutral-400 uppercase tracking-wide">
+            Appearance
+          </label>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-neutral-200">Background color</p>
+              <div className="relative">
+                <input
+                  type="color"
+                  value={bgColor}
+                  onChange={e => handleBgColorChange(e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div
+                  className="w-6 h-6 rounded-md border border-neutral-600 cursor-pointer"
+                  style={{ backgroundColor: bgColor }}
+                />
+              </div>
+            </div>
+            <div className="flex gap-1.5">
+              {['#ffffff', '#000000', '#1e1e2e', '#1a1b26', '#282c34', '#2d2a2e', '#0d1117', '#1e3a5f'].map(color => (
+                <button
+                  key={color}
+                  onClick={() => handleBgColorChange(color)}
+                  className={`w-6 h-6 rounded-md border transition-all ${bgColor === color ? 'border-blue-500 scale-110' : 'border-neutral-600 hover:border-neutral-400'}`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-neutral-200">Background opacity</p>
+              <span className="text-xs text-neutral-500 tabular-nums">{opacity}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={opacity}
+              onChange={e => handleOpacityChange(Number(e.target.value))}
+              className="w-full h-1.5 bg-neutral-700 rounded-full appearance-none cursor-pointer accent-blue-600 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:hover:bg-blue-400 [&::-webkit-slider-thumb]:transition-colors"
+            />
+          </div>
+        </div>
+
         {/* Keyboard Shortcuts */}
         <div className="space-y-2">
           <label className="text-xs font-medium text-neutral-400 uppercase tracking-wide">
@@ -130,9 +252,16 @@ export const Settings = ({ onBack }: SettingsProps) => {
           <div className="bg-neutral-800/30 rounded-md p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm text-neutral-300">Toggle Overlay</span>
-              <kbd className="px-2 py-1 bg-neutral-700 rounded text-xs text-neutral-300 font-mono">
-                {navigator.platform.includes('Mac') ? '⌘⇧T' : 'Ctrl+Shift+T'}
-              </kbd>
+              <button
+                onClick={() => setIsRecording(!isRecording)}
+                className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                  isRecording
+                    ? 'bg-blue-600 text-white animate-pulse'
+                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                }`}
+              >
+                {isRecording ? 'Press keys...' : formatShortcutDisplay(shortcut)}
+              </button>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-neutral-300">Close Overlay</span>

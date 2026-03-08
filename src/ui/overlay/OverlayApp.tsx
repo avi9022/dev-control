@@ -7,6 +7,11 @@ import { Settings } from './Settings'
 import { Settings as SettingsIcon } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
+const hexToRgb = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16)
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`
+}
+
 const getToday = () => {
   const now = new Date()
   const y = now.getFullYear()
@@ -24,6 +29,8 @@ export const OverlayApp = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingValues, setIsLoadingValues] = useState(true)
   const [availableDates, setAvailableDates] = useState<string[]>([])
+  const [opacity, setOpacity] = useState(10)
+  const [bgColor, setBgColor] = useState('#ffffff')
 
   const loadTodos = useCallback(async (date: string) => {
     setIsLoading(true)
@@ -73,6 +80,7 @@ export const OverlayApp = () => {
     loadTodos(selectedDate)
     loadAvailableDates()
     loadImportantValues()
+    window.electron.getTodoSettings().then(s => { setOpacity(s.opacity ?? 10); setBgColor(s.bgColor ?? '#ffffff') }).catch(() => {})
   }, [selectedDate, loadTodos, loadAvailableDates, loadImportantValues])
 
   const saveTodos = useCallback(async (newTodos: Todo[]) => {
@@ -228,11 +236,17 @@ export const OverlayApp = () => {
   }, [importantValues, saveImportantValues])
 
   if (showSettings) {
-    return <Settings onBack={() => setShowSettings(false)} />
+    return <Settings
+      onBack={() => setShowSettings(false)}
+      onAppearanceChange={(newOpacity, newBgColor) => { setOpacity(newOpacity); setBgColor(newBgColor) }}
+    />
   }
 
   return (
-    <div className="h-screen flex flex-col bg-white/10 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl overflow-hidden">
+    <div
+      className="h-screen flex flex-col backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl overflow-hidden"
+      style={{ backgroundColor: `rgba(${hexToRgb(bgColor)}, ${opacity / 100})` }}
+    >
       {/* Header with tabs */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/5">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'todos' | 'values')}>

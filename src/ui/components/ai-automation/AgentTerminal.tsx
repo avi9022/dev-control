@@ -11,6 +11,16 @@ export const AgentTerminal: FC<AgentTerminalProps> = ({ taskId, needsUserInput }
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Load persisted output history on mount
+  useEffect(() => {
+    window.electron.aiGetTaskOutputHistory(taskId).then(history => {
+      if (history.length > 0) {
+        const allLines = history.flatMap(chunk => chunk.split('\n'))
+        setLines(allLines)
+      }
+    })
+  }, [taskId])
+
   useEffect(() => {
     const unsubscribe = window.electron.subscribeAITaskOutput((data) => {
       if (data.taskId === taskId) {
