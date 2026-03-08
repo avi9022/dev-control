@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, type FC } from 'react'
 import { Button } from '@/components/ui/button'
 import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle, Check, CircleCheck } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 
 const LARGE_DIFF_THRESHOLD = 200 // lines changed
 
@@ -530,17 +531,15 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {resolvedCount > 0 && (
-            <Button
-              variant={showResolved ? 'default' : 'outline'}
-              size="sm"
-              className="h-6 px-2.5 text-xs gap-1.5"
-              onClick={() => setShowResolved(p => !p)}
-            >
-              <CircleCheck className="h-3 w-3" />
-              {showResolved ? 'Showing' : 'Hiding'} {resolvedCount} resolved
-            </Button>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={showResolved}
+                onCheckedChange={(checked) => setShowResolved(!!checked)}
+              />
+              <span className="text-xs text-neutral-400">Show resolved ({resolvedCount})</span>
+            </label>
           )}
           <div className="flex items-center gap-1 bg-neutral-800 rounded p-0.5">
             <Button
