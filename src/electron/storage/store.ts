@@ -195,10 +195,8 @@ export const store = new Store<Schema>({
     aiTasks: [],
     aiAutomationSettings: {
       maxConcurrency: 1,
-      defaultMaxReviewCycles: 3,
       defaultGitStrategy: 'worktree' as AIGitStrategy,
       defaultBaseBranch: 'main',
-      defaultWorktreeDir: '',
       pipeline: DEFAULT_PIPELINE,
       phasePrompts: {
         planning: '',
