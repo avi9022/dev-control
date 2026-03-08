@@ -104,6 +104,52 @@ const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
   )
 }
 
+const AttachmentsInline: FC<{ taskId: string }> = ({ taskId }) => {
+  const [attachments, setAttachments] = useState<string[]>([])
+
+  const loadAttachments = () => {
+    window.electron.aiListTaskAttachments(taskId).then(setAttachments)
+  }
+
+  useEffect(() => { loadAttachments() }, [taskId])
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Attachments</h3>
+        <Button variant="outline" size="sm" className="h-6 text-xs" onClick={async () => {
+          const selected = await window.electron.aiSelectFiles()
+          if (selected && selected.length > 0) {
+            await window.electron.aiAttachTaskFiles(taskId, selected)
+            loadAttachments()
+          }
+        }}>
+          <Paperclip className="h-3 w-3 mr-1" /> Attach
+        </Button>
+      </div>
+      {attachments.length > 0 && (
+        <div className="flex gap-2 flex-wrap mt-1">
+          {attachments.map(f => (
+            <div key={f} className="flex items-center gap-1 px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-xs text-neutral-300">
+              <Paperclip className="h-3 w-3 text-neutral-500" />
+              {f}
+              <button
+                onClick={async () => {
+                  await window.electron.aiDeleteTaskAttachment(taskId, f)
+                  loadAttachments()
+                }}
+                className="ml-1 text-red-400 hover:text-red-300"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   const { tasks, stopTask, moveTaskPhase, updateTask, settings } = useAIAutomation()
   const task = tasks.find(t => t.id === taskId)
@@ -410,6 +456,8 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                 </Button>
               </div>
             )}
+            {/* Attachments */}
+            <AttachmentsInline taskId={task.id} />
             {task.humanComments && task.humanComments.length > 0 && !isManualPhase && (
               <div>
                 <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Previous Review Comments</h3>

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
-import { FolderOpen, X } from 'lucide-react'
+import { FolderOpen, X, Paperclip } from 'lucide-react'
 
 interface NewTaskDialogProps {
   open: boolean
@@ -20,6 +20,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
   const [baseBranch, setBaseBranch] = useState(settings?.defaultBaseBranch ?? 'main')
   const [customBranchName, setCustomBranchName] = useState('')
   const [taggedProjects, setTaggedProjects] = useState<DirectorySettings[]>([])
+  const [pendingFiles, setPendingFiles] = useState<{ name: string; path: string }[]>([])
 
   // @-mention state
   const [directories, setDirectories] = useState<DirectorySettings[]>([])
@@ -142,11 +143,15 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
     const projectPaths = taggedProjects.map(p => p.path)
     const branch = gitStrategy === 'worktree' ? baseBranch.trim() || undefined : undefined
     const branchName = gitStrategy === 'worktree' ? customBranchName.trim() || undefined : undefined
-    await createTask(title.trim(), description.trim(), gitStrategy, projectPaths.length > 0 ? projectPaths : undefined, branch, branchName)
+    const task = await createTask(title.trim(), description.trim(), gitStrategy, projectPaths.length > 0 ? projectPaths : undefined, branch, branchName)
+    if (pendingFiles.length > 0) {
+      await window.electron.aiAttachTaskFiles(task.id, pendingFiles.map(f => f.path))
+    }
     setTitle('')
     setDescription('')
     setCustomBranchName('')
     setTaggedProjects([])
+    setPendingFiles([])
     onOpenChange(false)
   }
 
@@ -223,6 +228,40 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
               </div>
             </div>
           )}
+          {/* Attachments */}
+          <div>
+            <Label>Attachments <span className="text-neutral-500 font-normal">(optional)</span></Label>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {pendingFiles.map((f, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-xs text-neutral-300"
+                >
+                  <Paperclip className="h-3 w-3 text-neutral-500" />
+                  {f.name}
+                  <button onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))} className="hover:text-white">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={async () => {
+                  const selected = await window.electron.aiSelectFiles()
+                  if (selected) {
+                    const newFiles = selected
+                      .filter(p => !pendingFiles.some(f => f.path === p))
+                      .map(p => ({ name: p.split('/').pop() || p, path: p }))
+                    setPendingFiles(prev => [...prev, ...newFiles])
+                  }
+                }}
+              >
+                <Paperclip className="h-3 w-3 mr-1" /> Add Files
+              </Button>
+            </div>
+          </div>
           <div>
             <Label>Git Strategy</Label>
             <Select value={gitStrategy} onValueChange={(v) => setGitStrategy(v as AIGitStrategy)}>
