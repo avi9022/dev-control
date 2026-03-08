@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type FC } from 'react'
+import { useState, useRef, useEffect, useCallback, type FC } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,10 +12,43 @@ interface NewTaskDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+const MENTION_ATTR = 'data-mention-id'
+
+function getPlainText(el: HTMLElement): string {
+  let text = ''
+  for (const node of el.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      text += node.textContent || ''
+    } else if (node instanceof HTMLElement) {
+      if (node.hasAttribute(MENTION_ATTR)) {
+        text += `@${node.textContent || ''}`
+      } else {
+        text += getPlainText(node)
+      }
+    }
+  }
+  return text
+}
+
+function placeCursorAfter(node: Node) {
+  const sel = window.getSelection()
+  if (!sel) return
+  const range = document.createRange()
+  range.setStartAfter(node)
+  range.collapse(true)
+  sel.removeAllRanges()
+  sel.addRange(range)
+}
+
+function clearEditor(el: HTMLElement) {
+  while (el.firstChild) {
+    el.removeChild(el.firstChild)
+  }
+}
+
 export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) => {
   const { createTask, settings } = useAIAutomation()
   const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
   const [gitStrategy, setGitStrategy] = useState<AIGitStrategy>(settings?.defaultGitStrategy === 'none' ? 'none' : 'worktree')
   const [baseBranch, setBaseBranch] = useState(settings?.defaultBaseBranch ?? 'main')
   const [customBranchName, setCustomBranchName] = useState('')
@@ -27,14 +60,12 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
   const [showMention, setShowMention] = useState(false)
   const [mentionFilter, setMentionFilter] = useState('')
   const [mentionIndex, setMentionIndex] = useState(0)
-  const [mentionStartPos, setMentionStartPos] = useState(-1)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (open) {
       window.electron.getDirectories().then(setDirectories)
-      // Sync defaults from settings when dialog opens
       if (settings) {
         setGitStrategy(settings.defaultGitStrategy === 'none' ? 'none' : 'worktree')
         setBaseBranch(settings.defaultBaseBranch)
@@ -48,50 +79,120 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
       !taggedProjects.some(tp => tp.id === d.id)
   })
 
-  // Scan text for @mentions and auto-tag matching projects
-  const autoTagFromText = (text: string) => {
-    const mentions: string[] = []
-    const re = /@([^\n@]+?)(?=\s+\w|$|\n|,)/g
-    let m = re.exec(text) // eslint-disable-line -- RegExp.exec, not child_process
-    while (m !== null) {
-      mentions.push(m[1].trim().toLowerCase())
-      m = re.exec(text)
-    }
+  // Sync taggedProjects from chips currently in the editor
+  const syncTagsFromEditor = useCallback(() => {
+    if (!editorRef.current) return
+    const chips = editorRef.current.querySelectorAll(`[${MENTION_ATTR}]`)
+    const chipIds = new Set<string>()
+    chips.forEach(chip => chipIds.add(chip.getAttribute(MENTION_ATTR) || ''))
+    setTaggedProjects(prev => prev.filter(p => chipIds.has(p.id)))
+  }, [])
 
-    for (const mentionText of mentions) {
-      if (!mentionText) continue
-      const matched = directories.find(d => {
-        const label = (d.customLabel || d.name).toLowerCase()
-        return label === mentionText
-      })
-      if (matched && !taggedProjects.some(tp => tp.id === matched.id)) {
-        setTaggedProjects(prev =>
-          prev.some(tp => tp.id === matched.id) ? prev : [...prev, matched]
-        )
-      }
-    }
+  const createChipElement = (dir: DirectorySettings): HTMLSpanElement => {
+    const chip = document.createElement('span')
+    chip.setAttribute(MENTION_ATTR, dir.id)
+    chip.setAttribute('contenteditable', 'false')
+    chip.className = 'inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-blue-900/40 border border-blue-700/50 text-xs text-blue-300 mx-0.5 align-baseline cursor-default select-none'
+    chip.textContent = dir.customLabel || dir.name
+    return chip
   }
 
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value
-    const cursorPos = e.target.selectionStart
-    setDescription(value)
+  const insertMention = (dir: DirectorySettings) => {
+    const editor = editorRef.current
+    if (!editor) return
 
-    // Auto-tag any @mentions found in the full text
-    autoTagFromText(value)
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
 
-    // Check if we just typed @ or are continuing a mention query (for dropdown)
-    const textBeforeCursor = value.slice(0, cursorPos)
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+    // Find the @ character and text after it to replace
+    const range = sel.getRangeAt(0)
+    const textNode = range.startContainer
+    if (textNode.nodeType !== Node.TEXT_NODE) return
 
-    if (lastAtIndex !== -1) {
-      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1)
-      // Only show menu if @ is at start or preceded by whitespace, and no space in the query
-      const charBeforeAt = lastAtIndex > 0 ? value[lastAtIndex - 1] : ' '
-      if ((charBeforeAt === ' ' || charBeforeAt === '\n' || lastAtIndex === 0) && !textAfterAt.includes(' ')) {
+    const text = textNode.textContent || ''
+    const cursorOffset = range.startOffset
+    const textBefore = text.slice(0, cursorOffset)
+    const atIndex = textBefore.lastIndexOf('@')
+    if (atIndex === -1) return
+
+    // Split the text node: before @, chip, after cursor
+    const beforeText = text.slice(0, atIndex)
+    const afterText = text.slice(cursorOffset)
+
+    const chip = createChipElement(dir)
+    const parent = textNode.parentNode!
+
+    // Replace text node with: beforeText + chip + space + afterText
+    const beforeNode = document.createTextNode(beforeText)
+    const afterNode = document.createTextNode('\u00A0' + afterText) // nbsp + rest
+
+    parent.insertBefore(beforeNode, textNode)
+    parent.insertBefore(chip, textNode)
+    parent.insertBefore(afterNode, textNode)
+    parent.removeChild(textNode)
+
+    // Place cursor after the nbsp
+    if (afterNode.textContent && afterNode.textContent.length > 0) {
+      const newSel = window.getSelection()
+      if (newSel) {
+        const newRange = document.createRange()
+        newRange.setStart(afterNode, 1) // after the nbsp
+        newRange.collapse(true)
+        newSel.removeAllRanges()
+        newSel.addRange(newRange)
+      }
+    } else {
+      placeCursorAfter(chip)
+    }
+
+    setShowMention(false)
+    setMentionFilter('')
+
+    if (!taggedProjects.some(tp => tp.id === dir.id)) {
+      setTaggedProjects(prev => [...prev, dir])
+    }
+
+    setTimeout(() => editor.focus(), 0)
+  }
+
+  const removeTaggedProject = (id: string) => {
+    // Remove chip from editor
+    if (editorRef.current) {
+      const chip = editorRef.current.querySelector(`[${MENTION_ATTR}="${id}"]`)
+      if (chip) chip.remove()
+    }
+    setTaggedProjects(prev => prev.filter(p => p.id !== id))
+  }
+
+  const handleEditorInput = () => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    // Sync tags (detect deleted chips)
+    syncTagsFromEditor()
+
+    // Check for @ mention trigger
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+
+    const range = sel.getRangeAt(0)
+    const textNode = range.startContainer
+    if (textNode.nodeType !== Node.TEXT_NODE) {
+      setShowMention(false)
+      return
+    }
+
+    const text = textNode.textContent || ''
+    const cursorOffset = range.startOffset
+    const textBefore = text.slice(0, cursorOffset)
+    const atIndex = textBefore.lastIndexOf('@')
+
+    if (atIndex !== -1) {
+      const query = textBefore.slice(atIndex + 1)
+      const charBeforeAt = atIndex > 0 ? text[atIndex - 1] : ' '
+      if ((charBeforeAt === ' ' || charBeforeAt === '\u00A0' || charBeforeAt === '\n' || atIndex === 0) && !query.includes(' ')) {
         setShowMention(true)
-        setMentionFilter(textAfterAt)
-        setMentionStartPos(lastAtIndex)
+        setMentionFilter(query)
         setMentionIndex(0)
         return
       }
@@ -100,55 +201,83 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
     setShowMention(false)
   }
 
-  const insertMention = (dir: DirectorySettings) => {
-    const label = dir.customLabel || dir.name
-    const before = description.slice(0, mentionStartPos)
-    const after = description.slice(textareaRef.current?.selectionStart ?? mentionStartPos)
-    setDescription(`${before}@${label}${after} `)
-    setShowMention(false)
-    setMentionFilter('')
-
-    if (!taggedProjects.some(tp => tp.id === dir.id)) {
-      setTaggedProjects(prev => [...prev, dir])
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (showMention && filteredDirs.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setMentionIndex(prev => (prev + 1) % filteredDirs.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setMentionIndex(prev => (prev - 1 + filteredDirs.length) % filteredDirs.length)
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        insertMention(filteredDirs[mentionIndex])
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowMention(false)
+      }
+      return
     }
 
-    // Refocus textarea
-    setTimeout(() => textareaRef.current?.focus(), 0)
-  }
+    // Handle backspace into a chip — delete the whole chip
+    if (e.key === 'Backspace') {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
 
-  const removeTaggedProject = (id: string) => {
-    setTaggedProjects(prev => prev.filter(p => p.id !== id))
-  }
+      const range = sel.getRangeAt(0)
+      if (!range.collapsed) return
 
-  const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!showMention || filteredDirs.length === 0) return
+      const node = range.startContainer
+      const offset = range.startOffset
 
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setMentionIndex(prev => (prev + 1) % filteredDirs.length)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setMentionIndex(prev => (prev - 1 + filteredDirs.length) % filteredDirs.length)
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault()
-      insertMention(filteredDirs[mentionIndex])
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      setShowMention(false)
+      // If cursor is at start of a text node, check if previous sibling is a chip
+      if (node.nodeType === Node.TEXT_NODE && offset === 0) {
+        const prev = node.previousSibling
+        if (prev instanceof HTMLElement && prev.hasAttribute(MENTION_ATTR)) {
+          e.preventDefault()
+          prev.remove()
+          syncTagsFromEditor()
+          return
+        }
+      }
+
+      // If cursor is in the editor div itself, check child at offset
+      if (node === editorRef.current && offset > 0) {
+        const prev = node.childNodes[offset - 1]
+        if (prev instanceof HTMLElement && prev.hasAttribute(MENTION_ATTR)) {
+          e.preventDefault()
+          prev.remove()
+          syncTagsFromEditor()
+          return
+        }
+      }
     }
+  }
+
+  // Prevent pasting HTML — only allow plain text
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text/plain')
+    document.execCommand('insertText', false, text)
+  }
+
+  const getDescription = (): string => {
+    if (!editorRef.current) return ''
+    return getPlainText(editorRef.current).trim()
   }
 
   const handleCreate = async () => {
     if (!title.trim()) return
+    const description = getDescription()
     const projectPaths = taggedProjects.map(p => p.path)
     const branch = gitStrategy === 'worktree' ? baseBranch.trim() || undefined : undefined
     const branchName = gitStrategy === 'worktree' ? customBranchName.trim() || undefined : undefined
-    const task = await createTask(title.trim(), description.trim(), gitStrategy, projectPaths.length > 0 ? projectPaths : undefined, branch, branchName)
+    const task = await createTask(title.trim(), description, gitStrategy, projectPaths.length > 0 ? projectPaths : undefined, branch, branchName)
     if (pendingFiles.length > 0) {
       await window.electron.aiAttachTaskFiles(task.id, pendingFiles.map(f => f.path))
     }
     setTitle('')
-    setDescription('')
+    if (editorRef.current) clearEditor(editorRef.current)
     setCustomBranchName('')
     setTaggedProjects([])
     setPendingFiles([])
@@ -175,14 +304,15 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
           </div>
           <div className="relative">
             <Label>Description</Label>
-            <textarea
-              ref={textareaRef}
-              value={description}
-              onChange={handleDescriptionChange}
-              onKeyDown={handleDescriptionKeyDown}
-              placeholder="Describe what needs to be done... Type @ to tag a project"
-              className="mt-1 w-full min-h-[100px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 resize-y"
-              rows={4}
+            <div
+              ref={editorRef}
+              contentEditable
+              onInput={handleEditorInput}
+              onKeyDown={handleEditorKeyDown}
+              onPaste={handlePaste}
+              data-placeholder="Describe what needs to be done... Type @ to tag a project"
+              className="mt-1 w-full min-h-[100px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-neutral-500 overflow-y-auto empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-500 empty:before:pointer-events-none"
+              style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
             />
             {/* @-mention dropdown */}
             {showMention && filteredDirs.length > 0 && (
@@ -193,7 +323,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
                 {filteredDirs.map((dir, i) => (
                   <button
                     key={dir.id}
-                    onClick={() => insertMention(dir)}
+                    onMouseDown={e => { e.preventDefault(); insertMention(dir) }}
                     className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
                       i === mentionIndex ? 'bg-neutral-700 text-white' : 'text-neutral-300 hover:bg-neutral-700/50'
                     }`}
