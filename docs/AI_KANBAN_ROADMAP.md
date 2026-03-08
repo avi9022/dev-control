@@ -19,7 +19,7 @@
 - [ ] **F9**: GitHub Integration — auto-create PRs, sync review comments via `gh` CLI
 - [ ] **F10**: Cost & Usage Tracking — parse Claude output for token usage, aggregate per task
 - [ ] **F11**: Import from External Trackers — import tickets from Jira (via MCP) or GitHub Issues (via `gh` CLI) into backlog
-- [ ] **F12**: General Review Comments — add non-line-specific review comments (overall feedback)
+- [x] **F12**: General Review Comments & Resolved State — general feedback popover on Request Changes, resolve toggle on all comments, only unresolved sent to agents
 - [x] **F14**: Large Diff Truncation — files with 200+ changed lines collapsed by default with "Load diff" button
 - [ ] **F18**: Diff Virtualization — virtualized rendering for large diffs to avoid DOM performance issues
 - [ ] **F19**: Agent Comment Resolution — allow agents to mark review comments as resolved after addressing them
