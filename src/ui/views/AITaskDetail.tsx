@@ -7,58 +7,181 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare, Pencil, Plus, X, Paperclip, Check } from 'lucide-react'
+import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare, Pencil, Plus, X, Paperclip, Check, List, LayoutGrid, FolderTree, FileText, ChevronRight, ChevronDown } from 'lucide-react'
 
 interface AITaskDetailProps {
   taskId: string
   onBack: () => void
 }
 
-const FileChip: FC<{
-  filename: string
-  prefix: string
-  excluded: boolean
-  selected: boolean
-  onToggleExclude: () => void
-  onDelete: () => void
-  onSelect: () => void
-}> = ({ filename, prefix, excluded, selected, onToggleExclude, onDelete, onSelect }) => (
-  <div
-    className={`group flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer transition-colors ${
-      selected ? 'bg-neutral-700 border border-neutral-500 text-white' :
-      excluded ? 'bg-neutral-900 border border-neutral-800 text-neutral-600' :
-      'bg-neutral-800 border border-neutral-700 text-neutral-300'
+type FileViewMode = 'list' | 'grid' | 'tree'
+type FileEntry = { name: string; prefix: 'agent' | 'attachments'; excluded: boolean }
+
+const FileCheckbox: FC<{ excluded: boolean; onToggle: (e: React.MouseEvent) => void }> = ({ excluded, onToggle }) => (
+  <button
+    onClick={onToggle}
+    className={`flex-shrink-0 w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors ${
+      excluded ? 'border-neutral-600 bg-neutral-800 hover:border-neutral-500' : 'border-blue-500 bg-blue-600 hover:bg-blue-500'
     }`}
-    onClick={onSelect}
+    title={excluded ? 'Include in agent prompts' : 'Exclude from agent prompts'}
   >
-    <button
-      onClick={e => { e.stopPropagation(); onToggleExclude() }}
-      className={`flex-shrink-0 w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors ${
-        excluded ? 'border-neutral-600 bg-neutral-800' : 'border-blue-500 bg-blue-600'
-      }`}
-      title={excluded ? 'Include in agent prompts' : 'Exclude from agent prompts'}
-    >
-      {!excluded && <Check className="h-2.5 w-2.5 text-white" />}
-    </button>
-    {prefix === 'attachments' ? <Paperclip className="h-3 w-3 text-neutral-500 flex-shrink-0" /> : null}
-    <span className={excluded ? 'line-through' : ''}>{filename}</span>
-    <button
-      onClick={e => { e.stopPropagation(); onDelete() }}
-      className="ml-1 text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-      title="Delete file"
-    >
-      <X className="h-3 w-3" />
-    </button>
+    {!excluded && <Check className="h-2.5 w-2.5 text-white" />}
+  </button>
+)
+
+const FileIcon: FC<{ prefix: string; className?: string }> = ({ prefix, className = 'h-3.5 w-3.5' }) => (
+  prefix === 'attachments'
+    ? <Paperclip className={`${className} text-blue-400`} />
+    : <FileText className={`${className} text-neutral-400`} />
+)
+
+// --- List View ---
+const FileListView: FC<{
+  files: FileEntry[]
+  selectedFile: { name: string; type: string } | null
+  onSelect: (f: FileEntry) => void
+  onToggleExclude: (f: FileEntry) => void
+  onDelete: (f: FileEntry) => void
+}> = ({ files, selectedFile, onSelect, onToggleExclude, onDelete }) => (
+  <div className="border border-neutral-700 rounded-md overflow-hidden">
+    {files.map((f, i) => (
+      <div
+        key={`${f.prefix}/${f.name}`}
+        onClick={() => onSelect(f)}
+        className={`group flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${
+          i > 0 ? 'border-t border-neutral-800' : ''
+        } ${
+          selectedFile?.name === f.name && selectedFile?.type === f.prefix
+            ? 'bg-neutral-700/50'
+            : f.excluded ? 'bg-neutral-900/50' : 'hover:bg-neutral-800/50'
+        }`}
+      >
+        <FileCheckbox excluded={f.excluded} onToggle={e => { e.stopPropagation(); onToggleExclude(f) }} />
+        <FileIcon prefix={f.prefix} />
+        <span className={`flex-1 text-xs truncate ${f.excluded ? 'text-neutral-600 line-through' : 'text-neutral-300'}`}>
+          {f.name}
+        </span>
+        <span className="text-[10px] text-neutral-600 mr-2">{f.prefix === 'attachments' ? 'attached' : 'agent'}</span>
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(f) }}
+          className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          title="Delete file"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+    ))}
   </div>
 )
+
+// --- Grid View ---
+const FileGridView: FC<{
+  files: FileEntry[]
+  selectedFile: { name: string; type: string } | null
+  onSelect: (f: FileEntry) => void
+  onToggleExclude: (f: FileEntry) => void
+  onDelete: (f: FileEntry) => void
+}> = ({ files, selectedFile, onSelect, onToggleExclude, onDelete }) => (
+  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+    {files.map(f => (
+      <div
+        key={`${f.prefix}/${f.name}`}
+        onClick={() => onSelect(f)}
+        className={`group relative flex flex-col items-center gap-1.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+          selectedFile?.name === f.name && selectedFile?.type === f.prefix
+            ? 'bg-neutral-700/50 border-neutral-500'
+            : f.excluded ? 'bg-neutral-900/50 border-neutral-800' : 'bg-neutral-800/50 border-neutral-700 hover:border-neutral-600'
+        }`}
+      >
+        <div className="absolute top-1.5 left-1.5">
+          <FileCheckbox excluded={f.excluded} onToggle={e => { e.stopPropagation(); onToggleExclude(f) }} />
+        </div>
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(f) }}
+          className="absolute top-1.5 right-1.5 text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Delete file"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+        <FileIcon prefix={f.prefix} className="h-6 w-6" />
+        <span className={`text-xs text-center truncate w-full ${f.excluded ? 'text-neutral-600 line-through' : 'text-neutral-300'}`}>
+          {f.name}
+        </span>
+        <span className="text-[10px] text-neutral-600">{f.prefix === 'attachments' ? 'attached' : 'agent'}</span>
+      </div>
+    ))}
+  </div>
+)
+
+// --- Tree View ---
+const FileTreeView: FC<{
+  agentFiles: FileEntry[]
+  attachmentFiles: FileEntry[]
+  selectedFile: { name: string; type: string } | null
+  onSelect: (f: FileEntry) => void
+  onToggleExclude: (f: FileEntry) => void
+  onDelete: (f: FileEntry) => void
+}> = ({ agentFiles, attachmentFiles, selectedFile, onSelect, onToggleExclude, onDelete }) => {
+  const [agentExpanded, setAgentExpanded] = useState(true)
+  const [attachExpanded, setAttachExpanded] = useState(true)
+
+  const renderGroup = (label: string, files: FileEntry[], expanded: boolean, toggle: () => void) => (
+    <div>
+      <button onClick={toggle} className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-300 py-1 w-full">
+        {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        <FolderOpen className="h-3 w-3 text-yellow-600" />
+        <span className="font-medium">{label}/</span>
+        <span className="text-neutral-600 ml-1">({files.length})</span>
+      </button>
+      {expanded && (
+        <div className="ml-4 border-l border-neutral-800">
+          {files.length === 0 ? (
+            <p className="text-neutral-600 text-xs pl-3 py-1 italic">empty</p>
+          ) : files.map(f => (
+            <div
+              key={`${f.prefix}/${f.name}`}
+              onClick={() => onSelect(f)}
+              className={`group flex items-center gap-2 pl-3 pr-2 py-1 cursor-pointer transition-colors ${
+                selectedFile?.name === f.name && selectedFile?.type === f.prefix
+                  ? 'bg-neutral-700/30'
+                  : 'hover:bg-neutral-800/50'
+              }`}
+            >
+              <FileCheckbox excluded={f.excluded} onToggle={e => { e.stopPropagation(); onToggleExclude(f) }} />
+              <FileIcon prefix={f.prefix} className="h-3 w-3" />
+              <span className={`flex-1 text-xs truncate ${f.excluded ? 'text-neutral-600 line-through' : 'text-neutral-300'}`}>
+                {f.name}
+              </span>
+              <button
+                onClick={e => { e.stopPropagation(); onDelete(f) }}
+                className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                title="Delete file"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="border border-neutral-700 rounded-md p-2 space-y-1">
+      {renderGroup('attachments', attachmentFiles, attachExpanded, () => setAttachExpanded(p => !p))}
+      {renderGroup('agent', agentFiles, agentExpanded, () => setAgentExpanded(p => !p))}
+    </div>
+  )
+}
 
 const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
   const { tasks } = useAIAutomation()
   const task = tasks.find(t => t.id === taskId)
   const [agentFiles, setAgentFiles] = useState<string[]>([])
   const [attachments, setAttachments] = useState<string[]>([])
-  const [selectedFile, setSelectedFile] = useState<{ name: string; type: 'agent' | 'attachment' } | null>(null)
+  const [selectedFile, setSelectedFile] = useState<{ name: string; type: 'agent' | 'attachments' } | null>(null)
   const [content, setContent] = useState('')
+  const [viewMode, setViewMode] = useState<FileViewMode>('list')
   const excluded = task?.excludedFiles || []
 
   const loadFiles = () => {
@@ -80,91 +203,86 @@ const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
 
   const isExcluded = (prefix: string, filename: string) => excluded.includes(`${prefix}/${filename}`)
 
-  return (
-    <div className="space-y-4">
-      {/* Description */}
-      <p className="text-neutral-500 text-xs leading-relaxed">
-        All files below are included in agent prompts by default. Uncheck a file to exclude it — agents will not see excluded files. Higher-numbered files (e.g., review-2.md) supersede earlier versions. Hover to delete.
-      </p>
+  const agentEntries: FileEntry[] = agentFiles.map(f => ({ name: f, prefix: 'agent', excluded: isExcluded('agent', f) }))
+  const attachEntries: FileEntry[] = attachments.map(f => ({ name: f, prefix: 'attachments', excluded: isExcluded('attachments', f) }))
+  const allFiles = [...attachEntries, ...agentEntries]
 
-      {/* Attachments section */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Attachments</h3>
-          <Button variant="outline" size="sm" onClick={async () => {
+  const handleSelect = (f: FileEntry) => setSelectedFile({ name: f.name, type: f.prefix })
+  const handleToggleExclude = async (f: FileEntry) => {
+    await window.electron.aiToggleFileExclusion(taskId, `${f.prefix}/${f.name}`)
+  }
+  const handleDelete = async (f: FileEntry) => {
+    if (f.prefix === 'attachments') {
+      await window.electron.aiDeleteTaskAttachment(taskId, f.name)
+    } else {
+      await window.electron.aiDeleteAgentFile(taskId, f.name)
+    }
+    if (selectedFile?.name === f.name && selectedFile?.type === f.prefix) {
+      setSelectedFile(null)
+      setContent('')
+    }
+    loadFiles()
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Header: description + view toggle + attach button */}
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-neutral-500 text-xs leading-relaxed flex-1">
+          Files are included in agent prompts by default. Uncheck to exclude. Higher-numbered files supersede earlier versions.
+        </p>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex border border-neutral-700 rounded-md overflow-hidden">
+            {([['list', List], ['grid', LayoutGrid], ['tree', FolderTree]] as const).map(([mode, Icon]) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`p-1.5 transition-colors ${viewMode === mode ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'}`}
+                title={`${mode.charAt(0).toUpperCase() + mode.slice(1)} view`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" className="h-7 text-xs ml-2" onClick={async () => {
             const selected = await window.electron.aiSelectFiles()
             if (selected && selected.length > 0) {
               await window.electron.aiAttachTaskFiles(taskId, selected)
               loadFiles()
             }
           }}>
-            <Paperclip className="h-3 w-3 mr-1" /> Attach Files
+            <Paperclip className="h-3 w-3 mr-1" /> Attach
           </Button>
         </div>
-        {attachments.length === 0 ? (
-          <p className="text-neutral-600 text-xs">No attachments. Click "Attach Files" to add reference files for agents.</p>
-        ) : (
-          <div className="flex gap-2 flex-wrap">
-            {attachments.map(f => (
-              <FileChip
-                key={f}
-                filename={f}
-                prefix="attachments"
-                excluded={isExcluded('attachments', f)}
-                selected={selectedFile?.name === f && selectedFile?.type === 'attachment'}
-                onToggleExclude={async () => {
-                  await window.electron.aiToggleFileExclusion(taskId, `attachments/${f}`)
-                }}
-                onDelete={async () => {
-                  await window.electron.aiDeleteTaskAttachment(taskId, f)
-                  if (selectedFile?.name === f && selectedFile?.type === 'attachment') setSelectedFile(null)
-                  loadFiles()
-                }}
-                onSelect={() => setSelectedFile({ name: f, type: 'attachment' })}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Agent files section */}
-      <div>
-        <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Agent Files</h3>
-        {agentFiles.length === 0 ? (
-          <p className="text-neutral-600 text-xs">No agent files yet — agents will create files here during execution.</p>
-        ) : (
-          <>
-            <div className="flex gap-2 flex-wrap">
-              {agentFiles.map(f => (
-                <FileChip
-                  key={f}
-                  filename={f}
-                  prefix="agent"
-                  excluded={isExcluded('agent', f)}
-                  selected={selectedFile?.name === f && selectedFile?.type === 'agent'}
-                  onToggleExclude={async () => {
-                    await window.electron.aiToggleFileExclusion(taskId, `agent/${f}`)
-                  }}
-                  onDelete={async () => {
-                    await window.electron.aiDeleteAgentFile(taskId, f)
-                    if (selectedFile?.name === f && selectedFile?.type === 'agent') {
-                      setSelectedFile(null)
-                      setContent('')
-                    }
-                    loadFiles()
-                  }}
-                  onSelect={() => setSelectedFile({ name: f, type: 'agent' })}
-                />
-              ))}
-            </div>
-            {selectedFile?.type === 'agent' && (
-              <pre className="mt-3 whitespace-pre-wrap text-sm text-neutral-300 font-mono bg-neutral-900 p-4 rounded border border-neutral-800 max-h-[500px] overflow-y-auto">
-                {content || 'Empty file'}
-              </pre>
-            )}
-          </>
-        )}
-      </div>
+      {/* File views */}
+      {allFiles.length === 0 ? (
+        <div className="text-center py-8 text-neutral-600 text-xs">
+          <FileText className="h-8 w-8 mx-auto mb-2 text-neutral-700" />
+          <p>No files yet. Agents will create files during execution.</p>
+          <p className="mt-1">Click "Attach" to add reference files.</p>
+        </div>
+      ) : (
+        <>
+          {viewMode === 'list' && (
+            <FileListView files={allFiles} selectedFile={selectedFile} onSelect={handleSelect} onToggleExclude={handleToggleExclude} onDelete={handleDelete} />
+          )}
+          {viewMode === 'grid' && (
+            <FileGridView files={allFiles} selectedFile={selectedFile} onSelect={handleSelect} onToggleExclude={handleToggleExclude} onDelete={handleDelete} />
+          )}
+          {viewMode === 'tree' && (
+            <FileTreeView agentFiles={agentEntries} attachmentFiles={attachEntries} selectedFile={selectedFile} onSelect={handleSelect} onToggleExclude={handleToggleExclude} onDelete={handleDelete} />
+          )}
+        </>
+      )}
+
+      {/* File preview */}
+      {selectedFile?.type === 'agent' && content && (
+        <pre className="whitespace-pre-wrap text-sm text-neutral-300 font-mono bg-neutral-900 p-4 rounded border border-neutral-800 max-h-[500px] overflow-y-auto">
+          {content || 'Empty file'}
+        </pre>
+      )}
     </div>
   )
 }
