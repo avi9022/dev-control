@@ -20,7 +20,8 @@
 - [ ] **F10**: Cost & Usage Tracking — parse Claude output for token usage, aggregate per task
 - [ ] **F11**: Import from External Trackers — import tickets from Jira (via MCP) or GitHub Issues (via `gh` CLI) into backlog
 - [ ] **F12**: General Review Comments — add non-line-specific review comments (overall feedback)
-- [ ] **F14**: Expandable Diff Viewer — collapsible/expandable file sections in diff view
+- [x] **F14**: Large Diff Truncation — files with 200+ changed lines collapsed by default with "Load diff" button
+- [ ] **F18**: Diff Virtualization — virtualized rendering for large diffs to avoid DOM performance issues
 - [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work
 - [ ] **F17**: Per-Phase Retry Limits — move maxReviewCycles from task to pipeline phase config (`maxRetries` per phase), track retries per-phase instead of globally, remove from task creation dialog
 
