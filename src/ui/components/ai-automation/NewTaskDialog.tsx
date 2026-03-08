@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
-import { FolderOpen, X, Folder } from 'lucide-react'
+import { FolderOpen, X } from 'lucide-react'
 
 interface NewTaskDialogProps {
   open: boolean
@@ -17,10 +17,8 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [gitStrategy, setGitStrategy] = useState<AIGitStrategy>(settings?.defaultGitStrategy === 'none' ? 'none' : 'worktree')
-  const [maxReviewCycles, setMaxReviewCycles] = useState(settings?.defaultMaxReviewCycles ?? 3)
   const [baseBranch, setBaseBranch] = useState(settings?.defaultBaseBranch ?? 'main')
   const [customBranchName, setCustomBranchName] = useState('')
-  const [worktreeDir, setWorktreeDir] = useState(settings?.defaultWorktreeDir ?? '')
   const [taggedProjects, setTaggedProjects] = useState<DirectorySettings[]>([])
 
   // @-mention state
@@ -38,9 +36,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
       // Sync defaults from settings when dialog opens
       if (settings) {
         setGitStrategy(settings.defaultGitStrategy === 'none' ? 'none' : 'worktree')
-        setMaxReviewCycles(settings.defaultMaxReviewCycles)
         setBaseBranch(settings.defaultBaseBranch)
-        setWorktreeDir(settings.defaultWorktreeDir)
       }
     }
   }, [open, settings])
@@ -146,8 +142,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
     const projectPaths = taggedProjects.map(p => p.path)
     const branch = gitStrategy === 'worktree' ? baseBranch.trim() || undefined : undefined
     const branchName = gitStrategy === 'worktree' ? customBranchName.trim() || undefined : undefined
-    const wtDir = gitStrategy === 'worktree' ? worktreeDir.trim() || undefined : undefined
-    await createTask(title.trim(), description.trim(), gitStrategy, maxReviewCycles, projectPaths.length > 0 ? projectPaths : undefined, branch, branchName, wtDir)
+    await createTask(title.trim(), description.trim(), gitStrategy, projectPaths.length > 0 ? projectPaths : undefined, branch, branchName)
     setTitle('')
     setDescription('')
     setCustomBranchName('')
@@ -228,76 +223,39 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
               </div>
             </div>
           )}
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Label>Git Strategy</Label>
-              <Select value={gitStrategy} onValueChange={(v) => setGitStrategy(v as AIGitStrategy)}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="worktree">Worktree</SelectItem>
-                  <SelectItem value="none">None</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <Label>Max Review Cycles</Label>
-              <Input
-                type="number"
-                value={maxReviewCycles}
-                onChange={e => setMaxReviewCycles(Number(e.target.value))}
-                min={1}
-                max={10}
-                className="mt-1"
-              />
-            </div>
+          <div>
+            <Label>Git Strategy</Label>
+            <Select value={gitStrategy} onValueChange={(v) => setGitStrategy(v as AIGitStrategy)}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="worktree">Worktree</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {gitStrategy === 'worktree' && (
-            <>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <Label>Branch Name <span className="text-neutral-500 font-normal">(optional)</span></Label>
-                  <Input
-                    value={customBranchName}
-                    onChange={e => setCustomBranchName(e.target.value)}
-                    placeholder="Auto-generated from task title"
-                    className="mt-1"
-                  />
-                </div>
-                <div className="flex-1">
-                  <Label>Base Branch</Label>
-                  <Input
-                    value={baseBranch}
-                    onChange={e => setBaseBranch(e.target.value)}
-                    placeholder="main"
-                    className="mt-1"
-                  />
-                </div>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <Label>Branch Name <span className="text-neutral-500 font-normal">(optional)</span></Label>
+                <Input
+                  value={customBranchName}
+                  onChange={e => setCustomBranchName(e.target.value)}
+                  placeholder="Auto-generated from task title"
+                  className="mt-1"
+                />
               </div>
-              <div>
-                <Label>Worktree Directory <span className="text-neutral-500 font-normal">(optional)</span></Label>
-                <div className="flex gap-2 mt-1">
-                  <Input
-                    value={worktreeDir}
-                    onChange={e => setWorktreeDir(e.target.value)}
-                    placeholder="Default from settings"
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="px-3 shrink-0"
-                    onClick={async () => {
-                      const selected = await window.electron.aiSelectWorktreeDir()
-                      if (selected) setWorktreeDir(selected)
-                    }}
-                  >
-                    <Folder className="h-4 w-4" />
-                  </Button>
-                </div>
+              <div className="flex-1">
+                <Label>Base Branch</Label>
+                <Input
+                  value={baseBranch}
+                  onChange={e => setBaseBranch(e.target.value)}
+                  placeholder="main"
+                  className="mt-1"
+                />
               </div>
-            </>
+            </div>
           )}
         </div>
         <DialogFooter>
