@@ -1,5 +1,7 @@
 import { getSettings } from './task-manager.js'
-import { listTaskDirFiles, readTaskDirFile } from './task-dir-manager.js'
+import { listTaskDirFiles, readTaskDirFile, listAttachments, getAttachmentsDir } from './task-dir-manager.js'
+import fs from 'fs'
+import path from 'path'
 
 export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string {
   const settings = getSettings()
@@ -24,9 +26,9 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
   // 4. Task context
   let taskContext = `## Task\n\n**Title:** ${task.title}\n\n**Description:** ${task.description}`
   if (task.projectPaths && task.projectPaths.length > 0) {
-    const workingDir = task.worktreePath || task.projectPaths[0]
+    const workingDir = task.worktrees.length > 0 ? task.worktrees[0].worktreePath : task.projectPaths[0]
     taskContext += `\n\n**Working Directory:** ${workingDir}\n\nIMPORTANT: All file reads, writes, and modifications MUST use paths within ${workingDir}. Do NOT access or modify files in any other directory.`
-    if (task.worktreePath) {
+    if (task.worktrees.length > 0) {
       taskContext += `\n\nThis is a git worktree. The original project is at ${task.projectPaths[0]} — do NOT modify files there.`
     }
     if (task.projectPaths.length > 1) {
@@ -52,6 +54,27 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
     } else {
       parts.push(`## Task Directory\n\nPath: ${task.taskDirPath}\n\nThis directory is empty. You can write files here (plans, reviews, notes) for use in subsequent phases.`)
     }
+  }
+
+  // 5b. User attachments
+  const attachments = listAttachments(task.id)
+  if (attachments.length > 0) {
+    const attachDir = getAttachmentsDir(task.id)
+    let attachContext = `## User Attachments\n\nThe user has attached these files to the task:\n`
+    for (const file of attachments) {
+      attachContext += `- ${file}\n`
+      try {
+        const content = fs.readFileSync(path.join(attachDir, file), 'utf-8')
+        if (content.length < 10000) {
+          attachContext += `\n\`\`\`\n${content}\n\`\`\`\n`
+        } else {
+          attachContext += `\n\`\`\`\n${content.slice(0, 5000)}\n...(truncated, ${content.length} chars total)\n\`\`\`\n`
+        }
+      } catch {
+        attachContext += `  (binary or unreadable)\n`
+      }
+    }
+    parts.push(attachContext)
   }
 
   // 6. Human review comments
