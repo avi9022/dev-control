@@ -593,16 +593,13 @@ interface AITask {
   gitStrategy: AIGitStrategy
   baseBranch?: string
   customBranchName?: string
-  worktreeDir?: string
   branchName?: string
-  worktreePath?: string
   projectPaths?: string[]
+  worktrees: AITaskWorktree[]
   plan?: string               // Deprecated — use task directory files
   taskDirPath?: string
   reviewComments?: AIReviewComment[]
   humanComments?: AIHumanComment[]
-  reviewCycleCount: number
-  maxReviewCycles: number
   activeProcessPid?: number
   currentPhaseName?: string
   needsUserInput: boolean
@@ -613,6 +610,12 @@ interface AIPhaseHistoryEntry {
   phase: string
   enteredAt: string
   exitedAt?: string
+}
+
+interface AITaskWorktree {
+  projectPath: string
+  worktreePath: string
+  branchName: string
 }
 
 interface AIReviewComment {
@@ -642,10 +645,9 @@ interface AIKnowledgeDoc {
 
 interface AIAutomationSettings {
   maxConcurrency: number
-  defaultMaxReviewCycles: number
   defaultGitStrategy: AIGitStrategy
   defaultBaseBranch: string
-  defaultWorktreeDir: string
+  taskDataRoot?: string
   pipeline: AIPipelinePhase[]
   phasePrompts: {
     planning: string
@@ -1521,10 +1523,26 @@ type EventPayloadMapping = {
   }
   aiCreateTask: {
     return: AITask;
-    args: [string, string, AIGitStrategy, number, string[]?, string?, string?, string?];
+    args: [string, string, AIGitStrategy, string[]?, string?, string?];
   }
-  aiSelectWorktreeDir: {
+  aiSelectDirectory: {
     return: string | null;
+    args: [];
+  }
+  aiAttachTaskFiles: {
+    return: string[];
+    args: [string, string[]];
+  }
+  aiDeleteTaskAttachment: {
+    return: void;
+    args: [string, string];
+  }
+  aiListTaskAttachments: {
+    return: string[];
+    args: [string];
+  }
+  aiSelectFiles: {
+    return: string[] | null;
     args: [];
   }
   aiUpdateTask: {
@@ -1790,8 +1808,12 @@ interface Window {
     subscribeMongoConnectionState: (callback: (state: MongoConnectionState) => void) => () => void
     // AI Automation API
     aiGetTasks: () => Promise<AITask[]>
-    aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, maxReviewCycles: number, projectPaths?: string[], baseBranch?: string, customBranchName?: string, worktreeDir?: string) => Promise<AITask>
-    aiSelectWorktreeDir: () => Promise<string | null>
+    aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, projectPaths?: string[], baseBranch?: string, customBranchName?: string) => Promise<AITask>
+    aiSelectDirectory: () => Promise<string | null>
+    aiAttachTaskFiles: (taskId: string, filePaths: string[]) => Promise<string[]>
+    aiDeleteTaskAttachment: (taskId: string, filename: string) => Promise<void>
+    aiListTaskAttachments: (taskId: string) => Promise<string[]>
+    aiSelectFiles: () => Promise<string[] | null>
     aiUpdateTask: (id: string, updates: Partial<AITask>) => Promise<void>
     aiDeleteTask: (id: string) => Promise<void>
     aiMoveTaskPhase: (id: string, targetPhase: string) => Promise<void>
