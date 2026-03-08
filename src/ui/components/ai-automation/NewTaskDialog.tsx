@@ -63,6 +63,15 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
   const editorRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  // Auto-scroll dropdown to keep highlighted item visible
+  useEffect(() => {
+    if (!showMention || !menuRef.current) return
+    const activeItem = menuRef.current.children[mentionIndex] as HTMLElement | undefined
+    if (activeItem) {
+      activeItem.scrollIntoView({ block: 'nearest' })
+    }
+  }, [mentionIndex, showMention])
+
   useEffect(() => {
     if (open) {
       window.electron.getDirectories().then(setDirectories)
