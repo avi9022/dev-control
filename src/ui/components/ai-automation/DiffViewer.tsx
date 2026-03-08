@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, type FC } from 'react'
 import { Button } from '@/components/ui/button'
-import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle } from 'lucide-react'
+import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle, Check, CircleCheck } from 'lucide-react'
 
 const LARGE_DIFF_THRESHOLD = 200 // lines changed
 
@@ -120,10 +120,24 @@ function commentKey(file: string, line: number): string {
 const InlineComment: FC<{
   comment: AIHumanComment
   onDelete?: () => void
-}> = ({ comment, onDelete }) => (
-  <div className="flex items-start gap-2 mx-2 my-1 p-2 rounded bg-amber-900/20 border border-amber-700/40">
-    <MessageSquare className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
-    <p className="text-xs text-amber-200 flex-1 whitespace-pre-wrap">{comment.comment}</p>
+  onToggleResolved?: () => void
+}> = ({ comment, onDelete, onToggleResolved }) => (
+  <div className={`flex items-start gap-2 mx-2 my-1 p-2 rounded border ${
+    comment.resolved
+      ? 'bg-neutral-800/30 border-neutral-700/40'
+      : 'bg-amber-900/20 border-amber-700/40'
+  }`}>
+    <MessageSquare className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${comment.resolved ? 'text-neutral-600' : 'text-amber-400'}`} />
+    <p className={`text-xs flex-1 whitespace-pre-wrap ${comment.resolved ? 'text-neutral-600 line-through' : 'text-amber-200'}`}>{comment.comment}</p>
+    {onToggleResolved && (
+      <button
+        onClick={onToggleResolved}
+        className={`shrink-0 ${comment.resolved ? 'text-green-500 hover:text-green-400' : 'text-neutral-500 hover:text-green-400'}`}
+        title={comment.resolved ? 'Mark as unresolved' : 'Mark as resolved'}
+      >
+        <CircleCheck className="h-3.5 w-3.5" />
+      </button>
+    )}
     {onDelete && (
       <button onClick={onDelete} className="text-neutral-500 hover:text-neutral-300 shrink-0">
         <X className="h-3 w-3" />
@@ -183,9 +197,10 @@ const DiffLineRow: FC<{
   onSubmitComment: (file: string, lineNum: number, text: string) => void
   onCancelComment: () => void
   onDeleteComment: (file: string, line: number) => void
+  onToggleResolved: (file: string, line: number) => void
   readOnly: boolean
   children: React.ReactNode
-}> = ({ line, filePath, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, readOnly, children }) => {
+}> = ({ line, filePath, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly, children }) => {
   const lineNum = line.newLineNum ?? line.oldLineNum
   const key = lineNum !== undefined ? commentKey(filePath, lineNum) : null
   const lineComments = key ? (commentMap.get(key) || []) : []
@@ -216,6 +231,7 @@ const DiffLineRow: FC<{
           key={ci}
           comment={c}
           onDelete={readOnly ? undefined : () => onDeleteComment(c.file, c.line)}
+          onToggleResolved={readOnly ? undefined : () => onToggleResolved(c.file, c.line)}
         />
       ))}
       {/* Active comment input */}
@@ -237,8 +253,9 @@ const UnifiedView: FC<{
   onSubmitComment: (file: string, line: number, text: string) => void
   onCancelComment: () => void
   onDeleteComment: (file: string, line: number) => void
+  onToggleResolved: (file: string, line: number) => void
   readOnly: boolean
-}> = ({ file, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, readOnly }) => {
+}> = ({ file, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly }) => {
   const filePath = file.newPath || file.oldPath
   return (
     <div className="font-mono text-xs leading-5">
@@ -258,6 +275,7 @@ const UnifiedView: FC<{
               onSubmitComment={onSubmitComment}
               onCancelComment={onCancelComment}
               onDeleteComment={onDeleteComment}
+              onToggleResolved={onToggleResolved}
               readOnly={readOnly}
             >
               <span className="w-12 text-right pr-2 text-neutral-600 select-none shrink-0 border-r border-neutral-800">
@@ -325,8 +343,9 @@ const SplitView: FC<{
   onSubmitComment: (file: string, line: number, text: string) => void
   onCancelComment: () => void
   onDeleteComment: (file: string, line: number) => void
+  onToggleResolved: (file: string, line: number) => void
   readOnly: boolean
-}> = ({ file, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, readOnly }) => {
+}> = ({ file, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly }) => {
   const filePath = file.newPath || file.oldPath
   return (
     <div className="font-mono text-xs leading-5">
@@ -394,6 +413,7 @@ const SplitView: FC<{
                       key={ci}
                       comment={c}
                       onDelete={readOnly ? undefined : () => onDeleteComment(c.file, c.line)}
+                      onToggleResolved={readOnly ? undefined : () => onToggleResolved(c.file, c.line)}
                     />
                   ))}
                   {isActive && lineNum !== undefined && (
@@ -430,10 +450,11 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
   const files = useMemo(() => rawDiff ? parseDiff(rawDiff) : [], [rawDiff])
 
-  // Build comment lookup map: "file:line" -> comments[]
+  // Build comment lookup map: "file:line" -> comments[] (line-specific only)
   const commentMap = useMemo(() => {
     const map = new Map<string, AIHumanComment[]>()
     for (const c of comments) {
+      if (!c.file) continue // skip general comments
       const key = commentKey(c.file, c.line)
       const arr = map.get(key) || []
       arr.push(c)
@@ -455,6 +476,12 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
   const handleDeleteComment = (file: string, line: number) => {
     onCommentsChange(comments.filter(c => !(c.file === file && c.line === line)))
+  }
+
+  const handleToggleResolved = (file: string, line: number) => {
+    onCommentsChange(comments.map(c =>
+      c.file === file && c.line === line ? { ...c, resolved: !c.resolved } : c
+    ))
   }
 
   const toggleFile = (path: string) => {
@@ -520,6 +547,25 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
           </Button>
         </div>
       </div>
+
+      {/* General comments */}
+      {(() => {
+        const generalComments = comments.filter(c => !c.file)
+        if (generalComments.length === 0) return null
+        return (
+          <div className="shrink-0 mb-3 space-y-1">
+            <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wide px-1">General Comments</h4>
+            {generalComments.map((c, i) => (
+              <InlineComment
+                key={i}
+                comment={c}
+                onDelete={readOnly ? undefined : () => onCommentsChange(comments.filter(gc => gc !== c))}
+                onToggleResolved={readOnly ? undefined : () => onCommentsChange(comments.map(gc => gc === c ? { ...gc, resolved: !gc.resolved } : gc))}
+              />
+            ))}
+          </div>
+        )
+      })()}
 
       {/* File list */}
       <div className="flex-1 overflow-y-auto min-h-0 space-y-2">
@@ -594,6 +640,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                           onSubmitComment={handleSubmitComment}
                           onCancelComment={() => setActiveComment(null)}
                           onDeleteComment={handleDeleteComment}
+                          onToggleResolved={handleToggleResolved}
                           readOnly={readOnly}
                         />
                       : <SplitView
@@ -604,6 +651,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                           onSubmitComment={handleSubmitComment}
                           onCancelComment={() => setActiveComment(null)}
                           onDeleteComment={handleDeleteComment}
+                          onToggleResolved={handleToggleResolved}
                           readOnly={readOnly}
                         />
                     }

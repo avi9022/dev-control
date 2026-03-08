@@ -98,12 +98,23 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
     parts.push(attachContext)
   }
 
-  // 8. Human review comments
+  // 8. Human review comments (only unresolved)
   if (task.humanComments && task.humanComments.length > 0) {
-    const comments = task.humanComments.map(c =>
-      `- ${c.file}:${c.line}: ${c.comment}`
-    ).join('\n')
-    parts.push(`## Human Review Comments to Address\n\n${comments}`)
+    const unresolved = task.humanComments.filter(c => !c.resolved)
+    if (unresolved.length > 0) {
+      const general = unresolved.filter(c => !c.file)
+      const lineSpecific = unresolved.filter(c => !!c.file)
+      const commentLines: string[] = []
+      if (general.length > 0) {
+        commentLines.push('General feedback:')
+        for (const c of general) commentLines.push(`- ${c.comment}`)
+      }
+      if (lineSpecific.length > 0) {
+        if (general.length > 0) commentLines.push('\nFile-specific comments:')
+        for (const c of lineSpecific) commentLines.push(`- ${c.file}:${c.line}: ${c.comment}`)
+      }
+      parts.push(`## Human Review Comments to Address\n\n${commentLines.join('\n')}`)
+    }
   }
 
   // 9. Agent review comments

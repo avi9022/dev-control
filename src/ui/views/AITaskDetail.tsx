@@ -389,9 +389,22 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   }
 
   const isAgentRunning = !!task.activeProcessPid
+  const [showRequestChanges, setShowRequestChanges] = useState(false)
+  const [generalComment, setGeneralComment] = useState('')
 
   const handleRequestChanges = async () => {
-    await updateTask(task.id, { humanComments: reviewComments })
+    let allComments = [...reviewComments]
+    if (generalComment.trim()) {
+      allComments.push({
+        file: '',
+        line: 0,
+        comment: generalComment.trim(),
+        createdAt: new Date().toISOString()
+      })
+    }
+    await updateTask(task.id, { humanComments: allComments })
+    setGeneralComment('')
+    setShowRequestChanges(false)
     // Find previous agent phase to send back to
     const currentIndex = pipeline.findIndex(p => p.id === task.phase)
     let targetPhase = pipeline[0]?.id
@@ -475,25 +488,49 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
             </Button>
           )}
           {isManualPhase && (
-            <>
+            <div className="relative flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleRequestChanges}
+                onClick={() => setShowRequestChanges(prev => !prev)}
               >
                 <XCircle className="h-3 w-3 mr-1" />
                 Request Changes
-                {reviewComments.length > 0 && (
+                {reviewComments.filter(c => !c.resolved).length > 0 && (
                   <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-900/50 text-amber-300">
-                    {reviewComments.length}
+                    {reviewComments.filter(c => !c.resolved).length}
                   </span>
                 )}
               </Button>
+              {showRequestChanges && (
+                <div className="absolute top-full right-0 mt-2 w-80 z-50 rounded-lg border border-neutral-700 bg-neutral-800 shadow-xl p-3 space-y-3">
+                  <h4 className="text-xs font-medium text-neutral-300">General Feedback</h4>
+                  <textarea
+                    value={generalComment}
+                    onChange={e => setGeneralComment(e.target.value)}
+                    placeholder="Add overall feedback (optional)..."
+                    className="w-full min-h-[80px] rounded-md border border-neutral-600 bg-neutral-900 px-3 py-2 text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 resize-y"
+                    rows={3}
+                    autoFocus
+                  />
+                  <div className="text-[10px] text-neutral-500">
+                    {reviewComments.filter(c => !c.resolved).length} unresolved inline comment{reviewComments.filter(c => !c.resolved).length !== 1 ? 's' : ''} will also be sent
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setShowRequestChanges(false); setGeneralComment('') }}>
+                      Cancel
+                    </Button>
+                    <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={handleRequestChanges}>
+                      Submit Review
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Button size="sm" onClick={handleApprove}>
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Approve
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -646,12 +683,19 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                 <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Previous Review Comments</h3>
                 <div className="mt-1 space-y-1">
                   {task.humanComments.map((c, i) => (
-                    <div key={i} className="flex items-start gap-2 text-sm p-2 rounded bg-amber-900/10 border border-amber-900/20">
-                      <MessageSquare className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
-                      <div className="min-w-0">
-                        <span className="text-xs text-neutral-500 font-mono">{c.file}:{c.line}</span>
-                        <p className="text-xs text-neutral-300 mt-0.5">{c.comment}</p>
+                    <div key={i} className={`flex items-start gap-2 text-sm p-2 rounded border ${
+                      c.resolved ? 'bg-neutral-800/30 border-neutral-700/40' : 'bg-amber-900/10 border-amber-900/20'
+                    }`}>
+                      <MessageSquare className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${c.resolved ? 'text-neutral-600' : 'text-amber-400'}`} />
+                      <div className="min-w-0 flex-1">
+                        {c.file ? (
+                          <span className={`text-xs font-mono ${c.resolved ? 'text-neutral-600' : 'text-neutral-500'}`}>{c.file}:{c.line}</span>
+                        ) : (
+                          <span className={`text-xs font-medium ${c.resolved ? 'text-neutral-600' : 'text-amber-400/70'}`}>General</span>
+                        )}
+                        <p className={`text-xs mt-0.5 ${c.resolved ? 'text-neutral-600 line-through' : 'text-neutral-300'}`}>{c.comment}</p>
                       </div>
+                      {c.resolved && <span className="text-[10px] text-green-600 shrink-0">resolved</span>}
                     </div>
                   ))}
                 </div>

@@ -631,6 +631,7 @@ interface AIHumanComment {
   line: number
   comment: string
   createdAt: string
+  resolved?: boolean
 }
 
 interface AIKnowledgeDoc {
