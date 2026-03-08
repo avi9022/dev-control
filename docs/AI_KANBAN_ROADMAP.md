@@ -8,6 +8,7 @@
 - [x] **F3**: Human Review with Inline Comments — line-level commenting on diffs, request changes flow
 - [x] **F4**: Auto-Generate Knowledge Docs — Claude explores codebase, generates structured markdown
 - [x] **F5**: Customizable Pipeline — user-configurable phases replacing hardcoded columns
+- [x] **F15**: Edit Task & Workspace Restructure — edit task in BACKLOG, file attachments (create + detail), per-task workspace dirs, configurable taskDataRoot, worktrees array migration
 
 ## Planned Features
 
@@ -20,9 +21,7 @@
 - [ ] **F12**: General Review Comments — add non-line-specific review comments (overall feedback)
 - [ ] **F13**: Per-Review-Cycle File Separation — save each review cycle's comments in separate files
 - [ ] **F14**: Expandable Diff Viewer — collapsible/expandable file sections in diff view
-- [ ] **F15**: Edit Task — allow editing task title, description, and settings after creation
 - [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work
-
 - [ ] **F17**: Per-Phase Retry Limits — move maxReviewCycles from task to pipeline phase config (`maxRetries` per phase), track retries per-phase instead of globally, remove from task creation dialog
 
 ## Bugs & Fixes
