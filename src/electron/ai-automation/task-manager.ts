@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { BrowserWindow } from 'electron'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 import { cleanupWorktree } from './worktree-manager.js'
-import { getOrCreateTaskDir, cleanupTaskDir } from './task-dir-manager.js'
+import { getOrCreateTaskDir, cleanupTaskDir, migrateTaskDirStructure } from './task-dir-manager.js'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -30,11 +30,9 @@ export function createTask(
   title: string,
   description: string,
   gitStrategy: AIGitStrategy,
-  maxReviewCycles: number,
   projectPaths?: string[],
   baseBranch?: string,
-  customBranchName?: string,
-  worktreeDir?: string
+  customBranchName?: string
 ): AITask {
   const now = new Date().toISOString()
   const id = randomUUID()
@@ -49,11 +47,9 @@ export function createTask(
     gitStrategy,
     baseBranch: baseBranch || undefined,
     customBranchName: customBranchName || undefined,
-    worktreeDir: worktreeDir || undefined,
     projectPaths: projectPaths?.length ? projectPaths : undefined,
     taskDirPath: taskDir,
-    maxReviewCycles,
-    reviewCycleCount: 0,
+    worktrees: [],
     needsUserInput: false,
     phaseHistory: [{ phase: 'BACKLOG', enteredAt: now }]
   }
@@ -77,15 +73,24 @@ export function updateTask(id: string, updates: Partial<AITask>) {
 
 export function deleteTask(id: string) {
   const task = store.get('aiTasks').find(t => t.id === id)
-  // Cleanup worktree if it exists
-  if (task?.worktreePath && task.projectPaths?.[0]) {
+  // Cleanup worktrees
+  if (task?.worktrees) {
+    for (const wt of task.worktrees) {
+      try {
+        cleanupWorktree(wt.projectPath, wt.worktreePath)
+      } catch {
+        // Best effort cleanup
+      }
+    }
+  }
+  // Legacy: cleanup single worktree if still present from pre-migration
+  if ((task as any)?.worktreePath && task?.projectPaths?.[0]) {
     try {
-      cleanupWorktree(task.projectPaths[0], task.worktreePath)
+      cleanupWorktree(task.projectPaths[0], (task as any).worktreePath)
     } catch {
       // Best effort cleanup
     }
   }
-  // Cleanup task directory
   cleanupTaskDir(id)
   const tasks = store.get('aiTasks').filter(t => t.id !== id)
   store.set('aiTasks', tasks)
@@ -159,6 +164,52 @@ export function updateSettings(updates: Partial<AIAutomationSettings>) {
 }
 
 // --- Migration ---
+
+export function migrateTaskWorkspaces() {
+  const tasks = store.get('aiTasks')
+  const settings = store.get('aiAutomationSettings') as Record<string, unknown>
+  let changed = false
+
+  for (const task of tasks) {
+    // Migrate directory structure (move loose files to agent/)
+    migrateTaskDirStructure(task.id)
+
+    // Convert worktreePath to worktrees array
+    if ((task as any).worktreePath && !task.worktrees) {
+      const worktreePath = (task as any).worktreePath as string
+      const projectPath = task.projectPaths?.[0] || ''
+      const branchName = task.branchName || ''
+      task.worktrees = [{ projectPath, worktreePath, branchName }]
+      delete (task as any).worktreePath
+      delete (task as any).worktreeDir
+      changed = true
+    }
+
+    // Ensure worktrees array exists
+    if (!task.worktrees) {
+      task.worktrees = []
+      changed = true
+    }
+
+    // Remove deprecated fields
+    if ('maxReviewCycles' in task || 'reviewCycleCount' in task) {
+      delete (task as any).maxReviewCycles
+      delete (task as any).reviewCycleCount
+      changed = true
+    }
+  }
+
+  // Remove deprecated settings fields
+  if ('defaultMaxReviewCycles' in settings || 'defaultWorktreeDir' in settings) {
+    delete (settings as any).defaultMaxReviewCycles
+    delete (settings as any).defaultWorktreeDir
+    store.set('aiAutomationSettings', settings as AIAutomationSettings)
+  }
+
+  if (changed) {
+    store.set('aiTasks', tasks)
+  }
+}
 
 export function migrateSettings() {
   const settings = store.get('aiAutomationSettings')
