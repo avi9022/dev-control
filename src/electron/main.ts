@@ -719,7 +719,7 @@ app.on("ready", async () => {
   ipcMainHandle('aiGetTaskDiff', async (_event, taskId) => {
     const task = getTasks().find(t => t.id === taskId)
     if (!task) return ''
-    const diffSource = task.worktreePath || task.projectPaths?.[0]
+    const diffSource = (task.worktrees?.[0]?.worktreePath) || task.projectPaths?.[0]
     if (!diffSource) return ''
     try {
       return getAITaskDiff(diffSource, task.branchName, task.baseBranch)

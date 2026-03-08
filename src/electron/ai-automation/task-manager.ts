@@ -167,7 +167,7 @@ export function updateSettings(updates: Partial<AIAutomationSettings>) {
 
 export function migrateTaskWorkspaces() {
   const tasks = store.get('aiTasks')
-  const settings = store.get('aiAutomationSettings') as Record<string, unknown>
+  const settings = store.get('aiAutomationSettings') as unknown as Record<string, unknown>
   let changed = false
 
   for (const task of tasks) {
@@ -203,7 +203,7 @@ export function migrateTaskWorkspaces() {
   if ('defaultMaxReviewCycles' in settings || 'defaultWorktreeDir' in settings) {
     delete (settings as any).defaultMaxReviewCycles
     delete (settings as any).defaultWorktreeDir
-    store.set('aiAutomationSettings', settings as AIAutomationSettings)
+    store.set('aiAutomationSettings', settings as unknown as AIAutomationSettings)
   }
 
   if (changed) {
