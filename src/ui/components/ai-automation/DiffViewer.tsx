@@ -527,18 +527,20 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
             <span className="text-amber-400 ml-3">
               <MessageSquare className="h-3 w-3 inline mr-1" />
               {comments.length} comment{comments.length !== 1 ? 's' : ''}
+              {resolvedCount > 0 && (
+                <>
+                  <span className="text-neutral-500 ml-1">
+                    ({resolvedCount} resolved)
+                  </span>
+                  <button
+                    onClick={() => setShowResolved(p => !p)}
+                    className="ml-1.5 text-neutral-500 hover:text-neutral-300 underline underline-offset-2"
+                  >
+                    {showResolved ? 'hide' : 'show'}
+                  </button>
+                </>
+              )}
             </span>
-          )}
-          {resolvedCount > 0 && (
-            <label className="ml-3 flex items-center gap-1.5 cursor-pointer text-neutral-500 hover:text-neutral-400">
-              <input
-                type="checkbox"
-                checked={showResolved}
-                onChange={e => setShowResolved(e.target.checked)}
-                className="rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0 h-3 w-3"
-              />
-              <span className="text-xs">Show resolved ({resolvedCount})</span>
-            </label>
           )}
         </div>
         <div className="flex items-center gap-1 bg-neutral-800 rounded p-0.5">
