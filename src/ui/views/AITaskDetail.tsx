@@ -1,13 +1,15 @@
-import { useState, useEffect, type FC } from 'react'
+import { useState, useEffect, useRef, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { AgentTerminal } from '@/ui/components/ai-automation/AgentTerminal'
 import { DiffViewer } from '@/ui/components/ai-automation/DiffViewer'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare, Pencil, Plus, X, Paperclip, Check, List, LayoutGrid, FolderTree, FileText, ChevronRight, ChevronDown } from 'lucide-react'
+import { renderMentions } from '@/ui/components/ai-automation/mention-utils'
+import { TaskDevControl } from '@/ui/components/ai-automation/TaskDevControl'
+import { MentionEditor, type MentionEditorHandle } from '@/ui/components/ai-automation/MentionEditor'
 
 interface AITaskDetailProps {
   taskId: string
@@ -175,13 +177,18 @@ const FileTreeView: FC<{
 }
 
 const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
-  const { tasks } = useAIAutomation()
+  const { tasks, settings, updateSettings } = useAIAutomation()
   const task = tasks.find(t => t.id === taskId)
   const [agentFiles, setAgentFiles] = useState<string[]>([])
   const [attachments, setAttachments] = useState<string[]>([])
   const [selectedFile, setSelectedFile] = useState<{ name: string; type: 'agent' | 'attachments' } | null>(null)
   const [content, setContent] = useState('')
-  const [viewMode, setViewMode] = useState<FileViewMode>('list')
+  const [viewMode, setViewMode] = useState<FileViewMode>(settings?.fileViewMode || 'list')
+
+  const persistViewMode = (mode: FileViewMode) => {
+    setViewMode(mode)
+    updateSettings({ fileViewMode: mode })
+  }
   const excluded = task?.excludedFiles || []
 
   const loadFiles = () => {
@@ -236,7 +243,7 @@ const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
             {([['list', List], ['grid', LayoutGrid], ['tree', FolderTree]] as const).map(([mode, Icon]) => (
               <button
                 key={mode}
-                onClick={() => setViewMode(mode)}
+                onClick={() => persistViewMode(mode)}
                 className={`p-1.5 transition-colors ${viewMode === mode ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'}`}
                 title={`${mode.charAt(0).toUpperCase() + mode.slice(1)} view`}
               >
@@ -334,16 +341,21 @@ const AttachmentsInline: FC<{ taskId: string }> = ({ taskId }) => {
 }
 
 export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
-  const { tasks, stopTask, moveTaskPhase, updateTask, settings } = useAIAutomation()
+  const { tasks, stopTask, moveTaskPhase, updateTask, settings, updateSettings } = useAIAutomation()
   const task = tasks.find(t => t.id === taskId)
-  const [reviewComments, setReviewComments] = useState<AIHumanComment[]>([])
+  const [reviewComments, setReviewCommentsLocal] = useState<AIHumanComment[]>([])
+
+  const setReviewComments = (comments: AIHumanComment[]) => {
+    setReviewCommentsLocal(comments)
+    if (task) {
+      updateTask(task.id, { humanComments: comments })
+    }
+  }
 
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
-  const [editDescription, setEditDescription] = useState('')
-  const [editGitStrategy, setEditGitStrategy] = useState<AIGitStrategy>('worktree')
-  const [editBaseBranch, setEditBaseBranch] = useState('')
-  const [editProjectPaths, setEditProjectPaths] = useState<string[]>([])
+  const [editProjects, setEditProjects] = useState<AITaskProject[]>([])
+  const editDescRef = useRef<MentionEditorHandle>(null)
 
   const pipeline = settings?.pipeline || []
   const currentPhaseConfig = pipeline.find(p => p.id === task?.phase)
@@ -353,20 +365,21 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   const startEditing = () => {
     if (!task) return
     setEditTitle(task.title)
-    setEditDescription(task.description)
-    setEditGitStrategy(task.gitStrategy)
-    setEditBaseBranch(task.baseBranch || '')
-    setEditProjectPaths(task.projectPaths || [])
+    setEditProjects(task.projects ? task.projects.map(p => ({ ...p })) : [])
     setEditing(true)
+    // Hydrate editor on next tick after it mounts
+    const labels = new Set((task.projects || []).map(p => p.label))
+    setTimeout(() => {
+      editDescRef.current?.hydrateText(task.description, labels)
+    }, 0)
   }
 
   const saveEdit = async () => {
+    const description = editDescRef.current?.getPlainText().trim() || ''
     await updateTask(task!.id, {
       title: editTitle.trim(),
-      description: editDescription.trim(),
-      gitStrategy: editGitStrategy,
-      baseBranch: editBaseBranch.trim() || undefined,
-      projectPaths: editProjectPaths.length > 0 ? editProjectPaths : undefined
+      description,
+      projects: editProjects
     })
     setEditing(false)
   }
@@ -376,7 +389,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   // Load existing comments when task changes
   useEffect(() => {
     if (task?.humanComments) {
-      setReviewComments(task.humanComments)
+      setReviewCommentsLocal(task.humanComments)
     }
   }, [task?.id])
 
@@ -466,6 +479,20 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
               {task.branchName && (
                 <span className="text-xs text-neutral-500">{task.branchName}</span>
               )}
+              <button
+                onClick={() => navigator.clipboard.writeText(task.id)}
+                className="text-[10px] font-mono text-neutral-600 hover:text-neutral-400 transition-colors"
+                title="Click to copy task ID"
+              >
+                {task.id.slice(0, 8)}
+              </button>
+              <button
+                onClick={() => window.electron.aiOpenTaskDir(task.id)}
+                className="text-neutral-600 hover:text-neutral-400 transition-colors"
+                title="Open task directory"
+              >
+                <FolderOpen className="h-3 w-3" />
+              </button>
             </div>
           </div>
         </div>
@@ -545,9 +572,9 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
             <span className="text-xs px-1.5 py-0.5 rounded bg-neutral-700 text-neutral-400">{phaseName}</span>
             <span className="text-xs font-mono text-neutral-500">{formatElapsed(elapsed)}</span>
           </div>
-          {task.projectPaths && task.projectPaths.length > 0 && (
+          {task.projects && task.projects.length > 0 && (
             <span className="ml-auto text-xs text-neutral-500 truncate max-w-[200px]">
-              in {task.projectPaths[0].split('/').pop()}
+              in {task.projects[0].label}
             </span>
           )}
         </div>
@@ -566,6 +593,9 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
               </span>
             )}
           </TabsTrigger>
+          {task.worktrees && task.worktrees.length > 0 && (
+            <TabsTrigger value="devcontrol">Dev Control</TabsTrigger>
+          )}
           <TabsTrigger value="files">Task Files</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
@@ -583,72 +613,103 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
             <div>
               <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Description</h3>
               {editing ? (
-                <Textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={6} className="mt-1" />
+                <MentionEditor
+                  ref={editDescRef}
+                  placeholder="Describe what needs to be done... Type @ to tag a project"
+                  className="mt-1"
+                  minHeight="120px"
+                  excludeProjectPaths={new Set(editProjects.map(p => p.path))}
+                  onProjectTagged={(dir) => {
+                    if (!editProjects.some(p => p.path === dir.path)) {
+                      setEditProjects(prev => [...prev, {
+                        path: dir.path,
+                        label: dir.customLabel || dir.name,
+                        gitStrategy: settings?.defaultGitStrategy === 'none' ? 'none' : 'worktree',
+                        baseBranch: settings?.defaultBaseBranch ?? 'main'
+                      }])
+                    }
+                  }}
+                />
               ) : (
-                task.description && <p className="mt-1 text-sm text-neutral-300 whitespace-pre-wrap">{task.description}</p>
+                task.description && <p className="mt-1 text-sm text-neutral-300 whitespace-pre-wrap">{renderMentions(task.description, new Set((task.projects || []).map(p => p.label)))}</p>
               )}
             </div>
             <div>
               <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Projects</h3>
               {editing ? (
                 <div className="mt-1 space-y-2">
-                  {editProjectPaths.map((p, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="text-sm text-neutral-300 flex-1 truncate">{p}</span>
-                      <Button variant="ghost" size="sm" onClick={() => setEditProjectPaths(prev => prev.filter((_, j) => j !== i))}>
-                        <X className="h-3 w-3 text-red-400" />
-                      </Button>
+                  {editProjects.map((proj, i) => (
+                    <div key={i} className="rounded-md border border-neutral-700 bg-neutral-800/50 p-2">
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <FolderOpen className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
+                            <span className="text-sm text-blue-300 truncate">{proj.label}</span>
+                          </div>
+                          <p className="text-[11px] text-neutral-500 truncate ml-5">{proj.path}</p>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 flex-shrink-0" onClick={() => setEditProjects(prev => prev.filter((_, j) => j !== i))}>
+                          <X className="h-3 w-3 text-red-400" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select value={proj.gitStrategy} onValueChange={v => setEditProjects(prev => prev.map((p, j) => j === i ? { ...p, gitStrategy: v as AIGitStrategy } : p))}>
+                          <SelectTrigger className="h-7 w-[110px] text-xs flex-shrink-0"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="worktree">Worktree</SelectItem>
+                            <SelectItem value="none">Read Only</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {proj.gitStrategy === 'worktree' && (
+                          <>
+                            <Input
+                              value={proj.customBranchName || ''}
+                              onChange={e => setEditProjects(prev => prev.map((p, j) => j === i ? { ...p, customBranchName: e.target.value || undefined } : p))}
+                              placeholder="Branch (auto)"
+                              className="h-7 text-xs flex-1 min-w-0"
+                            />
+                            <Input
+                              value={proj.baseBranch || ''}
+                              onChange={e => setEditProjects(prev => prev.map((p, j) => j === i ? { ...p, baseBranch: e.target.value || undefined } : p))}
+                              placeholder="Base"
+                              className="h-7 text-xs w-[90px] flex-shrink-0"
+                            />
+                          </>
+                        )}
+                        {proj.gitStrategy === 'none' && (
+                          <span className="text-[11px] text-neutral-500 italic">Read only</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                   <Button variant="outline" size="sm" onClick={async () => {
                     const selected = await window.electron.aiSelectDirectory()
-                    if (selected && !editProjectPaths.includes(selected)) {
-                      setEditProjectPaths(prev => [...prev, selected])
+                    if (selected && !editProjects.some(p => p.path === selected)) {
+                      setEditProjects(prev => [...prev, { path: selected, label: selected.split('/').pop() || selected, gitStrategy: 'worktree', baseBranch: 'main' }])
                     }
                   }}>
                     <Plus className="h-3 w-3 mr-1" /> Add Project
                   </Button>
                 </div>
               ) : (
-                task.projectPaths && task.projectPaths.length > 0 ? (
+                task.projects && task.projects.length > 0 ? (
                   <div className="mt-1 space-y-1">
-                    {task.projectPaths.map(p => (
-                      <div key={p} className="flex items-center gap-2 text-sm text-neutral-300">
+                    {task.projects.map((proj, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm text-neutral-300">
                         <FolderOpen className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
-                        <span className="font-medium">{p.split('/').pop()}</span>
-                        <span className="text-xs text-neutral-500">{p}</span>
+                        <span className="font-medium">{proj.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${proj.gitStrategy === 'worktree' ? 'bg-blue-900/50 text-blue-300' : 'bg-neutral-700 text-neutral-400'}`}>
+                          {proj.gitStrategy === 'worktree' ? 'worktree' : 'read only'}
+                        </span>
+                        {proj.gitStrategy === 'worktree' && proj.baseBranch && (
+                          <span className="text-xs text-neutral-500">base: {proj.baseBranch}</span>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="mt-1 text-xs text-neutral-500">No projects tagged</p>
                 )
-              )}
-            </div>
-            <div className="flex gap-6">
-              <div>
-                <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Git Strategy</h3>
-                {editing ? (
-                  <Select value={editGitStrategy} onValueChange={(v) => setEditGitStrategy(v as AIGitStrategy)}>
-                    <SelectTrigger className="mt-1 w-32"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="worktree">Worktree</SelectItem>
-                      <SelectItem value="none">None</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="mt-1 text-sm text-neutral-300">{task.gitStrategy}</p>
-                )}
-              </div>
-              {(editing ? editGitStrategy === 'worktree' : task.gitStrategy === 'worktree') && (
-                <div>
-                  <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Base Branch</h3>
-                  {editing ? (
-                    <Input value={editBaseBranch} onChange={e => setEditBaseBranch(e.target.value)} placeholder="main" className="mt-1 w-32" />
-                  ) : (
-                    <p className="mt-1 text-sm text-neutral-300">{task.baseBranch || 'auto'}</p>
-                  )}
-                </div>
               )}
             </div>
             {task.worktrees && task.worktrees.length > 0 && (
@@ -718,8 +779,16 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
             comments={reviewComments}
             onCommentsChange={setReviewComments}
             readOnly={!isManualPhase}
+            settings={settings || undefined}
+            onUpdateSettings={updateSettings}
           />
         </TabsContent>
+
+        {task.worktrees && task.worktrees.length > 0 && (
+          <TabsContent value="devcontrol" className="flex-1 min-h-0 p-4">
+            <TaskDevControl taskId={task.id} />
+          </TabsContent>
+        )}
 
         <TabsContent value="files" className="flex-1 min-h-0 overflow-y-auto p-4">
           <TaskFilesTab taskId={task.id} />

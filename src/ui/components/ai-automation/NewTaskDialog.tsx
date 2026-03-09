@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
-import { FolderOpen, X, Paperclip } from 'lucide-react'
+import { FolderOpen, X, Paperclip, GitBranch, Eye } from 'lucide-react'
 
 interface NewTaskDialogProps {
   open: boolean
@@ -49,10 +49,8 @@ function clearEditor(el: HTMLElement) {
 export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) => {
   const { createTask, settings } = useAIAutomation()
   const [title, setTitle] = useState('')
-  const [gitStrategy, setGitStrategy] = useState<AIGitStrategy>(settings?.defaultGitStrategy === 'none' ? 'none' : 'worktree')
-  const [baseBranch, setBaseBranch] = useState(settings?.defaultBaseBranch ?? 'main')
-  const [customBranchName, setCustomBranchName] = useState('')
   const [taggedProjects, setTaggedProjects] = useState<DirectorySettings[]>([])
+  const [projectConfigs, setProjectConfigs] = useState<Record<string, { gitStrategy: AIGitStrategy; branchName: string; baseBranch: string }>>({})
   const [pendingFiles, setPendingFiles] = useState<{ name: string; path: string }[]>([])
 
   // @-mention state
@@ -75,12 +73,8 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
   useEffect(() => {
     if (open) {
       window.electron.getDirectories().then(setDirectories)
-      if (settings) {
-        setGitStrategy(settings.defaultGitStrategy === 'none' ? 'none' : 'worktree')
-        setBaseBranch(settings.defaultBaseBranch)
-      }
     }
-  }, [open, settings])
+  }, [open])
 
   const filteredDirs = directories.filter(d => {
     const label = d.customLabel || d.name
@@ -159,6 +153,14 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
 
     if (!taggedProjects.some(tp => tp.id === dir.id)) {
       setTaggedProjects(prev => [...prev, dir])
+      setProjectConfigs(prev => ({
+        ...prev,
+        [dir.id]: {
+          gitStrategy: settings?.defaultGitStrategy === 'none' ? 'none' : 'worktree',
+          branchName: '',
+          baseBranch: settings?.defaultBaseBranch ?? 'main'
+        }
+      }))
     }
 
     setTimeout(() => editor.focus(), 0)
@@ -171,6 +173,11 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
       if (chip) chip.remove()
     }
     setTaggedProjects(prev => prev.filter(p => p.id !== id))
+    setProjectConfigs(prev => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
   }
 
   const handleEditorInput = () => {
@@ -275,27 +282,43 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
     return getPlainText(editorRef.current).trim()
   }
 
+  const updateProjectConfig = (id: string, updates: Partial<{ gitStrategy: AIGitStrategy; branchName: string; baseBranch: string }>) => {
+    setProjectConfigs(prev => ({
+      ...prev,
+      [id]: { ...prev[id], ...updates }
+    }))
+  }
+
   const handleCreate = async () => {
     if (!title.trim()) return
     const description = getDescription()
-    const projectPaths = taggedProjects.map(p => p.path)
-    const branch = gitStrategy === 'worktree' ? baseBranch.trim() || undefined : undefined
-    const branchName = gitStrategy === 'worktree' ? customBranchName.trim() || undefined : undefined
-    const task = await createTask(title.trim(), description, gitStrategy, projectPaths.length > 0 ? projectPaths : undefined, branch, branchName)
+    const projects: AITaskProject[] = taggedProjects.map(p => {
+      const config = projectConfigs[p.id] || { gitStrategy: 'worktree', branchName: '', baseBranch: 'main' }
+      return {
+        path: p.path,
+        label: p.customLabel || p.name,
+        gitStrategy: config.gitStrategy,
+        ...(config.gitStrategy === 'worktree' ? {
+          baseBranch: config.baseBranch.trim() || 'main',
+          customBranchName: config.branchName.trim() || undefined
+        } : {})
+      }
+    })
+    const task = await createTask(title.trim(), description, projects)
     if (pendingFiles.length > 0) {
       await window.electron.aiAttachTaskFiles(task.id, pendingFiles.map(f => f.path))
     }
     setTitle('')
     if (editorRef.current) clearEditor(editorRef.current)
-    setCustomBranchName('')
     setTaggedProjects([])
+    setProjectConfigs({})
     setPendingFiles([])
     onOpenChange(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-neutral-900 border-neutral-700">
+      <DialogContent className="bg-neutral-900 border-neutral-700 max-w-lg">
         <DialogHeader>
           <DialogTitle>New Task</DialogTitle>
         </DialogHeader>
@@ -347,23 +370,67 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
               </div>
             )}
           </div>
-          {/* Tagged projects */}
+          {/* Tagged projects with per-project config */}
           {taggedProjects.length > 0 && (
             <div>
-              <Label className="text-neutral-400 text-xs">Tagged Projects</Label>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {taggedProjects.map(p => (
-                  <span
-                    key={p.id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-900/40 border border-blue-700/50 text-xs text-blue-300"
-                  >
-                    <FolderOpen className="h-3 w-3" />
-                    {p.customLabel || p.name}
-                    <button onClick={() => removeTaggedProject(p.id)} className="hover:text-white">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
+              <Label className="text-neutral-400 text-xs">Project Workspaces</Label>
+              <p className="text-[11px] text-neutral-500 mt-0.5 mb-1.5">
+                Projects set to &quot;Worktree&quot; get an isolated git branch for changes. &quot;Read Only&quot; projects can be referenced but not modified.
+              </p>
+              <div className="space-y-2">
+                {taggedProjects.map(p => {
+                  const config = projectConfigs[p.id] || { gitStrategy: 'worktree', branchName: '', baseBranch: 'main' }
+                  return (
+                    <div key={p.id} className="rounded-md border border-neutral-700 bg-neutral-800/50 p-2.5">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <FolderOpen className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
+                            <span className="text-sm text-blue-300 truncate">{p.customLabel || p.name}</span>
+                          </div>
+                          <p className="text-[11px] text-neutral-500 truncate ml-5">{p.path}</p>
+                        </div>
+                        <button onClick={() => removeTaggedProject(p.id)} className="text-neutral-500 hover:text-white flex-shrink-0 mt-0.5">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select value={config.gitStrategy} onValueChange={v => updateProjectConfig(p.id, { gitStrategy: v as AIGitStrategy })}>
+                          <SelectTrigger className="h-7 w-[110px] text-xs flex-shrink-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="worktree">
+                              <span className="flex items-center gap-1"><GitBranch className="h-3 w-3" /> Worktree</span>
+                            </SelectItem>
+                            <SelectItem value="none">
+                              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> Read Only</span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {config.gitStrategy === 'worktree' && (
+                          <>
+                            <Input
+                              value={config.branchName}
+                              onChange={e => updateProjectConfig(p.id, { branchName: e.target.value })}
+                              placeholder="Branch (auto)"
+                              className="h-7 text-xs flex-1 min-w-0"
+                            />
+                            <Input
+                              value={config.baseBranch}
+                              onChange={e => updateProjectConfig(p.id, { baseBranch: e.target.value })}
+                              placeholder="Base"
+                              className="h-7 text-xs w-[90px] flex-shrink-0"
+                            />
+                          </>
+                        )}
+                        {config.gitStrategy === 'none' && (
+                          <span className="text-[11px] text-neutral-500 italic">Agent can read but not modify this project</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -401,40 +468,6 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
               </Button>
             </div>
           </div>
-          <div>
-            <Label>Git Strategy</Label>
-            <Select value={gitStrategy} onValueChange={(v) => setGitStrategy(v as AIGitStrategy)}>
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="worktree">Worktree</SelectItem>
-                <SelectItem value="none">None</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {gitStrategy === 'worktree' && (
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <Label>Branch Name <span className="text-neutral-500 font-normal">(optional)</span></Label>
-                <Input
-                  value={customBranchName}
-                  onChange={e => setCustomBranchName(e.target.value)}
-                  placeholder="Auto-generated from task title"
-                  className="mt-1"
-                />
-              </div>
-              <div className="flex-1">
-                <Label>Base Branch</Label>
-                <Input
-                  value={baseBranch}
-                  onChange={e => setBaseBranch(e.target.value)}
-                  placeholder="main"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

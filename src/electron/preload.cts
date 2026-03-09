@@ -243,8 +243,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
     }),
   // AI Automation API
   aiGetTasks: () => ipcInvoke('aiGetTasks'),
-  aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, projectPaths?: string[], baseBranch?: string, customBranchName?: string) =>
-    ipcInvoke('aiCreateTask', title, description, gitStrategy, projectPaths, baseBranch, customBranchName),
+  aiCreateTask: (title: string, description: string, projects: AITaskProject[]) =>
+    ipcInvoke('aiCreateTask', title, description, projects),
   aiSelectDirectory: () => ipcInvoke('aiSelectDirectory'),
   aiUpdateTask: (id: string, updates: Partial<AITask>) => ipcInvoke('aiUpdateTask', id, updates),
   aiDeleteTask: (id: string) => ipcInvoke('aiDeleteTask', id),
@@ -253,6 +253,9 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiSendTaskInput: (taskId: string, input: string) => ipcInvoke('aiSendTaskInput', taskId, input),
   aiGetTaskOutputHistory: (taskId: string) => ipcInvoke('aiGetTaskOutputHistory', taskId),
   aiGetTaskDiff: (taskId: string) => ipcInvoke('aiGetTaskDiff', taskId),
+  aiOpenTaskDir: (taskId: string) => ipcInvoke('aiOpenTaskDir', taskId),
+  aiCreateTaskServices: (taskId: string) => ipcInvoke('aiCreateTaskServices', taskId),
+  aiCleanupTaskServices: (taskId: string) => ipcInvoke('aiCleanupTaskServices', taskId),
   aiAttachTaskFiles: (taskId: string, filePaths: string[]) => ipcInvoke('aiAttachTaskFiles', taskId, filePaths),
   aiDeleteTaskAttachment: (taskId: string, filename: string) => ipcInvoke('aiDeleteTaskAttachment', taskId, filename),
   aiDeleteAgentFile: (taskId: string, filename: string) => ipcInvoke('aiDeleteAgentFile', taskId, filename),

@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef, type FC } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, type FC } from 'react'
 import { Button } from '@/components/ui/button'
-import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle, Check, CircleCheck } from 'lucide-react'
+import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle, Check, CircleCheck, FolderOpen, PanelLeftClose, PanelLeft } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 
 const LARGE_DIFF_THRESHOLD = 200 // lines changed
@@ -10,6 +10,8 @@ interface DiffViewerProps {
   comments: AIHumanComment[]
   onCommentsChange: (comments: AIHumanComment[]) => void
   readOnly?: boolean
+  settings?: AIAutomationSettings
+  onUpdateSettings?: (updates: Partial<AIAutomationSettings>) => void
 }
 
 type ViewMode = 'unified' | 'split'
@@ -433,26 +435,105 @@ const SplitView: FC<{
   )
 }
 
-export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsChange, readOnly = false }) => {
-  const [rawDiff, setRawDiff] = useState<string | null>(null)
+interface ProjectFileGroup {
+  project: string
+  projectPath: string
+  files: DiffFile[]
+}
+
+export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsChange, readOnly = false, settings, onUpdateSettings }) => {
+  const [projectDiffs, setProjectDiffs] = useState<AIProjectDiff[]>([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('unified')
+  const [viewMode, setViewMode] = useState<ViewMode>(settings?.diffViewMode || 'unified')
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set())
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set())
   const [forcedLargeFiles, setForcedLargeFiles] = useState<Set<string>>(new Set())
   const [activeComment, setActiveComment] = useState<string | null>(null)
-  const [showResolved, setShowResolved] = useState(true)
+  const [showResolved, setShowResolved] = useState(settings?.showResolvedComments ?? true)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarCollapsedProjects, setSidebarCollapsedProjects] = useState<Set<string>>(new Set())
+  const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  const setFileRef = useCallback((path: string, el: HTMLDivElement | null) => {
+    if (el) fileRefs.current.set(path, el)
+    else fileRefs.current.delete(path)
+  }, [])
+
+  const persistViewMode = (mode: ViewMode) => {
+    setViewMode(mode)
+    onUpdateSettings?.({ diffViewMode: mode })
+  }
+
+  const persistShowResolved = (show: boolean) => {
+    setShowResolved(show)
+    onUpdateSettings?.({ showResolvedComments: show })
+  }
 
   useEffect(() => {
     setLoading(true)
-    window.electron.aiGetTaskDiff(taskId).then(diff => {
-      setRawDiff(diff)
+    window.electron.aiGetTaskDiff(taskId).then(diffs => {
+      setProjectDiffs(diffs)
       setLoading(false)
     })
   }, [taskId])
 
-  const files = useMemo(() => rawDiff ? parseDiff(rawDiff) : [], [rawDiff])
+  const projectGroups: ProjectFileGroup[] = useMemo(() =>
+    projectDiffs.map(pd => ({
+      project: pd.project,
+      projectPath: pd.path,
+      files: parseDiff(pd.diff)
+    }))
+  , [projectDiffs])
+
+  const scrollToFile = useCallback((filePath: string) => {
+    const el = fileRefs.current.get(filePath)
+    if (el) {
+      setCollapsedFiles(prev => {
+        if (prev.has(filePath)) {
+          const next = new Set(prev)
+          next.delete(filePath)
+          return next
+        }
+        return prev
+      })
+      for (const g of projectGroups) {
+        if (g.files.some(f => (f.newPath || f.oldPath) === filePath)) {
+          setCollapsedProjects(prev => {
+            if (prev.has(g.project)) {
+              const next = new Set(prev)
+              next.delete(g.project)
+              return next
+            }
+            return prev
+          })
+          break
+        }
+      }
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+    }
+  }, [projectGroups])
+
+  const files = useMemo(() => projectGroups.flatMap(g => g.files), [projectGroups])
+  const multiProject = projectGroups.length > 1
 
   const resolvedCount = comments.filter(c => c.resolved).length
+
+  // Collect all line numbers present in the current diff per file
+  const diffLinesByFile = useMemo(() => {
+    const map = new Map<string, Set<number>>()
+    for (const file of files) {
+      const filePath = file.newPath || file.oldPath
+      const lineSet = new Set<number>()
+      for (const hunk of file.hunks) {
+        for (const line of hunk.lines) {
+          if (line.newLineNum !== undefined) lineSet.add(line.newLineNum)
+          if (line.oldLineNum !== undefined) lineSet.add(line.oldLineNum)
+        }
+      }
+      map.set(filePath, lineSet)
+    }
+    return map
+  }, [files])
 
   // Build comment lookup map: "file:line" -> comments[] (line-specific only)
   const commentMap = useMemo(() => {
@@ -467,6 +548,41 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
     }
     return map
   }, [comments, showResolved])
+
+  // Detect orphaned comments: line-specific comments on files not in the diff at all
+  const orphanedComments = useMemo(() => {
+    const fileSet = new Set(files.map(f => f.newPath || f.oldPath))
+    return comments.filter(c => {
+      if (!c.file) return false
+      if (!showResolved && c.resolved) return false
+      return !fileSet.has(c.file)
+    })
+  }, [comments, files, showResolved])
+
+  // Group orphaned by file
+  const orphanedByFile = useMemo(() => {
+    const map = new Map<string, AIHumanComment[]>()
+    for (const c of orphanedComments) {
+      const arr = map.get(c.file) || []
+      arr.push(c)
+      map.set(c.file, arr)
+    }
+    return map
+  }, [orphanedComments])
+
+  const handleResolveOrphanedFile = (file: string) => {
+    const fileSet = new Set(files.map(f => f.newPath || f.oldPath))
+    onCommentsChange(comments.map(c =>
+      c.file === file && !c.resolved && !fileSet.has(file) ? { ...c, resolved: true } : c
+    ))
+  }
+
+  const handleResolveAllOrphaned = () => {
+    const fileSet = new Set(files.map(f => f.newPath || f.oldPath))
+    onCommentsChange(comments.map(c =>
+      c.file && !c.resolved && !fileSet.has(c.file) ? { ...c, resolved: true } : c
+    ))
+  }
 
   const handleSubmitComment = (file: string, line: number, text: string) => {
     const newComment: AIHumanComment = {
@@ -512,15 +628,33 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
     return <div className="h-full flex items-center justify-center text-neutral-500 text-sm">Loading diff...</div>
   }
 
-  if (!rawDiff || files.length === 0) {
+  if (projectDiffs.length === 0 || files.length === 0) {
     return <div className="h-full flex items-center justify-center text-neutral-500 text-sm">No changes to display</div>
+  }
+
+  const toggleProject = (project: string) => {
+    setCollapsedProjects(prev => {
+      const next = new Set(prev)
+      if (next.has(project)) next.delete(project)
+      else next.add(project)
+      return next
+    })
   }
 
   return (
     <div className="h-full flex flex-col min-h-0">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-1 pb-3 shrink-0">
-        <div className="text-xs text-neutral-400">
+        <div className="flex items-center gap-2 text-xs text-neutral-400">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-neutral-400"
+            onClick={() => setSidebarOpen(prev => !prev)}
+            title={sidebarOpen ? 'Hide file tree' : 'Show file tree'}
+          >
+            {sidebarOpen ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeft className="h-3.5 w-3.5" />}
+          </Button>
           {files.length} file{files.length !== 1 ? 's' : ''} changed
           <span className="text-green-400 ml-2">+{totalStats.added}</span>
           <span className="text-red-400 ml-1">-{totalStats.removed}</span>
@@ -536,7 +670,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
             <label className="flex items-center gap-2 cursor-pointer">
               <Checkbox
                 checked={showResolved}
-                onCheckedChange={(checked) => setShowResolved(!!checked)}
+                onCheckedChange={(checked) => persistShowResolved(!!checked)}
               />
               <span className="text-xs text-neutral-400">Show resolved ({resolvedCount})</span>
             </label>
@@ -546,7 +680,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
               variant="ghost"
               size="sm"
               className={`h-6 px-2 text-xs ${viewMode === 'unified' ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}
-              onClick={() => setViewMode('unified')}
+              onClick={() => persistViewMode('unified')}
             >
               <Rows3 className="h-3 w-3 mr-1" />
               Unified
@@ -555,7 +689,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
               variant="ghost"
               size="sm"
               className={`h-6 px-2 text-xs ${viewMode === 'split' ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}
-              onClick={() => setViewMode('split')}
+              onClick={() => persistViewMode('split')}
             >
               <Columns2 className="h-3 w-3 mr-1" />
               Split
@@ -564,119 +698,256 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
         </div>
       </div>
 
-      {/* General comments */}
-      {(() => {
-        const generalComments = comments.filter(c => !c.file && (showResolved || !c.resolved))
-        if (generalComments.length === 0) return null
-        return (
-          <div className="shrink-0 mb-3 space-y-1">
-            <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wide px-1">General Comments</h4>
-            {generalComments.map((c, i) => (
-              <InlineComment
-                key={i}
-                comment={c}
-                onDelete={readOnly ? undefined : () => onCommentsChange(comments.filter(gc => gc !== c))}
-                onToggleResolved={readOnly ? undefined : () => onCommentsChange(comments.map(gc => gc === c ? { ...gc, resolved: !gc.resolved } : gc))}
-              />
+      {/* Main content area with optional sidebar */}
+      <div className="flex-1 flex min-h-0 gap-0">
+        {/* File tree sidebar */}
+        {sidebarOpen && (
+          <div className="w-56 shrink-0 border-r border-neutral-800 overflow-y-auto pr-1">
+            {projectGroups.map(group => {
+              const sidebarProjectCollapsed = sidebarCollapsedProjects.has(group.project)
+              return (
+                <div key={group.project} className="mb-1">
+                  {multiProject && (
+                    <button
+                      onClick={() => setSidebarCollapsedProjects(prev => {
+                        const next = new Set(prev)
+                        if (next.has(group.project)) next.delete(group.project)
+                        else next.add(group.project)
+                        return next
+                      })}
+                      className="w-full flex items-center gap-1.5 px-2 py-1 text-left hover:bg-neutral-800/50 rounded"
+                    >
+                      {sidebarProjectCollapsed
+                        ? <ChevronRight className="h-3 w-3 text-blue-400 shrink-0" />
+                        : <ChevronDown className="h-3 w-3 text-blue-400 shrink-0" />
+                      }
+                      <FolderOpen className="h-3 w-3 text-blue-400 shrink-0" />
+                      <span className="text-[11px] font-medium text-blue-300 truncate">{group.project}</span>
+                    </button>
+                  )}
+                  {!sidebarProjectCollapsed && group.files.map(file => {
+                    const filePath = file.newPath || file.oldPath
+                    const fileName = filePath.split('/').pop() || filePath
+                    const stats = getFileStats(file)
+                    return (
+                      <button
+                        key={filePath}
+                        onClick={() => scrollToFile(filePath)}
+                        className={`w-full flex items-center gap-1.5 px-2 py-0.5 text-left hover:bg-neutral-800/50 rounded group ${multiProject ? 'ml-3' : ''}`}
+                        title={filePath}
+                      >
+                        <FileCode className="h-3 w-3 text-neutral-500 shrink-0" />
+                        <span className="text-[11px] text-neutral-300 truncate flex-1">{fileName}</span>
+                        <span className="text-[10px] shrink-0 opacity-0 group-hover:opacity-100">
+                          <span className="text-green-400">+{stats.added}</span>
+                          <span className="text-red-400 ml-0.5">-{stats.removed}</span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* File list grouped by project */}
+        <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pl-1">
+        {/* General comments */}
+        {(() => {
+          const generalComments = comments.filter(c => !c.file && (showResolved || !c.resolved))
+          if (generalComments.length === 0) return null
+          return (
+            <div className="shrink-0 mb-1 space-y-1">
+              <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wide px-1">General Comments</h4>
+              {generalComments.map((c, i) => (
+                <InlineComment
+                  key={i}
+                  comment={c}
+                  onDelete={readOnly ? undefined : () => onCommentsChange(comments.filter(gc => gc !== c))}
+                  onToggleResolved={readOnly ? undefined : () => onCommentsChange(comments.map(gc => gc === c ? { ...gc, resolved: !gc.resolved } : gc))}
+                />
+              ))}
+            </div>
+          )
+        })()}
+
+        {/* Orphaned comments — files no longer in diff */}
+        {orphanedByFile.size > 0 && (
+          <div className="shrink-0 mb-1 border border-orange-800/30 rounded-md bg-orange-900/10 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-orange-900/20">
+              <span className="text-[10px] text-orange-300 uppercase tracking-wide font-medium">
+                Comments on files no longer in diff
+              </span>
+              {!readOnly && orphanedComments.some(c => !c.resolved) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-2 text-[10px] text-orange-300 hover:text-orange-200"
+                  onClick={handleResolveAllOrphaned}
+                >
+                  <Check className="h-3 w-3 mr-1" /> Resolve all
+                </Button>
+              )}
+            </div>
+            {[...orphanedByFile.entries()].map(([file, fileComments]) => (
+              <div key={file} className="px-3 py-1.5 border-t border-orange-800/20">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono text-orange-200/70">{file}</span>
+                  {!readOnly && fileComments.some(c => !c.resolved) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-2 text-[10px] text-orange-300 hover:text-orange-200"
+                      onClick={() => handleResolveOrphanedFile(file)}
+                    >
+                      <Check className="h-3 w-3 mr-1" /> Resolve
+                    </Button>
+                  )}
+                </div>
+                {fileComments.map((c, i) => (
+                  <InlineComment
+                    key={i}
+                    comment={c}
+                    onDelete={readOnly ? undefined : () => handleDeleteComment(c.file, c.line)}
+                    onToggleResolved={readOnly ? undefined : () => handleToggleResolved(c.file, c.line)}
+                  />
+                ))}
+              </div>
             ))}
           </div>
-        )
-      })()}
+        )}
 
-      {/* File list */}
-      <div className="flex-1 overflow-y-auto min-h-0 space-y-2">
-        {files.map(file => {
-          const path = file.newPath || file.oldPath
-          const stats = getFileStats(file)
-          const collapsed = collapsedFiles.has(path)
-          const fileCommentCount = comments.filter(c => c.file === path).length
+        {projectGroups.map(group => {
+          const projectCollapsed = collapsedProjects.has(group.project)
+          const projectStats = group.files.reduce((acc, f) => {
+            const s = getFileStats(f)
+            return { added: acc.added + s.added, removed: acc.removed + s.removed }
+          }, { added: 0, removed: 0 })
 
           return (
-            <div key={path} className="border border-neutral-800 rounded-md overflow-hidden">
-              {/* File header */}
-              <button
-                onClick={() => toggleFile(path)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 bg-neutral-800/50 hover:bg-neutral-800 transition-colors text-left"
-              >
-                {collapsed
-                  ? <ChevronRight className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
-                  : <ChevronDown className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
-                }
-                <FileCode className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
-                <span className="text-xs text-neutral-200 font-mono truncate">{path}</span>
-                {file.isNew && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/40 text-green-300 shrink-0">new</span>}
-                {file.isDeleted && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-900/40 text-red-300 shrink-0">deleted</span>}
-                {fileCommentCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300 shrink-0">
-                    {fileCommentCount} comment{fileCommentCount !== 1 ? 's' : ''}
+            <div key={group.project}>
+              {/* Project header — only show when multiple projects */}
+              {multiProject && (
+                <button
+                  onClick={() => toggleProject(group.project)}
+                  className="w-full flex items-center gap-2 px-3 py-2 mb-1 rounded-md bg-neutral-800/70 hover:bg-neutral-800 transition-colors text-left"
+                >
+                  {projectCollapsed
+                    ? <ChevronRight className="h-4 w-4 text-blue-400 shrink-0" />
+                    : <ChevronDown className="h-4 w-4 text-blue-400 shrink-0" />
+                  }
+                  <FolderOpen className="h-4 w-4 text-blue-400 shrink-0" />
+                  <span className="text-sm font-medium text-blue-300">{group.project}</span>
+                  <span className="text-xs text-neutral-500">{group.files.length} file{group.files.length !== 1 ? 's' : ''}</span>
+                  <span className="ml-auto text-xs shrink-0">
+                    <span className="text-green-400">+{projectStats.added}</span>
+                    <span className="text-red-400 ml-1">-{projectStats.removed}</span>
                   </span>
-                )}
-                <span className="ml-auto text-xs shrink-0">
-                  <span className="text-green-400">+{stats.added}</span>
-                  <span className="text-red-400 ml-1">-{stats.removed}</span>
-                </span>
-              </button>
+                </button>
+              )}
 
-              {/* Diff content */}
-              {!collapsed && (() => {
-                const totalLines = stats.added + stats.removed
-                const isLarge = totalLines > LARGE_DIFF_THRESHOLD
-                const isForced = forcedLargeFiles.has(path)
+              {/* Files in this project */}
+              {!projectCollapsed && (
+                <div className={`space-y-2 ${multiProject ? 'ml-4' : ''}`}>
+                  {group.files.map(file => {
+                    const filePath = file.newPath || file.oldPath
+                    const stats = getFileStats(file)
+                    const collapsed = collapsedFiles.has(filePath)
+                    const fileCommentCount = comments.filter(c => c.file === filePath).length
 
-                if (isLarge && !isForced) {
-                  return (
-                    <div className="flex flex-col items-center gap-2 py-6 px-4 bg-neutral-900/30">
-                      <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                      <p className="text-xs text-neutral-400 text-center">
-                        Large diff not rendered — {totalLines} lines changed ({stats.added} additions, {stats.removed} deletions)
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs h-7"
-                        onClick={e => {
-                          e.stopPropagation()
-                          setForcedLargeFiles(prev => new Set([...prev, path]))
-                        }}
-                      >
-                        Load diff
-                      </Button>
-                    </div>
-                  )
-                }
+                    return (
+                      <div key={filePath} ref={el => setFileRef(filePath, el)} className="border border-neutral-800 rounded-md overflow-hidden">
+                        {/* File header */}
+                        <button
+                          onClick={() => toggleFile(filePath)}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 bg-neutral-800/50 hover:bg-neutral-800 transition-colors text-left"
+                        >
+                          {collapsed
+                            ? <ChevronRight className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
+                            : <ChevronDown className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
+                          }
+                          <FileCode className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
+                          <span className="text-xs text-neutral-200 font-mono truncate">{filePath}</span>
+                          {file.isNew && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/40 text-green-300 shrink-0">new</span>}
+                          {file.isDeleted && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-900/40 text-red-300 shrink-0">deleted</span>}
+                          {fileCommentCount > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300 shrink-0">
+                              {fileCommentCount} comment{fileCommentCount !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                          <span className="ml-auto text-xs shrink-0">
+                            <span className="text-green-400">+{stats.added}</span>
+                            <span className="text-red-400 ml-1">-{stats.removed}</span>
+                          </span>
+                        </button>
 
-                return (
-                  <div className="overflow-x-auto text-neutral-300">
-                    {viewMode === 'unified'
-                      ? <UnifiedView
-                          file={file}
-                          commentMap={commentMap}
-                          activeComment={activeComment}
-                          onStartComment={setActiveComment}
-                          onSubmitComment={handleSubmitComment}
-                          onCancelComment={() => setActiveComment(null)}
-                          onDeleteComment={handleDeleteComment}
-                          onToggleResolved={handleToggleResolved}
-                          readOnly={readOnly}
-                        />
-                      : <SplitView
-                          file={file}
-                          commentMap={commentMap}
-                          activeComment={activeComment}
-                          onStartComment={setActiveComment}
-                          onSubmitComment={handleSubmitComment}
-                          onCancelComment={() => setActiveComment(null)}
-                          onDeleteComment={handleDeleteComment}
-                          onToggleResolved={handleToggleResolved}
-                          readOnly={readOnly}
-                        />
-                    }
-                  </div>
-                )
-              })()}
+                        {/* Diff content */}
+                        {!collapsed && (() => {
+                          const totalLines = stats.added + stats.removed
+                          const isLarge = totalLines > LARGE_DIFF_THRESHOLD
+                          const isForced = forcedLargeFiles.has(filePath)
+
+                          if (isLarge && !isForced) {
+                            return (
+                              <div className="flex flex-col items-center gap-2 py-6 px-4 bg-neutral-900/30">
+                                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                                <p className="text-xs text-neutral-400 text-center">
+                                  Large diff not rendered — {totalLines} lines changed ({stats.added} additions, {stats.removed} deletions)
+                                </p>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs h-7"
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    setForcedLargeFiles(prev => new Set([...prev, filePath]))
+                                  }}
+                                >
+                                  Load diff
+                                </Button>
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div className="overflow-x-auto text-neutral-300">
+                              {viewMode === 'unified'
+                                ? <UnifiedView
+                                    file={file}
+                                    commentMap={commentMap}
+                                    activeComment={activeComment}
+                                    onStartComment={setActiveComment}
+                                    onSubmitComment={handleSubmitComment}
+                                    onCancelComment={() => setActiveComment(null)}
+                                    onDeleteComment={handleDeleteComment}
+                                    onToggleResolved={handleToggleResolved}
+                                    readOnly={readOnly}
+                                  />
+                                : <SplitView
+                                    file={file}
+                                    commentMap={commentMap}
+                                    activeComment={activeComment}
+                                    onStartComment={setActiveComment}
+                                    onSubmitComment={handleSubmitComment}
+                                    onCancelComment={() => setActiveComment(null)}
+                                    onDeleteComment={handleDeleteComment}
+                                    onToggleResolved={handleToggleResolved}
+                                    readOnly={readOnly}
+                                  />
+                              }
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })}
+        </div>
       </div>
     </div>
   )

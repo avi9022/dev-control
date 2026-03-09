@@ -10,6 +10,7 @@
 - [x] **F5**: Customizable Pipeline — user-configurable phases replacing hardcoded columns
 - [x] **F15**: Edit Task & Workspace Restructure — edit task in BACKLOG, file attachments (create + detail), per-task workspace dirs, configurable taskDataRoot, worktrees array migration
 - [x] **F13**: Task File Management — never-overwrite rule with numbered suffixes, phase cycle count in prompts, file include/exclude toggles, delete agent files, description in TaskFilesTab
+- [x] **F20**: Agent Security — role-based tool restriction per phase, PreToolUse guard hook for directory boundary enforcement, phase templates
 
 ## Planned Features
 
@@ -36,3 +37,4 @@ _(None tracked yet)_
 - Implementation plan: `docs/plans/2026-03-06-ai-automation-kanban-implementation.md`
 - Pipeline design: `docs/plans/2026-03-07-customizable-pipeline-design.md`
 - Knowledge docs design: `docs/plans/2026-03-07-auto-generate-knowledge-docs-design.md`
+- Agent security design: `docs/plans/2026-03-09-agent-security-design.md`

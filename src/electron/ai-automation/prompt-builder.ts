@@ -34,17 +34,32 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
     parts.push(`## Project Knowledge\n\n${docs}`)
   }
 
-  // 5. Task context
+  // 5. Task context with directory boundary
   let taskContext = `## Task\n\n**Title:** ${task.title}\n\n**Description:** ${task.description}`
-  if (task.projectPaths && task.projectPaths.length > 0) {
-    const workingDir = task.worktrees.length > 0 ? task.worktrees[0].worktreePath : task.projectPaths[0]
-    taskContext += `\n\n**Working Directory:** ${workingDir}\n\nIMPORTANT: All file reads, writes, and modifications MUST use paths within ${workingDir}. Do NOT access or modify files in any other directory.`
-    if (task.worktrees.length > 0) {
-      taskContext += `\n\nThis is a git worktree. The original project is at ${task.projectPaths[0]} — do NOT modify files there.`
+  if (task.worktrees.length > 0) {
+    taskContext += `\n\n**Working Directory:** ${task.worktrees[0].worktreePath}`
+    if (task.worktrees.length > 1) {
+      taskContext += `\n**Additional worktrees:**`
+      for (const wt of task.worktrees.slice(1)) {
+        taskContext += `\n- ${wt.worktreePath} (branch: ${wt.branchName})`
+      }
     }
-    if (task.projectPaths.length > 1) {
-      taskContext += `\nYou also have access to: ${task.projectPaths.slice(1).join(', ')}`
+    taskContext += `\n\nThese are git worktrees. Do NOT modify the original project directories.`
+  } else if (task.projects.length > 0) {
+    taskContext += `\n\n**Working Directory:** ${task.projects[0].path}`
+  }
+  // Read-only projects
+  const readOnlyProjects = task.projects.filter(p => p.gitStrategy === 'none')
+  if (readOnlyProjects.length > 0) {
+    taskContext += `\n\n**Read-only reference projects:** ${readOnlyProjects.map(p => `${p.label} (${p.path})`).join(', ')}\nYou may read files in these directories but MUST NOT modify them.`
+  }
+  if (task.taskDirPath) {
+    const writablePaths = task.worktrees.map(wt => wt.worktreePath)
+    taskContext += `\n\n## Security Boundary\n\nYou may modify files in: ${task.taskDirPath}${writablePaths.length > 0 ? ' (includes worktrees: ' + writablePaths.join(', ') + ')' : ''}`
+    if (readOnlyProjects.length > 0) {
+      taskContext += `\nYou may read files in: ${readOnlyProjects.map(p => p.path).join(', ')}`
     }
+    taskContext += `\nAttempts to write outside the task directory or read outside allowed directories will be blocked.`
   }
   parts.push(taskContext)
 

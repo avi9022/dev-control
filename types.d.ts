@@ -573,14 +573,33 @@ interface MongoSavedQuery {
 type AITaskPhase = 'BACKLOG' | 'DONE' | string
 type AIGitStrategy = 'worktree' | 'none'
 
+type AIPipelineRole = 'worker' | 'planner' | 'reviewer' | 'git'
+
 interface AIPipelinePhase {
   id: string
   name: string
   type: 'agent' | 'manual'
   prompt?: string
+  roles?: AIPipelineRole[]
+  customTools?: string
+  /** @deprecated Use roles + customTools instead */
   allowedTools?: string
   rejectPattern?: string
   rejectTarget?: string
+}
+
+interface AITaskProject {
+  path: string
+  label: string
+  gitStrategy: AIGitStrategy
+  baseBranch?: string
+  customBranchName?: string
+}
+
+interface AIProjectDiff {
+  project: string  // project label
+  path: string     // project path
+  diff: string     // raw git diff
 }
 
 interface AITask {
@@ -590,11 +609,7 @@ interface AITask {
   phase: AITaskPhase
   createdAt: string
   updatedAt: string
-  gitStrategy: AIGitStrategy
-  baseBranch?: string
-  customBranchName?: string
-  branchName?: string
-  projectPaths?: string[]
+  projects: AITaskProject[]
   worktrees: AITaskWorktree[]
   plan?: string               // Deprecated — use task directory files
   taskDirPath?: string
@@ -605,6 +620,16 @@ interface AITask {
   needsUserInput: boolean
   phaseHistory: AIPhaseHistoryEntry[]
   excludedFiles?: string[]
+  /** @deprecated Use projects[].gitStrategy instead */
+  gitStrategy?: AIGitStrategy
+  /** @deprecated Use projects[].baseBranch instead */
+  baseBranch?: string
+  /** @deprecated Use projects[].customBranchName instead */
+  customBranchName?: string
+  /** @deprecated Use projects[].path instead */
+  branchName?: string
+  /** @deprecated Use projects instead */
+  projectPaths?: string[]
 }
 
 interface AIPhaseHistoryEntry {
@@ -658,6 +683,10 @@ interface AIAutomationSettings {
   }
   globalRules: string
   knowledgeDocs: AIKnowledgeDoc[]
+  // UI preferences
+  diffViewMode?: 'unified' | 'split'
+  showResolvedComments?: boolean
+  fileViewMode?: 'list' | 'grid' | 'tree'
 }
 
 interface AITaskOutput {
@@ -1525,7 +1554,7 @@ type EventPayloadMapping = {
   }
   aiCreateTask: {
     return: AITask;
-    args: [string, string, AIGitStrategy, string[]?, string?, string?];
+    args: [string, string, AITaskProject[]];
   }
   aiSelectDirectory: {
     return: string | null;
@@ -1580,7 +1609,19 @@ type EventPayloadMapping = {
     args: [string];
   }
   aiGetTaskDiff: {
-    return: string;
+    return: AIProjectDiff[];
+    args: [string];
+  }
+  aiOpenTaskDir: {
+    return: void;
+    args: [string];
+  }
+  aiCreateTaskServices: {
+    return: DirectorySettings[];
+    args: [string];
+  }
+  aiCleanupTaskServices: {
+    return: void;
     args: [string];
   }
   aiRemoveWorktree: {
@@ -1818,7 +1859,7 @@ interface Window {
     subscribeMongoConnectionState: (callback: (state: MongoConnectionState) => void) => () => void
     // AI Automation API
     aiGetTasks: () => Promise<AITask[]>
-    aiCreateTask: (title: string, description: string, gitStrategy: AIGitStrategy, projectPaths?: string[], baseBranch?: string, customBranchName?: string) => Promise<AITask>
+    aiCreateTask: (title: string, description: string, projects: AITaskProject[]) => Promise<AITask>
     aiSelectDirectory: () => Promise<string | null>
     aiAttachTaskFiles: (taskId: string, filePaths: string[]) => Promise<string[]>
     aiDeleteTaskAttachment: (taskId: string, filename: string) => Promise<void>
@@ -1834,7 +1875,10 @@ interface Window {
     aiStopTask: (id: string) => Promise<void>
     aiSendTaskInput: (taskId: string, input: string) => Promise<void>
     aiGetTaskOutputHistory: (taskId: string) => Promise<string[]>
-    aiGetTaskDiff: (taskId: string) => Promise<string>
+    aiGetTaskDiff: (taskId: string) => Promise<AIProjectDiff[]>
+    aiOpenTaskDir: (taskId: string) => Promise<void>
+    aiCreateTaskServices: (taskId: string) => Promise<DirectorySettings[]>
+    aiCleanupTaskServices: (taskId: string) => Promise<void>
     aiRemoveWorktree: (taskId: string) => Promise<void>
     aiGetSettings: () => Promise<AIAutomationSettings>
     aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => Promise<void>

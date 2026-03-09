@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, globalShortcut, nativeImage, screen } from 'electron'
+import { app, BrowserWindow, Tray, Menu, globalShortcut, nativeImage, screen, shell } from 'electron'
 import { isDev } from './utils/is-dev.js'
 import { getPreloadPath, getUIPath, getOverlayUIPath, getAssetsPath } from './pathResolver.js'
 import path from 'path'
@@ -48,7 +48,7 @@ import { mongoManager } from './mongodb/mongo-manager.js'
 import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks, migrateTaskWorkspaces } from './ai-automation/task-manager.js'
 import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory } from './ai-automation/agent-runner.js'
 import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
-import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments } from './ai-automation/task-dir-manager.js'
+import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments, getOrCreateTaskDir } from './ai-automation/task-dir-manager.js'
 import { generateKnowledgeDoc } from './ai-automation/knowledge-generator.js'
 import { randomUUID } from 'crypto'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
@@ -669,8 +669,8 @@ app.on("ready", async () => {
     return getTasks()
   })
 
-  ipcMainHandle('aiCreateTask', async (_event, title, description, gitStrategy, projectPaths, baseBranch, customBranchName) => {
-    return aiCreateTask(title, description, gitStrategy, projectPaths, baseBranch, customBranchName)
+  ipcMainHandle('aiCreateTask', async (_event, title, description, projects) => {
+    return aiCreateTask(title, description, projects)
   })
 
   ipcMainHandle('aiSelectDirectory', async () => {
@@ -690,6 +690,16 @@ app.on("ready", async () => {
   })
 
   ipcMainHandle('aiDeleteTask', async (_event, id) => {
+    // Clean up any temporary worktree services
+    const directories = store.get('directories') as DirectorySettings[]
+    const prefix = `wt-${id}-`
+    const toRemove = directories.filter(d => d.id.startsWith(prefix))
+    for (const dir of toRemove) {
+      try { stopProcess(dir.id) } catch { /* not running */ }
+    }
+    if (toRemove.length > 0) {
+      store.set('directories', directories.filter(d => !d.id.startsWith(prefix)))
+    }
     aiDeleteTask(id)
   })
 
@@ -718,14 +728,105 @@ app.on("ready", async () => {
 
   ipcMainHandle('aiGetTaskDiff', async (_event, taskId) => {
     const task = getTasks().find(t => t.id === taskId)
-    if (!task) return ''
-    const diffSource = (task.worktrees?.[0]?.worktreePath) || task.projectPaths?.[0]
-    if (!diffSource) return ''
-    try {
-      return getAITaskDiff(diffSource, task.branchName, task.baseBranch)
-    } catch {
-      return ''
+    if (!task) return []
+
+    const results: AIProjectDiff[] = []
+
+    // Collect diffs from all worktrees
+    for (const wt of (task.worktrees || [])) {
+      try {
+        const project = task.projects?.find(p => p.path === wt.projectPath)
+        const diff = getAITaskDiff(wt.worktreePath, wt.branchName, project?.baseBranch)
+        if (diff) {
+          results.push({
+            project: project?.label || wt.projectPath.split('/').pop() || wt.projectPath,
+            path: wt.projectPath,
+            diff
+          })
+        }
+      } catch {
+        // Skip failed diffs
+      }
     }
+
+    // Fallback: if no worktrees, try first project
+    if (results.length === 0 && task.projects?.length > 0) {
+      try {
+        const diff = getAITaskDiff(task.projects[0].path)
+        if (diff) {
+          results.push({
+            project: task.projects[0].label,
+            path: task.projects[0].path,
+            diff
+          })
+        }
+      } catch {
+        // Skip
+      }
+    }
+
+    return results
+  })
+
+  ipcMainHandle('aiOpenTaskDir', async (_event, taskId) => {
+    const taskDir = getOrCreateTaskDir(taskId)
+    shell.openPath(taskDir)
+  })
+
+  ipcMainHandle('aiCreateTaskServices', async (_event, taskId) => {
+    const task = getTasks().find(t => t.id === taskId)
+    if (!task?.worktrees?.length) return []
+
+    // Clean up any stale entries from previous runs first
+    const prefix = `wt-${taskId}-`
+    let directories = (store.get('directories') as DirectorySettings[]).filter(d => !d.id.startsWith(prefix))
+    const created: DirectorySettings[] = []
+
+    for (const wt of task.worktrees) {
+      // Use the last path segment as unique suffix (project folder name)
+      const projectSlug = wt.projectPath.split('/').pop() || 'unknown'
+      const tempId = `wt-${taskId}-${projectSlug}`
+
+      // Find original directory config by project path
+      const original = directories.find(d => d.path === wt.projectPath)
+      const label = task.projects?.find(p => p.path === wt.projectPath)?.label || projectSlug
+
+      // If no node_modules in worktree, prepend npm install
+      let runCommand = original?.runCommand
+      if (runCommand && !fs.existsSync(path.join(wt.worktreePath, 'node_modules'))) {
+        runCommand = `npm install -f && ${runCommand}`
+      }
+
+      const tempDir: DirectorySettings = {
+        id: tempId,
+        path: wt.worktreePath,
+        name: label,
+        customLabel: `${label} (worktree)`,
+        runCommand,
+        port: original?.port,
+        packageJsonExists: original?.packageJsonExists ?? true,
+        isFrontendProj: original?.isFrontendProj ?? false,
+      }
+      directories.push(tempDir)
+      created.push(tempDir)
+    }
+
+    store.set('directories', directories)
+    return created
+  })
+
+  ipcMainHandle('aiCleanupTaskServices', async (_event, taskId) => {
+    const directories = store.get('directories') as DirectorySettings[]
+    const prefix = `wt-${taskId}-`
+    const toRemove = directories.filter(d => d.id.startsWith(prefix))
+
+    // Stop any running processes
+    for (const dir of toRemove) {
+      try { stopProcess(dir.id) } catch { /* not running */ }
+    }
+
+    const remaining = directories.filter(d => !d.id.startsWith(prefix))
+    store.set('directories', remaining)
   })
 
   ipcMainHandle('aiRemoveWorktree', async (_event, taskId) => {

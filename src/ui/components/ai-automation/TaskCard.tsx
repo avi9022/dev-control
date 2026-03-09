@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { AlertCircle, Trash2 } from 'lucide-react'
+import { renderMentions } from './mention-utils'
 
 interface TaskCardProps {
   task: AITask
@@ -29,12 +30,12 @@ export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete }) => {
         </div>
       </div>
       {task.description && (
-        <p className="text-xs text-neutral-400 mt-1 line-clamp-2">{task.description}</p>
+        <p className="text-xs text-neutral-400 mt-1 line-clamp-2">{renderMentions(task.description, new Set((task.projects || []).map(p => p.label)))}</p>
       )}
       <div className="flex items-center gap-2 mt-2 flex-wrap">
-        {task.projectPaths && task.projectPaths.length > 0 && task.projectPaths.map(p => (
-          <span key={p} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 truncate max-w-[120px]">
-            {p.split('/').pop()}
+        {task.projects && task.projects.length > 0 && task.projects.map((p, i) => (
+          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 truncate max-w-[120px]">
+            {p.label}
           </span>
         ))}
         {task.currentPhaseName && (

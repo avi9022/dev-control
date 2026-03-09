@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type FC, t
 interface AIAutomationContextType {
   tasks: AITask[]
   settings: AIAutomationSettings | null
-  createTask: (title: string, description: string, gitStrategy: AIGitStrategy, projectPaths?: string[], baseBranch?: string, customBranchName?: string) => Promise<AITask>
+  createTask: (title: string, description: string, projects: AITaskProject[]) => Promise<AITask>
   updateTask: (id: string, updates: Partial<AITask>) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   moveTaskPhase: (id: string, targetPhase: string) => Promise<void>
@@ -32,8 +32,8 @@ export const AIAutomationProvider: FC<PropsWithChildren> = ({ children }) => {
     return () => { unsubTasks(); unsubSettings() }
   }, [])
 
-  const createTask = useCallback(async (title: string, description: string, gitStrategy: AIGitStrategy, projectPaths?: string[], baseBranch?: string, customBranchName?: string) => {
-    return window.electron.aiCreateTask(title, description, gitStrategy, projectPaths, baseBranch, customBranchName)
+  const createTask = useCallback(async (title: string, description: string, projects: AITaskProject[]) => {
+    return window.electron.aiCreateTask(title, description, projects)
   }, [])
 
   const updateTask = useCallback(async (id: string, updates: Partial<AITask>) => {

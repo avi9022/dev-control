@@ -1,4 +1,4 @@
-import { useState, type FC } from 'react'
+import { useState, useEffect, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,7 +6,42 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ArrowLeft, Plus, Trash2, Folder, ChevronUp, ChevronDown, Wand2, Loader2 } from 'lucide-react'
+
+const ROLE_DEFINITIONS: { id: AIPipelineRole; label: string; tools: string }[] = [
+  { id: 'worker',   label: 'Worker',   tools: 'Bash, Edit, Write, Read, Grep, Glob' },
+  { id: 'planner',  label: 'Planner',  tools: 'Read, Grep, Glob, Write' },
+  { id: 'reviewer', label: 'Reviewer', tools: 'Read, Grep, Glob' },
+  { id: 'git',      label: 'Git',      tools: 'Bash(git *)' },
+]
+
+const PHASE_TEMPLATES: { id: string; label: string; roles: AIPipelineRole[]; prompt: string }[] = [
+  {
+    id: 'implementation',
+    label: 'Implementation',
+    roles: ['worker', 'git'],
+    prompt: 'You are an implementation agent. Follow the plan and implement the changes. Create commits for your work.',
+  },
+  {
+    id: 'planning',
+    label: 'Planning',
+    roles: ['planner', 'git'],
+    prompt: 'You are a planning agent. Explore the codebase and produce a detailed implementation plan. Do NOT implement any changes.',
+  },
+  {
+    id: 'review',
+    label: 'Code Review',
+    roles: ['reviewer', 'git'],
+    prompt: 'You are a code review agent. Review the changes for bugs, security issues, and code quality. Provide actionable feedback.',
+  },
+  {
+    id: 'custom',
+    label: 'Custom',
+    roles: [],
+    prompt: '',
+  },
+]
 
 interface AISettingsProps {
   onBack: () => void
@@ -72,15 +107,20 @@ interface SettingsTabProps {
 
 const PipelineTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
   const pipeline = settings.pipeline || []
+  const [showTemplates, setShowTemplates] = useState(false)
 
-  const addPhase = () => {
+  const addPhaseFromTemplate = (templateId: string) => {
+    const template = PHASE_TEMPLATES.find(t => t.id === templateId)
+    if (!template) return
     const newPhase: AIPipelinePhase = {
       id: crypto.randomUUID(),
-      name: 'New Phase',
+      name: template.label === 'Custom' ? 'New Phase' : template.label,
       type: 'agent',
-      prompt: '',
+      prompt: template.prompt,
+      roles: template.roles.length > 0 ? [...template.roles] : undefined,
     }
     updateSettings({ pipeline: [...pipeline, newPhase] })
+    setShowTemplates(false)
   }
 
   const updatePhase = (id: string, updates: Partial<AIPipelinePhase>) => {
@@ -128,9 +168,30 @@ const PipelineTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
         />
       ))}
 
-      <Button size="sm" onClick={addPhase}>
-        <Plus className="h-4 w-4 mr-1" /> Add Phase
-      </Button>
+      {showTemplates ? (
+        <div className="p-3 border border-neutral-700 rounded-md bg-neutral-800/50 space-y-2">
+          <p className="text-xs text-neutral-400">Choose a template:</p>
+          <div className="grid grid-cols-2 gap-2">
+            {PHASE_TEMPLATES.map(t => (
+              <button
+                key={t.id}
+                onClick={() => addPhaseFromTemplate(t.id)}
+                className="text-left p-2 rounded border border-neutral-700 hover:border-neutral-500 transition-colors"
+              >
+                <p className="text-sm font-medium text-white">{t.label}</p>
+                {t.roles.length > 0 && (
+                  <p className="text-[10px] text-neutral-500 mt-0.5">{t.roles.join(', ')}</p>
+                )}
+              </button>
+            ))}
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setShowTemplates(false)}>Cancel</Button>
+        </div>
+      ) : (
+        <Button size="sm" onClick={() => setShowTemplates(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Add Phase
+        </Button>
+      )}
 
       <div className="px-3 py-2 rounded bg-neutral-800/50 border border-neutral-700 text-sm text-neutral-400">
         Done (fixed)
@@ -149,6 +210,19 @@ const PipelinePhaseCard: FC<{
   onMove: (direction: -1 | 1) => void
 }> = ({ phase, index, total, allPhases, onUpdate, onDelete, onMove }) => {
   const [expanded, setExpanded] = useState(false)
+  const [localPrompt, setLocalPrompt] = useState(phase.prompt || '')
+  const [localName, setLocalName] = useState(phase.name)
+
+  const [localCustomTools, setLocalCustomTools] = useState(phase.customTools || '')
+  const [localRejectPattern, setLocalRejectPattern] = useState(phase.rejectPattern || '')
+
+  // Sync from props when phase changes externally (e.g. reorder)
+  useEffect(() => {
+    setLocalPrompt(phase.prompt || '')
+    setLocalName(phase.name)
+    setLocalCustomTools(phase.customTools || '')
+    setLocalRejectPattern(phase.rejectPattern || '')
+  }, [phase.id])
 
   return (
     <div className="border border-neutral-700 rounded-md overflow-hidden">
@@ -182,7 +256,7 @@ const PipelinePhaseCard: FC<{
           <div className="flex gap-3">
             <div className="flex-1">
               <Label>Name</Label>
-              <Input value={phase.name} onChange={e => onUpdate({ name: e.target.value })} className="mt-1" />
+              <Input value={localName} onChange={e => setLocalName(e.target.value)} onBlur={() => onUpdate({ name: localName })} className="mt-1" />
             </div>
             <div>
               <Label>Type</Label>
@@ -201,28 +275,57 @@ const PipelinePhaseCard: FC<{
               <div>
                 <Label>System Prompt</Label>
                 <Textarea
-                  value={phase.prompt || ''}
-                  onChange={e => onUpdate({ prompt: e.target.value })}
+                  value={localPrompt}
+                  onChange={e => setLocalPrompt(e.target.value)}
+                  onBlur={() => onUpdate({ prompt: localPrompt })}
                   placeholder="Instructions for the AI agent in this phase..."
                   rows={6}
                   className="mt-1 font-mono text-sm"
                 />
               </div>
               <div>
-                <Label>Allowed Tools <span className="text-neutral-500 font-normal">(optional)</span></Label>
-                <Input
-                  value={phase.allowedTools || ''}
-                  onChange={e => onUpdate({ allowedTools: e.target.value })}
-                  placeholder="Leave empty for all tools, or e.g. Read,Glob,Grep,Bash(git:*)"
-                  className="mt-1 font-mono text-sm"
-                />
+                <Label>Tool Roles</Label>
+                <p className="text-xs text-neutral-500 mb-2">Select roles to control which tools the agent can use. No selection = all tools allowed.</p>
+                <div className="space-y-2">
+                  {ROLE_DEFINITIONS.map(role => {
+                    const checked = phase.roles?.includes(role.id) ?? false
+                    return (
+                      <label key={role.id} className="flex items-start gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            const current = phase.roles || []
+                            const next = v ? [...current, role.id] : current.filter(r => r !== role.id)
+                            onUpdate({ roles: next.length > 0 ? next : undefined })
+                          }}
+                          className="mt-0.5"
+                        />
+                        <div>
+                          <span className="text-sm text-white">{role.label}</span>
+                          <p className="text-[10px] text-neutral-500">{role.tools}</p>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+                <div className="mt-2">
+                  <Label className="text-xs">Custom Tools <span className="text-neutral-500 font-normal">(optional)</span></Label>
+                  <Input
+                    value={localCustomTools}
+                    onChange={e => setLocalCustomTools(e.target.value)}
+                    onBlur={() => onUpdate({ customTools: localCustomTools || undefined })}
+                    placeholder="e.g. WebFetch, Agent, mcp__github__*"
+                    className="mt-1 font-mono text-sm"
+                  />
+                </div>
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
                   <Label>Reject Pattern <span className="text-neutral-500 font-normal">(optional)</span></Label>
                   <Input
-                    value={phase.rejectPattern || ''}
-                    onChange={e => onUpdate({ rejectPattern: e.target.value })}
+                    value={localRejectPattern}
+                    onChange={e => setLocalRejectPattern(e.target.value)}
+                    onBlur={() => onUpdate({ rejectPattern: localRejectPattern || undefined })}
                     placeholder="e.g. REVIEW_DECISION: REJECT"
                     className="mt-1 font-mono text-sm"
                   />
@@ -254,12 +357,13 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
   const [editingId, setEditingId] = useState<string | null>(null)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [generatePath, setGeneratePath] = useState('')
+  const [directories, setDirectories] = useState<DirectorySettings[]>([])
 
-  const { tasks } = useAIAutomation()
-
-  const knownPaths = [...new Set(
-    tasks.flatMap(t => t.projectPaths || [])
-  )]
+  useEffect(() => {
+    window.electron.getDirectories().then(setDirectories)
+    const unsub = window.electron.subscribeDirectories(setDirectories)
+    return unsub
+  }, [])
 
   const addDoc = () => {
     const newDoc: AIKnowledgeDoc = {
@@ -350,14 +454,14 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
           <h4 className="text-sm font-medium text-white">Generate Knowledge Doc</h4>
           <p className="text-xs text-neutral-400">Select a project to explore. Claude will analyze the codebase and generate a knowledge document.</p>
 
-          {knownPaths.length > 0 && (
+          {directories.length > 0 && (
             <div>
-              <Label className="text-xs">From existing tasks</Label>
+              <Label className="text-xs">From DevControl projects</Label>
               <Select value={generatePath} onValueChange={setGeneratePath}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Select a project..." /></SelectTrigger>
                 <SelectContent>
-                  {knownPaths.map(p => (
-                    <SelectItem key={p} value={p}>{p.split('/').pop()}</SelectItem>
+                  {directories.map(d => (
+                    <SelectItem key={d.id} value={d.path}>{d.customLabel || d.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

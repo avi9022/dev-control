@@ -13,10 +13,11 @@ export const DirectoriesList: FC<DirectoriesListProps> = ({
 }) => {
 
   const { directories, chooseDirectory, addFromFolder } = useDirectories()
-  const filteredList = searchTerm ? directories.filter(({ name }) => name.toLowerCase().includes(searchTerm.toLowerCase())) : directories
+  const visibleDirs = directories.filter(({ id }) => !id.startsWith('wt-'))
+  const filteredList = searchTerm ? visibleDirs.filter(({ name }) => name.toLowerCase().includes(searchTerm.toLowerCase())) : visibleDirs
 
   return <div>
-    {directories.length ? filteredList.length ? filteredList.map((settings) => <div key={settings.id}>
+    {visibleDirs.length ? filteredList.length ? filteredList.map((settings) => <div key={settings.id}>
       <div onClick={() => {
         chooseDirectory(settings.id)
       }}>

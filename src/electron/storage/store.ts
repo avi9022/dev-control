@@ -102,7 +102,7 @@ Save your plan to plan.md in the task directory provided via --add-dir. Be speci
 - Any risks or considerations
 
 IMPORTANT: Do NOT take any action. Do NOT create or modify project files. ONLY explore and write the plan.`,
-    allowedTools: 'Read,Glob,Grep,Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(git:*),Write',
+    roles: ['planner', 'git'],
   },
   {
     id: 'in-progress',
@@ -115,6 +115,7 @@ IMPORTANT: Do NOT take any action. Do NOT create or modify project files. ONLY e
 4. Ask for help if you get stuck
 
 Work methodically through the plan step by step.`,
+    roles: ['worker', 'git'],
   },
   {
     id: 'agent-review',
@@ -131,7 +132,7 @@ Save your review to review.md in the task directory.
 At the end of your review, you MUST output one of:
 - REVIEW_DECISION: APPROVE — if the changes are acceptable
 - REVIEW_DECISION: REJECT — if changes need work, followed by your comments`,
-    allowedTools: 'Read,Glob,Grep,Bash(git:*),Bash(diff:*),Write',
+    roles: ['reviewer', 'git'],
     rejectPattern: 'REVIEW_DECISION: REJECT',
     rejectTarget: 'in-progress',
   },

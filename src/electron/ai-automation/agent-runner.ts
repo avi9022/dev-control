@@ -9,11 +9,19 @@ import { buildPrompt } from './prompt-builder.js'
 import { createWorktree, generateBranchName, getDiff } from './worktree-manager.js'
 import { getOrCreateTaskDir } from './task-dir-manager.js'
 
+const ROLE_TOOLS: Record<string, string[]> = {
+  worker:   ['Bash', 'Edit', 'Write', 'Read', 'Grep', 'Glob'],
+  planner:  ['Read', 'Grep', 'Glob', 'Write'],
+  reviewer: ['Read', 'Grep', 'Glob'],
+  git:      ['Bash(git *)'],
+}
+
 const runningProcesses = new Map<string, ChildProcess>()
 const taskQueue: string[] = []
 let mainWindow: BrowserWindow | null = null
 let resolvedClaudePath: string | null = null
 let aiLogsDir: string | null = null
+let guardScriptPath: string | null = null
 
 function getAILogsDir(): string {
   if (!aiLogsDir) {
@@ -41,6 +49,136 @@ function getClaudePath(): string {
     resolvedClaudePath = 'claude'
   }
   return resolvedClaudePath
+}
+
+function getGuardScriptPath(): string {
+  if (guardScriptPath) return guardScriptPath
+  const dir = path.join(app.getPath('userData'), 'ai-scripts')
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  guardScriptPath = path.join(dir, 'ai-guard.sh')
+
+  const script = `#!/bin/bash
+INPUT=$(cat)
+TOOL=$(echo "$INPUT" | jq -r '.tool_name')
+
+if [ -z "$ALLOWED_WRITE_DIR" ]; then
+  exit 0
+fi
+
+get_path() {
+  echo "$INPUT" | jq -r "$1 // empty"
+}
+
+resolve_path() {
+  local raw="$1"
+  local dir="$raw"
+  while [ ! -d "$dir" ] && [ "$dir" != "/" ]; do
+    dir=$(dirname "$dir")
+  done
+  local resolved
+  resolved=$(cd "$dir" 2>/dev/null && echo "$(pwd -P)/$(basename "$raw")")
+  [ -z "$resolved" ] && resolved=$(realpath -m "$raw" 2>/dev/null || echo "$raw")
+  echo "$resolved"
+}
+
+check_write() {
+  local raw="$1"
+  [ -z "$raw" ] && return 0
+  local resolved
+  resolved=$(resolve_path "$raw")
+  local write_real
+  write_real=$(cd "$ALLOWED_WRITE_DIR" 2>/dev/null && pwd -P)
+  [ -z "$write_real" ] && return 1
+  case "$resolved" in
+    "$write_real"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+check_read() {
+  local raw="$1"
+  [ -z "$raw" ] && return 0
+  local resolved
+  resolved=$(resolve_path "$raw")
+
+  # Check write dir first
+  local write_real
+  write_real=$(cd "$ALLOWED_WRITE_DIR" 2>/dev/null && pwd -P)
+  if [ -n "$write_real" ]; then
+    case "$resolved" in
+      "$write_real"*) return 0 ;;
+    esac
+  fi
+
+  # Check read dirs
+  IFS=',' read -ra DIRS <<< "$ALLOWED_READ_DIRS"
+  for dir in "\${DIRS[@]}"; do
+    [ -z "$dir" ] && continue
+    local dir_real
+    dir_real=$(cd "$dir" 2>/dev/null && pwd -P)
+    [ -z "$dir_real" ] && continue
+    case "$resolved" in
+      "$dir_real"*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+case "$TOOL" in
+  Edit|Write)
+    FILE=$(get_path '.tool_input.file_path')
+    if ! check_write "$FILE"; then
+      echo "Blocked: $FILE is outside writable directory" >&2
+      exit 2
+    fi
+    ;;
+  Read)
+    FILE=$(get_path '.tool_input.file_path')
+    if ! check_read "$FILE"; then
+      echo "Blocked: $FILE is outside allowed directories" >&2
+      exit 2
+    fi
+    ;;
+  Grep|Glob)
+    DIR=$(get_path '.tool_input.path')
+    if [ -n "$DIR" ] && ! check_read "$DIR"; then
+      echo "Blocked: $DIR is outside allowed directories" >&2
+      exit 2
+    fi
+    ;;
+esac
+
+exit 0
+`
+  fs.writeFileSync(guardScriptPath, script, { mode: 0o755 })
+  return guardScriptPath
+}
+
+function buildAllowedTools(phaseConfig: AIPipelinePhase): string[] {
+  // Legacy support: if old allowedTools string exists and no roles, use it
+  if (phaseConfig.allowedTools && (!phaseConfig.roles || phaseConfig.roles.length === 0) && !phaseConfig.customTools) {
+    return phaseConfig.allowedTools.split(',').map(t => t.trim()).filter(Boolean)
+  }
+
+  const tools = new Set<string>()
+
+  // Add tools from selected roles
+  if (phaseConfig.roles) {
+    for (const role of phaseConfig.roles) {
+      const roleTools = ROLE_TOOLS[role]
+      if (roleTools) {
+        for (const tool of roleTools) tools.add(tool)
+      }
+    }
+  }
+
+  // Add custom tools
+  if (phaseConfig.customTools) {
+    const custom = phaseConfig.customTools.split(/[,\s]+/).filter(Boolean)
+    for (const tool of custom) tools.add(tool)
+  }
+
+  return [...tools]
 }
 
 export function setAgentMainWindow(window: BrowserWindow) {
@@ -227,18 +365,24 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
 
   const settings = getSettings()
 
-  // Create worktree on first agent phase if needed
-  if (task.worktrees.length === 0 && task.projectPaths?.[0] && task.gitStrategy !== 'none') {
-    const branchName = task.customBranchName || generateBranchName(taskId, task.title)
-    const baseBranch = task.baseBranch || settings.defaultBaseBranch || undefined
-    try {
-      const worktreePath = createWorktree(taskId, task.projectPaths[0], branchName, baseBranch)
-      const worktree: AITaskWorktree = { projectPath: task.projectPaths[0], worktreePath, branchName }
-      updateTask(taskId, { branchName, worktrees: [worktree] })
+  // Create worktrees on first agent phase for all projects with worktree strategy
+  if (task.worktrees.length === 0 && task.projects.length > 0) {
+    const newWorktrees: AITaskWorktree[] = []
+    for (const project of task.projects) {
+      if (project.gitStrategy !== 'worktree') continue
+      const branchName = project.customBranchName || generateBranchName(taskId, task.title)
+      const baseBranch = project.baseBranch || settings.defaultBaseBranch || undefined
+      try {
+        const worktreePath = createWorktree(taskId, project.path, branchName, baseBranch)
+        newWorktrees.push({ projectPath: project.path, worktreePath, branchName })
+        emit(taskId, `\n📁 Created worktree: ${worktreePath} (branch: ${branchName} from ${baseBranch || 'auto'})\n`)
+      } catch (err) {
+        emit(taskId, `\n⚠️ Git setup failed for ${project.label}: ${(err as Error).message}. Agent will use project directory.\n`)
+      }
+    }
+    if (newWorktrees.length > 0) {
+      updateTask(taskId, { worktrees: newWorktrees })
       task = getTaskById(taskId)!
-      emit(taskId, `\n📁 Created worktree: ${worktreePath} (branch: ${branchName} from ${baseBranch || 'auto'})\n`)
-    } catch (err) {
-      emit(taskId, `\n⚠️ Git setup failed: ${(err as Error).message}. Agent will use project directory.\n`)
     }
   }
 
@@ -256,20 +400,42 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     message += '\n\nHuman review comments to address:\n' + task.humanComments.map(c => `- ${c.file}:${c.line}: ${c.comment}`).join('\n')
   }
 
-  // Tool restrictions from phase config
+  // Tool restrictions from roles + custom tools
+  const allowedTools = buildAllowedTools(phaseConfig)
   const toolArgs: string[] = []
-  if (phaseConfig.allowedTools) {
-    toolArgs.push('--allowedTools', phaseConfig.allowedTools)
+  if (allowedTools.length > 0) {
+    toolArgs.push('--allowedTools', allowedTools.join(','))
   }
 
-  // Add task directory and extra project paths
+  // Guard hook: restrict file operations to task directory
+  const guardScript = getGuardScriptPath()
+  const guardSettings = JSON.stringify({
+    hooks: {
+      PreToolUse: [{
+        matcher: 'Edit|Write|Read|Grep|Glob',
+        hooks: [{
+          type: 'command',
+          command: guardScript
+        }]
+      }]
+    }
+  })
+
+  // Add task directory, additional worktrees, and read-only project paths
   const addDirArgs: string[] = []
   if (task.taskDirPath) {
     addDirArgs.push('--add-dir', task.taskDirPath)
   }
-  if (task.projectPaths && task.projectPaths.length > 1) {
-    for (const p of task.projectPaths.slice(1)) {
-      addDirArgs.push('--add-dir', p)
+  // Add worktrees beyond the first (first is CWD)
+  for (const wt of task.worktrees.slice(1)) {
+    addDirArgs.push('--add-dir', wt.worktreePath)
+  }
+  // Add read-only project paths
+  const readOnlyPaths: string[] = []
+  for (const project of task.projects) {
+    if (project.gitStrategy === 'none') {
+      addDirArgs.push('--add-dir', project.path)
+      readOnlyPaths.push(project.path)
     }
   }
 
@@ -279,6 +445,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     '--output-format', 'stream-json',
     '--dangerously-skip-permissions',
     '--system-prompt', systemPrompt,
+    '--settings', guardSettings,
     ...toolArgs,
     ...addDirArgs,
     '--',
@@ -289,8 +456,10 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   let cwd: string
   if (task.worktrees.length > 0) {
     cwd = task.worktrees[0].worktreePath
+  } else if (task.projects.length > 0) {
+    cwd = task.projects[0].path
   } else {
-    cwd = task.projectPaths?.[0] || process.cwd()
+    cwd = process.cwd()
   }
 
   const claudePath = getClaudePath()
@@ -298,7 +467,11 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
 
   const child = spawn(claudePath, args, {
     cwd,
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      ALLOWED_WRITE_DIR: task.taskDirPath || '',
+      ALLOWED_READ_DIRS: [task.taskDirPath || '', ...readOnlyPaths].filter(Boolean).join(','),
+    },
     stdio: ['pipe', 'pipe', 'pipe']
   })
 

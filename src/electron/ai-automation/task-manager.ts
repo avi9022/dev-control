@@ -29,10 +29,7 @@ export function getTaskById(id: string): AITask | undefined {
 export function createTask(
   title: string,
   description: string,
-  gitStrategy: AIGitStrategy,
-  projectPaths?: string[],
-  baseBranch?: string,
-  customBranchName?: string
+  projects: AITaskProject[]
 ): AITask {
   const now = new Date().toISOString()
   const id = randomUUID()
@@ -44,10 +41,7 @@ export function createTask(
     phase: 'BACKLOG',
     createdAt: now,
     updatedAt: now,
-    gitStrategy,
-    baseBranch: baseBranch || undefined,
-    customBranchName: customBranchName || undefined,
-    projectPaths: projectPaths?.length ? projectPaths : undefined,
+    projects,
     taskDirPath: taskDir,
     worktrees: [],
     needsUserInput: false,
@@ -195,6 +189,27 @@ export function migrateTaskWorkspaces() {
     if ('maxReviewCycles' in task || 'reviewCycleCount' in task) {
       delete (task as any).maxReviewCycles
       delete (task as any).reviewCycleCount
+      changed = true
+    }
+
+    // Migrate projectPaths to projects array
+    if (!task.projects && task.projectPaths) {
+      const paths = task.projectPaths || []
+      task.projects = paths.map((p, i) => ({
+        path: p,
+        label: p.split('/').pop() || p,
+        gitStrategy: (task as any).gitStrategy || 'worktree',
+        ...(i === 0 ? {
+          baseBranch: (task as any).baseBranch || undefined,
+          customBranchName: (task as any).customBranchName || undefined,
+        } : {})
+      }))
+      changed = true
+    }
+
+    // Ensure projects array exists
+    if (!task.projects) {
+      task.projects = []
       changed = true
     }
   }

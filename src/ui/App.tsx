@@ -43,9 +43,13 @@ function App() {
       <AIAutomationProvider>
         <div>
           {aiMode ? (
-            <div className="h-screen flex flex-col bg-background text-foreground">
-              <AIKanban />
-            </div>
+            <DirectoriesProvider>
+              <TooltipProvider>
+                <div className="h-screen flex flex-col bg-background text-foreground">
+                  <AIKanban />
+                </div>
+              </TooltipProvider>
+            </DirectoriesProvider>
           ) : (
             <ViewsProvider>
               <ToolsProvider>
