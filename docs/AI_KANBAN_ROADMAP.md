@@ -11,6 +11,7 @@
 - [x] **F15**: Edit Task & Workspace Restructure — edit task in BACKLOG, file attachments (create + detail), per-task workspace dirs, configurable taskDataRoot, worktrees array migration
 - [x] **F13**: Task File Management — never-overwrite rule with numbered suffixes, phase cycle count in prompts, file include/exclude toggles, delete agent files, description in TaskFilesTab
 - [x] **F20**: Agent Security — role-based tool restriction per phase, PreToolUse guard hook for directory boundary enforcement, phase templates
+- [x] **F24**: Task Amendments — add new requirements to existing/completed tasks, send back to any pipeline phase, amendments tab + quick-action header button, prompt builder includes amendments for agent context
 
 ## Planned Features
 
@@ -26,6 +27,13 @@
 - [ ] **F19**: Agent Comment Resolution — allow agents to mark review comments as resolved after addressing them
 - [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work
 - [ ] **F17**: Per-Phase Retry Limits — move maxReviewCycles from task to pipeline phase config (`maxRetries` per phase), track retries per-phase instead of globally, remove from task creation dialog
+- [ ] **F21**: Diff Viewer File Tree — full collapsible file tree in diff viewer sidebar with directory nesting, file status icons (added/modified/deleted), and change counts
+- [ ] **F22**: Diff Viewer Search — search across all diff content with match highlighting, result count, and prev/next navigation
+- [ ] **F23**: Continue Task — allow resuming a task from any phase (including DONE), re-enter the pipeline at a chosen phase with existing context, worktrees, and history preserved
+
+## Design Documents
+
+- Amendments design: `docs/plans/2026-03-10-task-amendments-design.md`
 
 ## Bugs & Fixes
 
