@@ -63,6 +63,16 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
   }
   parts.push(taskContext)
 
+  // 5b. Amendments (new requirements added after initial implementation)
+  if (task.amendments && task.amendments.length > 0) {
+    let amendSection = `## Amendments\n\nThe following requirements were added after the initial task was created. Your existing work already addresses the original task description — focus on these additions:\n`
+    for (const amendment of task.amendments) {
+      const date = new Date(amendment.createdAt).toLocaleDateString()
+      amendSection += `\n### Amendment (${date})\n\n${amendment.text}\n`
+    }
+    parts.push(amendSection)
+  }
+
   // 6. Task directory context (filtered by exclusions)
   if (task.taskDirPath) {
     const agentDir = path.join(task.taskDirPath, 'agent')
