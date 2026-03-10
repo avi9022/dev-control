@@ -150,25 +150,29 @@
 
 .ai-kanban {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --ai-surface-0: oklch(23% 0.005 270);
-  --ai-surface-1: oklch(27% 0.004 270);
-  --ai-surface-2: oklch(31% 0.003 270);
-  --ai-surface-3: oklch(35% 0.003 270);
-  --ai-border: oklch(40% 0.003 270);
-  --ai-border-subtle: oklch(35% 0.003 270);
-  --ai-text-primary: oklch(93% 0 0);
-  --ai-text-secondary: oklch(68% 0 0);
-  --ai-text-tertiary: oklch(52% 0 0);
-  --ai-accent: oklch(75% 0.12 260);
-  --ai-accent-subtle: oklch(35% 0.04 260);
-  --ai-success: oklch(78% 0.12 160);
-  --ai-success-subtle: oklch(33% 0.04 160);
-  --ai-warning: oklch(82% 0.10 80);
-  --ai-warning-subtle: oklch(35% 0.04 80);
-  --ai-pink: oklch(78% 0.10 350);
-  --ai-pink-subtle: oklch(34% 0.04 350);
-  --ai-purple: oklch(75% 0.10 300);
-  --ai-purple-subtle: oklch(34% 0.04 300);
+  /* Warm charcoal base — cozy, not cold */
+  --ai-surface-0: #1C1917;
+  --ai-surface-1: #252220;
+  --ai-surface-2: #2E2A28;
+  --ai-surface-3: #3A3533;
+  --ai-border: #4A4442;
+  --ai-border-subtle: #3A3533;
+  --ai-text-primary: #FAF9F7;
+  --ai-text-secondary: #B0AAA4;
+  --ai-text-tertiary: #7A756F;
+  /* Soft muted pastels — lavender, sage, peach */
+  --ai-accent: #AA91CD;
+  --ai-accent-subtle: #352D42;
+  --ai-success: #8BC5A0;
+  --ai-success-subtle: #2A3530;
+  --ai-warning: #E5C287;
+  --ai-warning-subtle: #3A3328;
+  --ai-pink: #D4A0A0;
+  --ai-pink-subtle: #3A2E2E;
+  --ai-purple: #B5A3D1;
+  --ai-purple-subtle: #332D3E;
+  --ai-sage: #9BB89E;
+  --ai-sage-subtle: #2D3530;
   --ai-mono: 'JetBrains Mono', monospace;
 }
 
