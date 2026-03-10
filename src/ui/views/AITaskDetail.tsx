@@ -483,6 +483,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   const isAgentRunning = !!task.activeProcessPid
   const [showRequestChanges, setShowRequestChanges] = useState(false)
   const [generalComment, setGeneralComment] = useState('')
+  const [requestChangesPhase, setRequestChangesPhase] = useState<string>('')
 
   const handleAmendment = async (text: string, targetPhase: string) => {
     const amendment: AITaskAmendment = {
@@ -510,17 +511,8 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
     await updateTask(task.id, { humanComments: allComments })
     setGeneralComment('')
     setShowRequestChanges(false)
-    // Find previous agent phase to send back to
-    const currentIndex = pipeline.findIndex(p => p.id === task.phase)
-    let targetPhase = pipeline[0]?.id
-    for (let i = currentIndex - 1; i >= 0; i--) {
-      if (pipeline[i].type === 'agent') {
-        targetPhase = pipeline[i].id
-        break
-      }
-    }
-    if (targetPhase) {
-      await moveTaskPhase(task.id, targetPhase)
+    if (requestChangesPhase) {
+      await moveTaskPhase(task.id, requestChangesPhase)
     }
   }
 
@@ -629,7 +621,27 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowRequestChanges(prev => !prev)}
+                onClick={() => {
+                  setShowRequestChanges(prev => {
+                    if (!prev) {
+                      const defaultPhase = settings?.defaultRequestChangesPhase
+                      if (defaultPhase && pipeline.some(p => p.id === defaultPhase)) {
+                        setRequestChangesPhase(defaultPhase)
+                      } else {
+                        const currentIndex = pipeline.findIndex(p => p.id === task.phase)
+                        let fallback = pipeline[0]?.id || ''
+                        for (let i = currentIndex - 1; i >= 0; i--) {
+                          if (pipeline[i].type === 'agent') {
+                            fallback = pipeline[i].id
+                            break
+                          }
+                        }
+                        setRequestChangesPhase(fallback)
+                      }
+                    }
+                    return !prev
+                  })
+                }}
               >
                 <XCircle className="h-3 w-3 mr-1" />
                 Request Changes
@@ -652,6 +664,19 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                   />
                   <div className="text-[10px] text-neutral-500">
                     {reviewComments.filter(c => !c.resolved).length} unresolved inline comment{reviewComments.filter(c => !c.resolved).length !== 1 ? 's' : ''} will also be sent
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-neutral-400 mb-1 block">Send to Phase</label>
+                    <Select value={requestChangesPhase} onValueChange={setRequestChangesPhase}>
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue placeholder="Select phase..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pipeline.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setShowRequestChanges(false); setGeneralComment('') }}>
