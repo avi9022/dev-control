@@ -620,6 +620,7 @@ interface AITask {
   needsUserInput: boolean
   phaseHistory: AIPhaseHistoryEntry[]
   excludedFiles?: string[]
+  amendments?: AITaskAmendment[]
   /** @deprecated Use projects[].gitStrategy instead */
   gitStrategy?: AIGitStrategy
   /** @deprecated Use projects[].baseBranch instead */
@@ -657,6 +658,13 @@ interface AIHumanComment {
   comment: string
   createdAt: string
   resolved?: boolean
+}
+
+interface AITaskAmendment {
+  id: string
+  text: string
+  targetPhase: string
+  createdAt: string
 }
 
 interface AIKnowledgeDoc {
