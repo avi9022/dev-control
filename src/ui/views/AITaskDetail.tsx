@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare, Pencil, Plus, X, Paperclip, Check, List, LayoutGrid, FolderTree, FileText, ChevronRight, ChevronDown, FilePlus } from 'lucide-react'
 import { renderMentions } from '@/ui/components/ai-automation/mention-utils'
 import { AmendmentForm } from '@/ui/components/ai-automation/AmendmentForm'
@@ -429,6 +430,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
     }
   }
 
+  const [showAmendDialog, setShowAmendDialog] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editProjects, setEditProjects] = useState<AITaskProject[]>([])
@@ -481,6 +483,19 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   const isAgentRunning = !!task.activeProcessPid
   const [showRequestChanges, setShowRequestChanges] = useState(false)
   const [generalComment, setGeneralComment] = useState('')
+
+  const handleAmendment = async (text: string, targetPhase: string) => {
+    const amendment: AITaskAmendment = {
+      id: crypto.randomUUID(),
+      text,
+      targetPhase,
+      createdAt: new Date().toISOString()
+    }
+    const existing = task.amendments || []
+    await updateTask(task.id, { amendments: [...existing, amendment] })
+    await moveTaskPhase(task.id, targetPhase)
+    setShowAmendDialog(false)
+  }
 
   const handleRequestChanges = async () => {
     let allComments = [...reviewComments]
@@ -574,6 +589,24 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Dialog open={showAmendDialog} onOpenChange={setShowAmendDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <FilePlus className="h-3 w-3 mr-1" /> Amend
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Add Amendment</DialogTitle>
+              </DialogHeader>
+              <AmendmentForm
+                pipeline={pipeline}
+                onSubmit={handleAmendment}
+                onCancel={() => setShowAmendDialog(false)}
+                excludeProjectPaths={new Set((task.projects || []).map(p => p.path))}
+              />
+            </DialogContent>
+          </Dialog>
           {canEdit && !editing && (
             <Button variant="outline" size="sm" onClick={startEditing}>
               <Pencil className="h-3 w-3 mr-1" /> Edit
