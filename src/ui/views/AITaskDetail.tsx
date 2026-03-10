@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare, Pencil, Plus, X, Paperclip, Check, List, LayoutGrid, FolderTree, FileText, ChevronRight, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Trash2, GitBranch, MessageSquare, Pencil, Plus, X, Paperclip, Check, List, LayoutGrid, FolderTree, FileText, ChevronRight, ChevronDown, FilePlus } from 'lucide-react'
 import { renderMentions } from '@/ui/components/ai-automation/mention-utils'
+import { AmendmentForm } from '@/ui/components/ai-automation/AmendmentForm'
 import { TaskDevControl } from '@/ui/components/ai-automation/TaskDevControl'
 import { MentionEditor, type MentionEditorHandle } from '@/ui/components/ai-automation/MentionEditor'
 
@@ -340,6 +341,82 @@ const AttachmentsInline: FC<{ taskId: string }> = ({ taskId }) => {
   )
 }
 
+const AmendmentsTab: FC<{ task: AITask; pipeline: AIPipelinePhase[] }> = ({ task, pipeline }) => {
+  const { updateTask, moveTaskPhase } = useAIAutomation()
+  const [showForm, setShowForm] = useState(false)
+  const excludePaths = new Set((task.projects || []).map(p => p.path))
+
+  const handleSubmit = async (text: string, targetPhase: string) => {
+    const amendment: AITaskAmendment = {
+      id: crypto.randomUUID(),
+      text,
+      targetPhase,
+      createdAt: new Date().toISOString()
+    }
+    const existing = task.amendments || []
+    await updateTask(task.id, { amendments: [...existing, amendment] })
+    await moveTaskPhase(task.id, targetPhase)
+    setShowForm(false)
+  }
+
+  const amendments = task.amendments || []
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <div className="flex items-center justify-between">
+        <p className="text-neutral-500 text-xs">
+          Add new requirements to this task and send it back into the pipeline.
+        </p>
+        {!showForm && (
+          <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
+            <FilePlus className="h-3 w-3 mr-1" /> Add Amendment
+          </Button>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="rounded-lg border border-neutral-700 bg-neutral-800/50 p-4">
+          <AmendmentForm
+            pipeline={pipeline}
+            onSubmit={handleSubmit}
+            onCancel={() => setShowForm(false)}
+            excludeProjectPaths={excludePaths}
+          />
+        </div>
+      )}
+
+      {amendments.length === 0 && !showForm ? (
+        <div className="text-center py-8 text-neutral-600 text-xs">
+          <FilePlus className="h-8 w-8 mx-auto mb-2 text-neutral-700" />
+          <p>No amendments yet.</p>
+          <p className="mt-1">Use amendments to add new requirements to a completed or in-progress task.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {amendments.map((a) => {
+            const phaseConf = pipeline.find(p => p.id === a.targetPhase)
+            return (
+              <div key={a.id} className="rounded-lg border border-neutral-700 bg-neutral-800/30 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-mono text-neutral-500">
+                    {new Date(a.createdAt).toLocaleString()}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-700 text-neutral-400">
+                    → {phaseConf?.name || a.targetPhase}
+                  </span>
+                </div>
+                <p className="text-sm text-neutral-300 whitespace-pre-wrap">
+                  {renderMentions(a.text, new Set((task.projects || []).map(p => p.label)))}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   const { tasks, stopTask, moveTaskPhase, updateTask, settings, updateSettings } = useAIAutomation()
   const task = tasks.find(t => t.id === taskId)
@@ -598,6 +675,14 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
           )}
           <TabsTrigger value="files">Task Files</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="amendments" className="relative">
+            Amendments
+            {(task.amendments?.length || 0) > 0 && (
+              <span className="ml-1 text-[10px] min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-blue-900/50 text-blue-300">
+                {task.amendments!.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="task" className="flex-1 min-h-0 overflow-y-auto p-4">
@@ -816,6 +901,10 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
               )
             })}
           </div>
+        </TabsContent>
+
+        <TabsContent value="amendments" className="flex-1 min-h-0 overflow-y-auto p-4">
+          <AmendmentsTab task={task} pipeline={pipeline} />
         </TabsContent>
       </Tabs>
     </div>
