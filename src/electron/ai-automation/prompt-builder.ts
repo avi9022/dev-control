@@ -65,12 +65,13 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
 
   // 6. Task directory context (filtered by exclusions)
   if (task.taskDirPath) {
+    const agentDir = path.join(task.taskDirPath, 'agent')
     const allFiles = listTaskDirFiles(task.id)
     const files = allFiles.filter(f => !excluded.includes(`agent/${f}`))
     const excludedAgentFiles = allFiles.filter(f => excluded.includes(`agent/${f}`))
 
     if (files.length > 0 || excludedAgentFiles.length > 0) {
-      let dirContext = `## Task Directory\n\nPath: ${task.taskDirPath}\n\n`
+      let dirContext = `## Task Directory\n\nPath: ${agentDir}\n\n`
       if (files.length > 0) {
         dirContext += `Files available:\n`
         for (const file of files) {
@@ -84,10 +85,10 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
       if (excludedAgentFiles.length > 0) {
         dirContext += `\nExcluded files (exist but user chose not to include): ${excludedAgentFiles.join(', ')}\n`
       }
-      dirContext += `\nYou can read and write files in this directory. Use it for plans, reviews, and other artifacts.`
+      dirContext += `\nYou MUST save all files (plans, reviews, notes) to this directory: ${agentDir}`
       parts.push(dirContext)
     } else {
-      parts.push(`## Task Directory\n\nPath: ${task.taskDirPath}\n\nThis directory is empty. You can write files here (plans, reviews, notes) for use in subsequent phases.`)
+      parts.push(`## Task Directory\n\nPath: ${agentDir}\n\nThis directory is empty. You MUST write all files (plans, reviews, notes) to this directory: ${agentDir}`)
     }
   }
 
