@@ -694,6 +694,8 @@ interface AIAutomationSettings {
   // UI preferences
   diffViewMode?: 'unified' | 'split'
   showResolvedComments?: boolean
+  defaultRequestChangesPhase?: string
+  defaultAmendmentPhase?: string
   fileViewMode?: 'list' | 'grid' | 'tree'
 }
 
