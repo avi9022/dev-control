@@ -5,6 +5,7 @@ import { NewTaskDialog } from '@/ui/components/ai-automation/NewTaskDialog'
 import { AITaskDetail } from './AITaskDetail'
 import { AISettings } from './AISettings'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, Settings } from 'lucide-react'
 
 export const AIKanban: FC = () => {
@@ -56,14 +57,6 @@ export const AIKanban: FC = () => {
   const runningAgents = tasks.filter(t =>
     agentPhaseIds.includes(t.phase) && t.activeProcessPid
   ).length
-
-  if (showSettings) {
-    return (
-      <div className="h-full">
-        <AISettings onBack={() => setShowSettings(false)} />
-      </div>
-    )
-  }
 
   if (selectedTaskId) {
     return (
@@ -131,6 +124,17 @@ export const AIKanban: FC = () => {
       </div>
 
       <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
+
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>AI Automation Settings</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <AISettings />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

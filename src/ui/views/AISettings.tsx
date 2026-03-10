@@ -43,26 +43,14 @@ const PHASE_TEMPLATES: { id: string; label: string; roles: AIPipelineRole[]; pro
   },
 ]
 
-interface AISettingsProps {
-  onBack: () => void
-}
-
-export const AISettings: FC<AISettingsProps> = ({ onBack }) => {
+export const AISettings: FC = () => {
   const { settings, updateSettings } = useAIAutomation()
 
-  if (!settings) return <div className="h-full flex items-center justify-center text-neutral-500">Loading settings...</div>
+  if (!settings) return <div className="flex items-center justify-center text-neutral-500 py-8">Loading settings...</div>
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-neutral-700">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h2 className="text-lg font-semibold text-white">AI Automation Settings</h2>
-      </div>
-
-      <Tabs defaultValue="pipeline" className="flex-1 flex flex-col min-h-0">
-        <TabsList className="mx-4 mt-2 w-fit">
+    <Tabs defaultValue="pipeline" className="flex-1 flex flex-col min-h-0">
+      <TabsList className="w-fit">
           <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge Docs</TabsTrigger>
           <TabsTrigger value="rules">Global Rules</TabsTrigger>
@@ -93,8 +81,7 @@ export const AISettings: FC<AISettingsProps> = ({ onBack }) => {
         <TabsContent value="general" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
           <GeneralTab settings={settings} updateSettings={updateSettings} />
         </TabsContent>
-      </Tabs>
-    </div>
+    </Tabs>
   )
 }
 
