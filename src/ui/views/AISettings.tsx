@@ -593,6 +593,40 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
           </Button>
         </div>
       </div>
+      <div>
+        <Label>Default Request Changes Phase</Label>
+        <p className="text-xs text-neutral-500 mb-1">When requesting changes during review, the task is sent to this phase by default. Can be overridden per review.</p>
+        <Select
+          value={settings.defaultRequestChangesPhase || ''}
+          onValueChange={v => updateSettings({ defaultRequestChangesPhase: v || undefined })}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Auto (nearest previous agent phase)" />
+          </SelectTrigger>
+          <SelectContent>
+            {(settings.pipeline || []).map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Default Amendment Phase</Label>
+        <p className="text-xs text-neutral-500 mb-1">When adding an amendment, the task is sent to this phase by default. Can be overridden per amendment.</p>
+        <Select
+          value={settings.defaultAmendmentPhase || ''}
+          onValueChange={v => updateSettings({ defaultAmendmentPhase: v || undefined })}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="First pipeline phase" />
+          </SelectTrigger>
+          <SelectContent>
+            {(settings.pipeline || []).map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   )
 }
