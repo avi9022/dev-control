@@ -9,11 +9,12 @@ interface AmendmentFormProps {
   onSubmit: (text: string, targetPhase: string) => Promise<void>
   onCancel?: () => void
   excludeProjectPaths?: Set<string>
+  defaultPhase?: string
 }
 
-export const AmendmentForm: FC<AmendmentFormProps> = ({ pipeline, onSubmit, onCancel, excludeProjectPaths }) => {
+export const AmendmentForm: FC<AmendmentFormProps> = ({ pipeline, onSubmit, onCancel, excludeProjectPaths, defaultPhase }) => {
   const editorRef = useRef<MentionEditorHandle>(null)
-  const [targetPhase, setTargetPhase] = useState<string>(pipeline[0]?.id || '')
+  const [targetPhase, setTargetPhase] = useState<string>(defaultPhase || pipeline[0]?.id || '')
   const [submitting, setSubmitting] = useState(false)
 
   const phases = pipeline.filter(p => p.id !== 'BACKLOG' && p.id !== 'DONE')
