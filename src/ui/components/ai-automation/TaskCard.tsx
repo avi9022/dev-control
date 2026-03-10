@@ -16,35 +16,28 @@ export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete }) => {
     <div
       onClick={() => onClick(task)}
       className="group ai-card cursor-pointer p-3"
-      style={{
-        borderLeft: isRunning
-          ? '2px solid var(--ai-accent)'
-          : task.needsUserInput
-            ? '2px solid var(--ai-warning)'
-            : undefined,
-      }}
     >
       {/* Title row */}
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--ai-text-primary)' }}>
-          {task.title}
-        </p>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
           {isRunning && (
-            <Loader2 className="h-3 w-3 animate-spin" style={{ color: 'var(--ai-accent)' }} />
+            <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" style={{ color: 'var(--ai-accent)' }} />
           )}
-          {task.needsUserInput && (
-            <AlertCircle className="h-3.5 w-3.5" style={{ color: 'var(--ai-warning)' }} />
+          {task.needsUserInput && !isRunning && (
+            <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--ai-warning)' }} />
           )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(task.id) }}
-            className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ color: 'var(--ai-text-tertiary)' }}
-            title="Delete task"
-          >
-            <Trash2 className="h-3.5 w-3.5 hover:text-red-400 transition-colors" />
-          </button>
+          <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--ai-text-primary)' }}>
+            {task.title}
+          </p>
         </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(task.id) }}
+          className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ color: 'var(--ai-text-tertiary)' }}
+          title="Delete task"
+        >
+          <Trash2 className="h-3.5 w-3.5 hover:text-red-400 transition-colors" />
+        </button>
       </div>
 
       {/* Description */}
@@ -60,7 +53,7 @@ export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete }) => {
           <span
             key={i}
             className="ai-badge truncate max-w-[120px]"
-            style={{ background: 'var(--ai-accent-subtle)', color: 'var(--ai-accent)' }}
+            style={{ background: 'var(--ai-purple-subtle)', color: 'var(--ai-purple)' }}
           >
             {p.label}
           </span>
@@ -76,7 +69,7 @@ export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete }) => {
         {hasAmendments && (
           <span
             className="ai-badge"
-            style={{ background: 'var(--ai-warning-subtle)', color: 'var(--ai-warning)' }}
+            style={{ background: 'var(--ai-pink-subtle)', color: 'var(--ai-pink)' }}
           >
             {task.amendments!.length} amendment{task.amendments!.length > 1 ? 's' : ''}
           </span>

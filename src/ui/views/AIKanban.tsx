@@ -81,7 +81,7 @@ export const AIKanban: FC = () => {
           </div>
           {runningAgents > 0 && (
             <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg" style={{ background: 'var(--ai-success-subtle)' }}>
-              <div className="ai-glow-dot" style={{ background: 'var(--ai-success)', color: 'var(--ai-success)' }} />
+              <div className="ai-dot" style={{ background: 'var(--ai-success)' }} />
               <span className="text-xs font-medium" style={{ color: 'var(--ai-success)', fontFamily: 'var(--ai-mono)' }}>
                 {runningAgents} agent{runningAgents > 1 ? 's' : ''} running
               </span>

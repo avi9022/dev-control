@@ -150,21 +150,25 @@
 
 .ai-kanban {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --ai-surface-0: oklch(16% 0.015 260);
-  --ai-surface-1: oklch(19% 0.012 260);
-  --ai-surface-2: oklch(22% 0.010 260);
-  --ai-surface-3: oklch(26% 0.008 260);
-  --ai-border: oklch(32% 0.008 260);
-  --ai-border-subtle: oklch(28% 0.006 260);
-  --ai-text-primary: oklch(95% 0 0);
-  --ai-text-secondary: oklch(65% 0 0);
-  --ai-text-tertiary: oklch(48% 0 0);
-  --ai-accent: oklch(70% 0.18 250);
-  --ai-accent-subtle: oklch(30% 0.06 250);
-  --ai-success: oklch(72% 0.19 155);
-  --ai-success-subtle: oklch(25% 0.06 155);
-  --ai-warning: oklch(78% 0.16 75);
-  --ai-warning-subtle: oklch(28% 0.06 75);
+  --ai-surface-0: oklch(23% 0.005 270);
+  --ai-surface-1: oklch(27% 0.004 270);
+  --ai-surface-2: oklch(31% 0.003 270);
+  --ai-surface-3: oklch(35% 0.003 270);
+  --ai-border: oklch(40% 0.003 270);
+  --ai-border-subtle: oklch(35% 0.003 270);
+  --ai-text-primary: oklch(93% 0 0);
+  --ai-text-secondary: oklch(68% 0 0);
+  --ai-text-tertiary: oklch(52% 0 0);
+  --ai-accent: oklch(75% 0.12 260);
+  --ai-accent-subtle: oklch(35% 0.04 260);
+  --ai-success: oklch(78% 0.12 160);
+  --ai-success-subtle: oklch(33% 0.04 160);
+  --ai-warning: oklch(82% 0.10 80);
+  --ai-warning-subtle: oklch(35% 0.04 80);
+  --ai-pink: oklch(78% 0.10 350);
+  --ai-pink-subtle: oklch(34% 0.04 350);
+  --ai-purple: oklch(75% 0.10 300);
+  --ai-purple-subtle: oklch(34% 0.04 300);
   --ai-mono: 'JetBrains Mono', monospace;
 }
 
@@ -172,14 +176,12 @@
   background: var(--ai-surface-2);
   border: 1px solid var(--ai-border-subtle);
   border-radius: 10px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
 }
 
 .ai-kanban .ai-card:hover {
   border-color: var(--ai-border);
   background: var(--ai-surface-3);
-  box-shadow: 0 4px 24px oklch(0% 0 0 / 30%), 0 0 0 1px var(--ai-border);
-  transform: translateY(-1px);
 }
 
 .ai-kanban .ai-column {
@@ -188,16 +190,10 @@
   border-radius: 12px;
 }
 
-.ai-kanban .ai-glow-dot {
+.ai-kanban .ai-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  animation: ai-pulse 2s ease-in-out infinite;
-}
-
-@keyframes ai-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
-  50% { opacity: 0.6; box-shadow: 0 0 8px currentColor; }
 }
 
 .ai-kanban .ai-badge {
