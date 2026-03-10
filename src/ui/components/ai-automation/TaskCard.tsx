@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { AlertCircle, Trash2 } from 'lucide-react'
+import { AlertCircle, Trash2, Loader2 } from 'lucide-react'
 import { renderMentions } from './mention-utils'
 
 interface TaskCardProps {
@@ -9,43 +9,76 @@ interface TaskCardProps {
 }
 
 export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete }) => {
+  const isRunning = !!task.activeProcessPid
+  const hasAmendments = (task.amendments?.length || 0) > 0
+
   return (
     <div
       onClick={() => onClick(task)}
-      className="group p-3 bg-neutral-800 rounded-md border border-neutral-700 cursor-pointer hover:border-neutral-500 transition-colors"
+      className="group ai-card cursor-pointer p-3"
+      style={{
+        borderLeft: isRunning
+          ? '2px solid var(--ai-accent)'
+          : task.needsUserInput
+            ? '2px solid var(--ai-warning)'
+            : undefined,
+      }}
     >
+      {/* Title row */}
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-white truncate">{task.title}</p>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--ai-text-primary)' }}>
+          {task.title}
+        </p>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {isRunning && (
+            <Loader2 className="h-3 w-3 animate-spin" style={{ color: 'var(--ai-accent)' }} />
+          )}
           {task.needsUserInput && (
-            <AlertCircle className="h-4 w-4 text-amber-400" />
+            <AlertCircle className="h-3.5 w-3.5" style={{ color: 'var(--ai-warning)' }} />
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(task.id) }}
-            className="h-4 w-4 text-neutral-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: 'var(--ai-text-tertiary)' }}
             title="Delete task"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5 hover:text-red-400 transition-colors" />
           </button>
         </div>
       </div>
+
+      {/* Description */}
       {task.description && (
-        <p className="text-xs text-neutral-400 mt-1 line-clamp-2">{renderMentions(task.description, new Set((task.projects || []).map(p => p.label)))}</p>
+        <p className="text-xs mt-1.5 line-clamp-2 leading-relaxed" style={{ color: 'var(--ai-text-secondary)' }}>
+          {renderMentions(task.description, new Set((task.projects || []).map(p => p.label)))}
+        </p>
       )}
-      <div className="flex items-center gap-2 mt-2 flex-wrap">
+
+      {/* Footer badges */}
+      <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
         {task.projects && task.projects.length > 0 && task.projects.map((p, i) => (
-          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 truncate max-w-[120px]">
+          <span
+            key={i}
+            className="ai-badge truncate max-w-[120px]"
+            style={{ background: 'var(--ai-accent-subtle)', color: 'var(--ai-accent)' }}
+          >
             {p.label}
           </span>
         ))}
         {task.currentPhaseName && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-700 text-neutral-300">
+          <span
+            className="ai-badge"
+            style={{ background: 'var(--ai-surface-3)', color: 'var(--ai-text-tertiary)' }}
+          >
             {task.currentPhaseName}
           </span>
         )}
-        {task.reviewCycleCount > 0 && (
-          <span className="text-[10px] text-neutral-500">
-            Review #{task.reviewCycleCount}/{task.maxReviewCycles}
+        {hasAmendments && (
+          <span
+            className="ai-badge"
+            style={{ background: 'var(--ai-warning-subtle)', color: 'var(--ai-warning)' }}
+          >
+            {task.amendments!.length} amendment{task.amendments!.length > 1 ? 's' : ''}
           </span>
         )}
       </div>

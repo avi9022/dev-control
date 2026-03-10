@@ -144,3 +144,67 @@
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* AI Kanban Theme */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+.ai-kanban {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --ai-surface-0: oklch(16% 0.015 260);
+  --ai-surface-1: oklch(19% 0.012 260);
+  --ai-surface-2: oklch(22% 0.010 260);
+  --ai-surface-3: oklch(26% 0.008 260);
+  --ai-border: oklch(32% 0.008 260);
+  --ai-border-subtle: oklch(28% 0.006 260);
+  --ai-text-primary: oklch(95% 0 0);
+  --ai-text-secondary: oklch(65% 0 0);
+  --ai-text-tertiary: oklch(48% 0 0);
+  --ai-accent: oklch(70% 0.18 250);
+  --ai-accent-subtle: oklch(30% 0.06 250);
+  --ai-success: oklch(72% 0.19 155);
+  --ai-success-subtle: oklch(25% 0.06 155);
+  --ai-warning: oklch(78% 0.16 75);
+  --ai-warning-subtle: oklch(28% 0.06 75);
+  --ai-mono: 'JetBrains Mono', monospace;
+}
+
+.ai-kanban .ai-card {
+  background: var(--ai-surface-2);
+  border: 1px solid var(--ai-border-subtle);
+  border-radius: 10px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-kanban .ai-card:hover {
+  border-color: var(--ai-border);
+  background: var(--ai-surface-3);
+  box-shadow: 0 4px 24px oklch(0% 0 0 / 30%), 0 0 0 1px var(--ai-border);
+  transform: translateY(-1px);
+}
+
+.ai-kanban .ai-column {
+  background: var(--ai-surface-1);
+  border: 1px solid var(--ai-border-subtle);
+  border-radius: 12px;
+}
+
+.ai-kanban .ai-glow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: ai-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
+  50% { opacity: 0.6; box-shadow: 0 0 8px currentColor; }
+}
+
+.ai-kanban .ai-badge {
+  font-family: var(--ai-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 6px;
+}

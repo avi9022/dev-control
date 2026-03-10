@@ -6,7 +6,7 @@ import { AITaskDetail } from './AITaskDetail'
 import { AISettings } from './AISettings'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, Settings } from 'lucide-react'
+import { Plus, Settings, Zap } from 'lucide-react'
 
 export const AIKanban: FC = () => {
   const { tasks, moveTaskPhase, deleteTask, settings } = useAIAutomation()
@@ -16,10 +16,10 @@ export const AIKanban: FC = () => {
   const [showSettings, setShowSettings] = useState(false)
 
   const pipeline = settings?.pipeline || []
-  const columns: { id: string; label: string }[] = [
-    { id: 'BACKLOG', label: 'Backlog' },
-    ...pipeline.map(p => ({ id: p.id, label: p.name })),
-    { id: 'DONE', label: 'Done' },
+  const columns: { id: string; label: string; type?: string }[] = [
+    { id: 'BACKLOG', label: 'Backlog', type: 'fixed' },
+    ...pipeline.map(p => ({ id: p.id, label: p.name, type: p.type })),
+    { id: 'DONE', label: 'Done', type: 'fixed' },
   ]
 
   const tasksByPhase = (phaseId: string) => tasks.filter(t => t.phase === phaseId)
@@ -60,31 +60,51 @@ export const AIKanban: FC = () => {
 
   if (selectedTaskId) {
     return (
-      <div className="h-full">
+      <div className="h-full ai-kanban">
         <AITaskDetail taskId={selectedTaskId} onBack={() => setSelectedTaskId(null)} />
       </div>
     )
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="ai-kanban h-full flex flex-col" style={{ background: 'var(--ai-surface-0)' }}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold text-white">AI Kanban</h2>
+      <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--ai-accent-subtle)' }}>
+              <Zap className="h-3.5 w-3.5" style={{ color: 'var(--ai-accent)' }} />
+            </div>
+            <h2 className="text-base font-bold tracking-tight" style={{ color: 'var(--ai-text-primary)' }}>
+              AI Kanban
+            </h2>
+          </div>
           {runningAgents > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-green-900 text-green-300">
-              {runningAgents} agent{runningAgents > 1 ? 's' : ''} running
-            </span>
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg" style={{ background: 'var(--ai-success-subtle)' }}>
+              <div className="ai-glow-dot" style={{ background: 'var(--ai-success)', color: 'var(--ai-success)' }} />
+              <span className="text-xs font-medium" style={{ color: 'var(--ai-success)', fontFamily: 'var(--ai-mono)' }}>
+                {runningAgents} agent{runningAgents > 1 ? 's' : ''} running
+              </span>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
-            <Settings className="h-4 w-4 mr-1" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSettings(true)}
+            className="border-[var(--ai-border)] bg-transparent hover:bg-[var(--ai-surface-2)] text-[var(--ai-text-secondary)] hover:text-[var(--ai-text-primary)]"
+          >
+            <Settings className="h-3.5 w-3.5 mr-1.5" />
             Settings
           </Button>
-          <Button size="sm" onClick={() => setNewTaskOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" />
+          <Button
+            size="sm"
+            onClick={() => setNewTaskOpen(true)}
+            className="text-white font-semibold"
+            style={{ background: 'var(--ai-accent)', color: 'white' }}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
             New Task
           </Button>
         </div>
@@ -93,19 +113,33 @@ export const AIKanban: FC = () => {
       {/* Kanban columns */}
       <div className="flex-1 overflow-x-auto p-4">
         <div className="flex gap-3 h-full min-w-max">
-          {columns.map(({ id, label }) => {
+          {columns.map(({ id, label, type }) => {
             const phaseTasks = tasksByPhase(id)
+            const isAgent = type === 'agent'
+            const isManual = type === 'manual'
             return (
               <div
                 key={id}
-                className="w-[250px] flex flex-col bg-neutral-900/50 rounded-lg border border-neutral-800"
+                className="w-[280px] flex flex-col ai-column"
                 onDragOver={e => e.preventDefault()}
                 onDrop={() => handleDrop(id)}
               >
-                <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-neutral-300">{label}</h3>
-                  <span className="text-xs text-neutral-500">{phaseTasks.length}</span>
+                {/* Column header */}
+                <div className="px-3.5 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
+                  <div className="flex items-center gap-2">
+                    {isAgent && (
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--ai-accent)' }} />
+                    )}
+                    {isManual && (
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--ai-warning)' }} />
+                    )}
+                    <h3 className="text-[13px] font-semibold" style={{ color: 'var(--ai-text-primary)' }}>{label}</h3>
+                  </div>
+                  <span className="ai-badge" style={{ background: 'var(--ai-surface-3)', color: 'var(--ai-text-tertiary)' }}>
+                    {phaseTasks.length}
+                  </span>
                 </div>
+                {/* Column body */}
                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
                   {phaseTasks.map(task => (
                     <div
@@ -126,11 +160,11 @@ export const AIKanban: FC = () => {
       <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
 
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+        <DialogContent className="!max-w-[95vw] h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>AI Automation Settings</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <AISettings />
           </div>
         </DialogContent>
