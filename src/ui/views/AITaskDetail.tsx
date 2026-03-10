@@ -343,7 +343,7 @@ const AttachmentsInline: FC<{ taskId: string }> = ({ taskId }) => {
 }
 
 const AmendmentsTab: FC<{ task: AITask; pipeline: AIPipelinePhase[] }> = ({ task, pipeline }) => {
-  const { updateTask, moveTaskPhase } = useAIAutomation()
+  const { updateTask, moveTaskPhase, settings } = useAIAutomation()
   const [showForm, setShowForm] = useState(false)
   const excludePaths = new Set((task.projects || []).map(p => p.path))
 
@@ -382,6 +382,7 @@ const AmendmentsTab: FC<{ task: AITask; pipeline: AIPipelinePhase[] }> = ({ task
             onSubmit={handleSubmit}
             onCancel={() => setShowForm(false)}
             excludeProjectPaths={excludePaths}
+            defaultPhase={settings?.defaultAmendmentPhase}
           />
         </div>
       )}
@@ -596,6 +597,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                 onSubmit={handleAmendment}
                 onCancel={() => setShowAmendDialog(false)}
                 excludeProjectPaths={new Set((task.projects || []).map(p => p.path))}
+                defaultPhase={settings?.defaultAmendmentPhase}
               />
             </DialogContent>
           </Dialog>
