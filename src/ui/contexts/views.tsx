@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type FC, type PropsWithChildren } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, type FC, type PropsWithChildren } from 'react'
 
 export type ViewType = 'directory' | 'queue' | 'tool' | 'dynamodb' | 'api-client' | 'docker' | 'mongodb' | 'sql'
 
@@ -36,7 +36,7 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
   }])
   const [currentViewIndex, setCurrentViewIndex] = useState(0)
 
-  const setViewsCount = (count: number) => {
+  const setViewsCount = useCallback((count: number) => {
     setViews((prev) => {
       const updated: View[] = []
       for (let i = 0; i < count; i++) {
@@ -57,9 +57,9 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
 
       return updated
     })
-  }
+  }, [currentViewIndex])
 
-  const updateView = (type: ViewType, itemId: string | null) => {
+  const updateView = useCallback((type: ViewType, itemId: string | null) => {
     setViews((prev) => {
       return prev.map((view, index) => {
         if (index === currentViewIndex) {
@@ -68,31 +68,31 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
         return view
       })
     })
-  }
+  }, [currentViewIndex])
 
-  const closeView = (index: number) => {
+  const closeView = useCallback((index: number) => {
     setViews((prev) => prev.filter((_, currIndex) => currIndex !== index))
     setCurrentViewIndex(0)
-  }
+  }, [])
 
-  const openViewForItem = (type: ViewType, itemId: string) => {
-    if (views.length >= 3) return
+  const openViewForItem = useCallback((type: ViewType, itemId: string) => {
+    setViews((prev) => {
+      if (prev.length >= 3) return prev
+      return [...prev, { itemId, type }]
+    })
+  }, [])
 
-    setViews((prev) => [...prev, {
-      itemId,
-      type,
-    }])
-  }
-
-  return <ViewsContext.Provider value={{
+  const value = useMemo(() => ({
     setViewsCount,
     updateView,
     setCurrentViewIndex,
     closeView,
     views,
     currentViewIndex,
-    openViewForItem
-  }}>
+    openViewForItem,
+  }), [setViewsCount, updateView, setCurrentViewIndex, closeView, views, currentViewIndex, openViewForItem])
+
+  return <ViewsContext.Provider value={value}>
     {children}
   </ViewsContext.Provider>
 
