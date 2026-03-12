@@ -44,37 +44,40 @@ export const AgentTerminal: FC<AgentTerminalProps> = ({ taskId, needsUserInput }
   }
 
   return (
-    <div className="h-full flex flex-col rounded border border-neutral-800">
+    <div className="h-full flex flex-col rounded" style={{ border: '1px solid var(--ai-border-subtle)' }}>
       {needsUserInput && (
-        <div className="px-3 py-2 bg-amber-900/30 border-b border-amber-700/50 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-amber-400" />
-          <span className="text-sm text-amber-300">Agent is waiting for your input</span>
+        <div className="px-3 py-2 flex items-center gap-2" style={{ background: 'var(--ai-warning-subtle)', borderBottom: '1px solid var(--ai-warning)' }}>
+          <AlertCircle className="h-4 w-4" style={{ color: 'var(--ai-warning)' }} />
+          <span className="text-sm" style={{ color: 'var(--ai-warning)' }}>Agent is waiting for your input</span>
         </div>
       )}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-3 font-mono text-xs bg-black"
+        className="flex-1 overflow-y-auto p-3 text-xs"
+        style={{ fontFamily: 'var(--ai-mono)', background: 'var(--ai-surface-0)' }}
       >
         {lines.map((line, i) => (
-          <div key={i} className={`whitespace-pre-wrap ${line.startsWith('>') ? 'text-green-400' : 'text-neutral-300'}`}>
+          <div key={i} className="whitespace-pre-wrap" style={{ color: line.startsWith('>') ? 'var(--ai-success)' : 'var(--ai-text-secondary)' }}>
             {line}
           </div>
         ))}
         {lines.length === 0 && (
-          <div className="text-neutral-600">Waiting for agent output...</div>
+          <div style={{ color: 'var(--ai-text-tertiary)' }}>Waiting for agent output...</div>
         )}
       </div>
-      <div className="border-t border-neutral-700 p-2 flex gap-2">
+      <div className="p-2 flex gap-2" style={{ borderTop: '1px solid var(--ai-border-subtle)' }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleSend() }}
           placeholder="Type a message to the agent..."
-          className="flex-1 bg-neutral-800 text-white text-sm px-3 py-1.5 rounded border border-neutral-700 focus:outline-none focus:border-neutral-500"
+          className="flex-1 text-sm px-3 py-1.5 rounded focus:outline-none"
+          style={{ background: 'var(--ai-surface-2)', color: 'var(--ai-text-primary)', border: '1px solid var(--ai-border-subtle)' }}
         />
         <button
           onClick={handleSend}
-          className="px-3 py-1.5 bg-neutral-700 text-white text-sm rounded hover:bg-neutral-600 transition-colors"
+          className="px-3 py-1.5 text-sm rounded transition-colors"
+          style={{ background: 'var(--ai-surface-3)', color: 'var(--ai-text-primary)' }}
         >
           Send
         </button>

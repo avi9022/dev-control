@@ -44,11 +44,13 @@ function App() {
         <div>
           {aiMode ? (
             <DirectoriesProvider>
-              <TooltipProvider>
-                <div className="h-screen flex flex-col bg-background text-foreground">
-                  <AIKanban />
-                </div>
-              </TooltipProvider>
+              <LoggerProvider>
+                <TooltipProvider>
+                  <div className="h-screen flex flex-col bg-background text-foreground">
+                    <AIKanban />
+                  </div>
+                </TooltipProvider>
+              </LoggerProvider>
             </DirectoriesProvider>
           ) : (
             <ViewsProvider>

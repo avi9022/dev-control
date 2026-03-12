@@ -46,7 +46,7 @@ const PHASE_TEMPLATES: { id: string; label: string; roles: AIPipelineRole[]; pro
 export const AISettings: FC = () => {
   const { settings, updateSettings } = useAIAutomation()
 
-  if (!settings) return <div className="flex items-center justify-center text-neutral-500 py-8">Loading settings...</div>
+  if (!settings) return <div className="flex items-center justify-center py-8" style={{ color: 'var(--ai-text-tertiary)' }}>Loading settings...</div>
 
   return (
     <Tabs defaultValue="pipeline" className="flex-1 flex flex-col min-h-0">
@@ -134,11 +134,11 @@ const PipelineTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
 
   return (
     <div className="space-y-4 mt-4">
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm" style={{ color: 'var(--ai-text-secondary)' }}>
         Configure the phases a task flows through between Backlog and Done. Each phase is either an AI agent step or a manual human step.
       </p>
 
-      <div className="px-3 py-2 rounded bg-neutral-800/50 border border-neutral-700 text-sm text-neutral-400">
+      <div className="px-3 py-2 rounded text-sm" style={{ background: 'var(--ai-surface-2)', border: '1px solid var(--ai-border-subtle)', color: 'var(--ai-text-tertiary)' }}>
         Backlog (fixed)
       </div>
 
@@ -156,18 +156,19 @@ const PipelineTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
       ))}
 
       {showTemplates ? (
-        <div className="p-3 border border-neutral-700 rounded-md bg-neutral-800/50 space-y-2">
-          <p className="text-xs text-neutral-400">Choose a template:</p>
+        <div className="p-3 rounded-md space-y-2" style={{ border: '1px solid var(--ai-border-subtle)', background: 'var(--ai-surface-2)' }}>
+          <p className="text-xs" style={{ color: 'var(--ai-text-secondary)' }}>Choose a template:</p>
           <div className="grid grid-cols-2 gap-2">
             {PHASE_TEMPLATES.map(t => (
               <button
                 key={t.id}
                 onClick={() => addPhaseFromTemplate(t.id)}
-                className="text-left p-2 rounded border border-neutral-700 hover:border-neutral-500 transition-colors"
+                className="text-left p-2 rounded transition-colors"
+                style={{ border: '1px solid var(--ai-border-subtle)', color: 'var(--ai-text-primary)' }}
               >
-                <p className="text-sm font-medium text-white">{t.label}</p>
+                <p className="text-sm font-medium">{t.label}</p>
                 {t.roles.length > 0 && (
-                  <p className="text-[10px] text-neutral-500 mt-0.5">{t.roles.join(', ')}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--ai-text-tertiary)' }}>{t.roles.join(', ')}</p>
                 )}
               </button>
             ))}
@@ -175,12 +176,12 @@ const PipelineTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
           <Button variant="ghost" size="sm" onClick={() => setShowTemplates(false)}>Cancel</Button>
         </div>
       ) : (
-        <Button size="sm" onClick={() => setShowTemplates(true)}>
+        <Button size="sm" onClick={() => setShowTemplates(true)} style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}>
           <Plus className="h-4 w-4 mr-1" /> Add Phase
         </Button>
       )}
 
-      <div className="px-3 py-2 rounded bg-neutral-800/50 border border-neutral-700 text-sm text-neutral-400">
+      <div className="px-3 py-2 rounded text-sm" style={{ background: 'var(--ai-surface-2)', border: '1px solid var(--ai-border-subtle)', color: 'var(--ai-text-tertiary)' }}>
         Done (fixed)
       </div>
     </div>
@@ -212,34 +213,34 @@ const PipelinePhaseCard: FC<{
   }, [phase.id])
 
   return (
-    <div className="border border-neutral-700 rounded-md overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 bg-neutral-800/50">
+    <div className="rounded-md overflow-hidden" style={{ border: '1px solid var(--ai-border-subtle)' }}>
+      <div className="flex items-center gap-2 px-3 py-2" style={{ background: 'var(--ai-surface-2)' }}>
         <div className="flex flex-col gap-0.5">
-          <button onClick={() => onMove(-1)} disabled={index === 0} className="text-neutral-500 hover:text-white disabled:opacity-30">
+          <button onClick={() => onMove(-1)} disabled={index === 0} className="disabled:opacity-30" style={{ color: 'var(--ai-text-tertiary)' }}>
             <ChevronUp className="h-3 w-3" />
           </button>
-          <button onClick={() => onMove(1)} disabled={index === total - 1} className="text-neutral-500 hover:text-white disabled:opacity-30">
+          <button onClick={() => onMove(1)} disabled={index === total - 1} className="disabled:opacity-30" style={{ color: 'var(--ai-text-tertiary)' }}>
             <ChevronDown className="h-3 w-3" />
           </button>
         </div>
         <button className="flex-1 text-left" onClick={() => setExpanded(!expanded)}>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-white">{phase.name}</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded ${phase.type === 'agent' ? 'bg-blue-900/50 text-blue-300' : 'bg-neutral-700 text-neutral-300'}`}>
+            <span className="text-sm font-medium" style={{ color: 'var(--ai-text-primary)' }}>{phase.name}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: phase.type === 'agent' ? 'var(--ai-accent-subtle)' : 'var(--ai-surface-3)', color: phase.type === 'agent' ? 'var(--ai-accent)' : 'var(--ai-text-secondary)' }}>
               {phase.type}
             </span>
             {phase.rejectPattern && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-300">has routing</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--ai-warning-subtle)', color: 'var(--ai-warning)' }}>has routing</span>
             )}
           </div>
         </button>
         <Button variant="ghost" size="sm" onClick={onDelete}>
-          <Trash2 className="h-3.5 w-3.5 text-red-400" />
+          <Trash2 className="h-3.5 w-3.5" style={{ color: 'var(--ai-pink)' }} />
         </Button>
       </div>
 
       {expanded && (
-        <div className="px-3 py-3 space-y-3 border-t border-neutral-700">
+        <div className="px-3 py-3 space-y-3" style={{ borderTop: '1px solid var(--ai-border-subtle)' }}>
           <div className="flex gap-3">
             <div className="flex-1">
               <Label>Name</Label>
@@ -272,7 +273,7 @@ const PipelinePhaseCard: FC<{
               </div>
               <div>
                 <Label>Tool Roles</Label>
-                <p className="text-xs text-neutral-500 mb-2">Select roles to control which tools the agent can use. No selection = all tools allowed.</p>
+                <p className="text-xs mb-2" style={{ color: 'var(--ai-text-tertiary)' }}>Select roles to control which tools the agent can use. No selection = all tools allowed.</p>
                 <div className="space-y-2">
                   {ROLE_DEFINITIONS.map(role => {
                     const checked = phase.roles?.includes(role.id) ?? false
@@ -288,15 +289,15 @@ const PipelinePhaseCard: FC<{
                           className="mt-0.5"
                         />
                         <div>
-                          <span className="text-sm text-white">{role.label}</span>
-                          <p className="text-[10px] text-neutral-500">{role.tools}</p>
+                          <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>{role.label}</span>
+                          <p className="text-[10px]" style={{ color: 'var(--ai-text-tertiary)' }}>{role.tools}</p>
                         </div>
                       </label>
                     )
                   })}
                 </div>
                 <div className="mt-2">
-                  <Label className="text-xs">Custom Tools <span className="text-neutral-500 font-normal">(optional)</span></Label>
+                  <Label className="text-xs">Custom Tools <span className="font-normal" style={{ color: 'var(--ai-text-tertiary)' }}>(optional)</span></Label>
                   <Input
                     value={localCustomTools}
                     onChange={e => setLocalCustomTools(e.target.value)}
@@ -308,7 +309,7 @@ const PipelinePhaseCard: FC<{
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <Label>Reject Pattern <span className="text-neutral-500 font-normal">(optional)</span></Label>
+                  <Label>Reject Pattern <span className="font-normal" style={{ color: 'var(--ai-text-tertiary)' }}>(optional)</span></Label>
                   <Input
                     value={localRejectPattern}
                     onChange={e => setLocalRejectPattern(e.target.value)}
@@ -407,7 +408,7 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
           className="text-lg font-semibold"
         />
         {editingDoc.sourcePath && (
-          <p className="text-xs text-neutral-500">Source: {editingDoc.sourcePath}</p>
+          <p className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>Source: {editingDoc.sourcePath}</p>
         )}
         <Textarea
           value={editingDoc.content}
@@ -423,23 +424,23 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
   return (
     <div className="space-y-3 mt-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm" style={{ color: 'var(--ai-text-secondary)' }}>
           Knowledge documents describe your system. Agents use these as context when planning and working.
         </p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setGenerateOpen(true)}>
             <Wand2 className="h-4 w-4 mr-1" /> Auto-Generate
           </Button>
-          <Button size="sm" onClick={addDoc}>
+          <Button size="sm" onClick={addDoc} style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}>
             <Plus className="h-4 w-4 mr-1" /> Add Doc
           </Button>
         </div>
       </div>
 
       {generateOpen && (
-        <div className="p-4 border border-neutral-700 rounded-md bg-neutral-800/50 space-y-3">
-          <h4 className="text-sm font-medium text-white">Generate Knowledge Doc</h4>
-          <p className="text-xs text-neutral-400">Select a project to explore. Claude will analyze the codebase and generate a knowledge document.</p>
+        <div className="p-4 rounded-md space-y-3" style={{ border: '1px solid var(--ai-border-subtle)', background: 'var(--ai-surface-2)' }}>
+          <h4 className="text-sm font-medium" style={{ color: 'var(--ai-text-primary)' }}>Generate Knowledge Doc</h4>
+          <p className="text-xs" style={{ color: 'var(--ai-text-secondary)' }}>Select a project to explore. Claude will analyze the codebase and generate a knowledge document.</p>
 
           {directories.length > 0 && (
             <div>
@@ -490,39 +491,39 @@ const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) =>
       )}
 
       {settings.knowledgeDocs.length === 0 && !generateOpen ? (
-        <div className="text-neutral-600 text-sm py-8 text-center border border-dashed border-neutral-700 rounded">
+        <div className="text-sm py-8 text-center rounded" style={{ color: 'var(--ai-text-tertiary)', border: '1px dashed var(--ai-border-subtle)' }}>
           No knowledge docs yet. Add one to help agents understand your projects.
         </div>
       ) : (
         <div className="space-y-2">
           {settings.knowledgeDocs.map(doc => (
-            <div key={doc.id} className="flex items-center justify-between p-3 bg-neutral-800 rounded border border-neutral-700 hover:border-neutral-600 transition-colors">
+            <div key={doc.id} className="flex items-center justify-between p-3 rounded transition-colors" style={{ background: 'var(--ai-surface-2)', border: '1px solid var(--ai-border-subtle)' }}>
               <div className="cursor-pointer flex-1" onClick={() => !doc.generatingStatus && setEditingId(doc.id)}>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-white">{doc.title}</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--ai-text-primary)' }}>{doc.title}</p>
                   {doc.autoGenerated && !doc.generatingStatus && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300">auto-generated</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--ai-accent-subtle)', color: 'var(--ai-accent)' }}>auto-generated</span>
                   )}
                 </div>
                 {doc.generatingStatus ? (
                   <div className="flex items-center gap-1.5 mt-0.5">
                     {doc.generatingStatus.startsWith('Failed') ? (
-                      <span className="text-xs text-red-400">{doc.generatingStatus}</span>
+                      <span className="text-xs" style={{ color: 'var(--ai-pink)' }}>{doc.generatingStatus}</span>
                     ) : (
                       <>
-                        <Loader2 className="h-3 w-3 animate-spin text-blue-400 flex-shrink-0" />
-                        <span className="text-xs text-blue-300 truncate">{doc.generatingStatus}</span>
+                        <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" style={{ color: 'var(--ai-accent)' }} />
+                        <span className="text-xs truncate" style={{ color: 'var(--ai-accent)' }}>{doc.generatingStatus}</span>
                       </>
                     )}
                   </div>
                 ) : (
-                  <p className="text-xs text-neutral-500 mt-0.5">
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--ai-text-tertiary)' }}>
                     {doc.sourcePath ? doc.sourcePath : `Updated ${new Date(doc.updatedAt).toLocaleDateString()}`}
                   </p>
                 )}
               </div>
               <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deleteDoc(doc.id) }}>
-                <Trash2 className="h-4 w-4 text-red-400" />
+                <Trash2 className="h-4 w-4" style={{ color: 'var(--ai-pink)' }} />
               </Button>
             </div>
           ))}
@@ -537,7 +538,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
     <div className="space-y-4 mt-4 max-w-md">
       <div>
         <Label>Max Concurrent Agents</Label>
-        <p className="text-xs text-neutral-500 mb-1">How many tasks can run agents simultaneously.</p>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>How many tasks can run agents simultaneously.</p>
         <Input
           type="number"
           value={settings.maxConcurrency}
@@ -549,7 +550,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
       </div>
       <div>
         <Label>Default Git Strategy</Label>
-        <p className="text-xs text-neutral-500 mb-1">How the agent manages code changes for new tasks.</p>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>How the agent manages code changes for new tasks.</p>
         <Select value={settings.defaultGitStrategy === 'none' ? 'none' : 'worktree'} onValueChange={v => updateSettings({ defaultGitStrategy: v as AIGitStrategy })}>
           <SelectTrigger className="w-40">
             <SelectValue />
@@ -562,7 +563,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
       </div>
       <div>
         <Label>Default Base Branch</Label>
-        <p className="text-xs text-neutral-500 mb-1">Branch to create task branches from. Can be overridden per task.</p>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>Branch to create task branches from. Can be overridden per task.</p>
         <Input
           value={settings.defaultBaseBranch}
           onChange={e => updateSettings({ defaultBaseBranch: e.target.value })}
@@ -572,7 +573,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
       </div>
       <div>
         <Label>Task Data Directory</Label>
-        <p className="text-xs text-neutral-500 mb-1">Where task workspaces are stored (agent files, attachments, worktrees). Changing this only affects new tasks.</p>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>Where task workspaces are stored (agent files, attachments, worktrees). Changing this only affects new tasks.</p>
         <div className="flex gap-2">
           <Input
             value={settings.taskDataRoot || ''}
@@ -595,7 +596,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
       </div>
       <div>
         <Label>Default Request Changes Phase</Label>
-        <p className="text-xs text-neutral-500 mb-1">When requesting changes during review, the task is sent to this phase by default. Can be overridden per review.</p>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>When requesting changes during review, the task is sent to this phase by default. Can be overridden per review.</p>
         <Select
           value={settings.defaultRequestChangesPhase || ''}
           onValueChange={v => updateSettings({ defaultRequestChangesPhase: v || undefined })}
@@ -612,7 +613,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
       </div>
       <div>
         <Label>Default Amendment Phase</Label>
-        <p className="text-xs text-neutral-500 mb-1">When adding an amendment, the task is sent to this phase by default. Can be overridden per amendment.</p>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>When adding an amendment, the task is sent to this phase by default. Can be overridden per amendment.</p>
         <Select
           value={settings.defaultAmendmentPhase || ''}
           onValueChange={v => updateSettings({ defaultAmendmentPhase: v || undefined })}
@@ -626,6 +627,31 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
             ))}
           </SelectContent>
         </Select>
+      </div>
+      <div>
+        <Label>Default Approve Phase</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>Where tasks go when you click Approve. Can be overridden per approval via the dropdown arrow.</p>
+        <Select
+          value={settings.defaultApprovePhase || 'DONE'}
+          onValueChange={v => updateSettings({ defaultApprovePhase: v })}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(settings.pipeline || []).map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+            <SelectItem value="DONE">Done</SelectItem>
+          </SelectContent>
+        </Select>
+        <label className="flex items-center gap-2 mt-2 cursor-pointer">
+          <Checkbox
+            checked={settings.approveSkipConfirm ?? false}
+            onCheckedChange={(v) => updateSettings({ approveSkipConfirm: !!v })}
+          />
+          <span className="text-xs" style={{ color: 'var(--ai-text-secondary)' }}>Don't ask — always send to default phase</span>
+        </label>
       </div>
     </div>
   )

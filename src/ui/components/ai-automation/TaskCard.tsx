@@ -36,7 +36,7 @@ export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete }) => {
           style={{ color: 'var(--ai-text-tertiary)' }}
           title="Delete task"
         >
-          <Trash2 className="h-3.5 w-3.5 hover:text-red-400 transition-colors" />
+          <Trash2 className="h-3.5 w-3.5 transition-colors" />
         </button>
       </div>
 

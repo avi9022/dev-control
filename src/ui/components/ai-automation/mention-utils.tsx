@@ -31,7 +31,8 @@ export function renderMentions(text: string, projectLabels: Set<string>): ReactN
       parts.push(
         <span
           key={keyIdx++}
-          className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-blue-900/40 border border-blue-700/50 text-xs text-blue-300 mx-0.5 align-baseline"
+          className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded border text-xs mx-0.5 align-baseline"
+          style={{ background: 'var(--ai-accent-subtle)', borderColor: 'var(--ai-accent)', color: 'var(--ai-accent)' }}
         >
           <FolderOpen className="h-3 w-3" />
           {matched}

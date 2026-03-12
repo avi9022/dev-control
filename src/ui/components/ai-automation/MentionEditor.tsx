@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef, type FC } from 'react'
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react'
 import { FolderOpen } from 'lucide-react'
 
 const MENTION_ATTR = 'data-mention-id'
@@ -14,6 +14,7 @@ interface MentionEditorProps {
   className?: string
   minHeight?: string
   onProjectTagged?: (dir: DirectorySettings) => void
+  onProjectRemoved?: (label: string) => void
   /** Already-tagged project paths to exclude from the dropdown */
   excludeProjectPaths?: Set<string>
 }
@@ -40,13 +41,16 @@ function createChipElement(label: string): HTMLSpanElement {
   const chip = document.createElement('span')
   chip.setAttribute(MENTION_ATTR, label)
   chip.setAttribute('contenteditable', 'false')
-  chip.className = 'inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-blue-900/40 border border-blue-700/50 text-xs text-blue-300 mx-0.5 align-baseline cursor-default select-none'
+  chip.className = 'inline-flex items-center gap-0.5 px-1.5 py-0 rounded border text-xs mx-0.5 align-baseline cursor-default select-none'
+  chip.style.background = 'var(--ai-accent-subtle)'
+  chip.style.borderColor = 'var(--ai-accent)'
+  chip.style.color = 'var(--ai-accent)'
   chip.textContent = label
   return chip
 }
 
 export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>(
-  ({ placeholder, className, minHeight = '100px', onProjectTagged, excludeProjectPaths }, ref) => {
+  ({ placeholder, className, minHeight = '100px', onProjectTagged, onProjectRemoved, excludeProjectPaths }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
     const [directories, setDirectories] = useState<DirectorySettings[]>([])
@@ -215,7 +219,9 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
           const prev = node.previousSibling
           if (prev instanceof HTMLElement && prev.hasAttribute(MENTION_ATTR)) {
             e.preventDefault()
+            const label = prev.getAttribute(MENTION_ATTR) || ''
             prev.remove()
+            onProjectRemoved?.(label)
             return
           }
         }
@@ -223,7 +229,9 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
           const prev = node.childNodes[offset - 1]
           if (prev instanceof HTMLElement && prev.hasAttribute(MENTION_ATTR)) {
             e.preventDefault()
+            const label = prev.getAttribute(MENTION_ATTR) || ''
             prev.remove()
+            onProjectRemoved?.(label)
             return
           }
         }
@@ -245,26 +253,29 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           data-placeholder={placeholder}
-          className={`w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-neutral-500 overflow-y-auto empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-500 empty:before:pointer-events-none ${className || ''}`}
-          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight }}
+          className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 overflow-y-auto empty:before:content-[attr(data-placeholder)] empty:before:pointer-events-none ${className || ''}`}
+          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight, borderColor: 'var(--ai-border-subtle)', background: 'var(--ai-surface-2)', color: 'var(--ai-text-primary)', '--tw-ring-color': 'var(--ai-border)' } as React.CSSProperties}
         />
         {showMention && filteredDirs.length > 0 && (
           <div
             ref={menuRef}
-            className="absolute z-50 mt-1 w-full max-h-[200px] overflow-y-auto rounded-md border border-neutral-700 bg-neutral-800 shadow-lg"
+            className="absolute z-50 mt-1 w-full max-h-[200px] overflow-y-auto rounded-md border shadow-lg"
+            style={{ borderColor: 'var(--ai-border-subtle)', background: 'var(--ai-surface-1)' }}
           >
             {filteredDirs.map((dir, i) => (
               <button
                 key={dir.id}
                 onMouseDown={e => { e.preventDefault(); insertMention(dir) }}
-                className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
-                  i === mentionIndex ? 'bg-neutral-700 text-white' : 'text-neutral-300 hover:bg-neutral-700/50'
-                }`}
+                className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors"
+                style={{
+                  background: i === mentionIndex ? 'var(--ai-surface-3)' : undefined,
+                  color: i === mentionIndex ? 'var(--ai-text-primary)' : 'var(--ai-text-secondary)',
+                }}
               >
-                <FolderOpen className="h-3.5 w-3.5 text-neutral-500 flex-shrink-0" />
+                <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
                 <div className="min-w-0">
                   <p className="truncate font-medium">{dir.customLabel || dir.name}</p>
-                  <p className="truncate text-[11px] text-neutral-500">{dir.path}</p>
+                  <p className="truncate text-[11px]" style={{ color: 'var(--ai-text-tertiary)' }}>{dir.path}</p>
                 </div>
               </button>
             ))}

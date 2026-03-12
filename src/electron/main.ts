@@ -11,6 +11,7 @@ import { isServiceRunning } from './functions/is-service-running.js'
 import { pollPorts } from './functions/poll-ports.js'
 import { removeDirectory } from './functions/remove-directory.js'
 import { openProjectInBrowser } from './functions/open-project-in-browser.js'
+import { spawnShell, writeShell, resizeShell, killShell, killAllShells, setShellMainWindow } from './shell/shell-manager.js'
 import { getServiceQueues } from './functions/get-service-queues.js'
 import { brokerManager } from './brokers/index.js'
 import { createWorkflow } from './functions/create-workflow.js'
@@ -50,6 +51,7 @@ import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, g
 import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
 import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments, getOrCreateTaskDir } from './ai-automation/task-dir-manager.js'
 import { generateKnowledgeDoc } from './ai-automation/knowledge-generator.js'
+import { getBranchInfo, renameBranch, editCommitMessage, editMultipleCommitMessages, squashCommits } from './ai-automation/git-operations.js'
 import { randomUUID } from 'crypto'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
 import { getCollections, createCollection as mongoCreateCol, dropCollection, renameCollection, getCollectionStats } from './mongodb/collection-operations.js'
@@ -235,6 +237,7 @@ app.on("ready", async () => {
   migrateTaskWorkspaces()
   setTaskManagerMainWindow(mainWindow)
   setAgentMainWindow(mainWindow)
+  setShellMainWindow(mainWindow)
 
   // Initialize broker manager
   brokerManager.setMainWindow(mainWindow)
@@ -410,6 +413,17 @@ app.on("ready", async () => {
   ipcMainHandle('stopService', (_event, id: string) => stopProcess(id))
   ipcMainHandle('checkServiceState', (_event, id: string) => isServiceRunning(id))
   ipcMainHandle('openProjectInBrowser', (_event, id: string) => openProjectInBrowser(id))
+  ipcMainHandle('openExternalUrl', (_event, url: string) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      shell.openExternal(url)
+    }
+  })
+  // Shell (interactive terminal)
+  ipcMainHandle('shellSpawn', (_event, cwd: string) => spawnShell(cwd))
+  ipcMainHandle('shellWrite', (_event, shellId: string, data: string) => writeShell(shellId, data))
+  ipcMainHandle('shellResize', (_event, shellId: string, cols: number, rows: number) => resizeShell(shellId, cols, rows))
+  ipcMainHandle('shellKill', (_event, shellId: string) => killShell(shellId))
+
   ipcMainHandle('openInVSCode', (_event, id: string) => openInVSCode(id))
   ipcMainHandle('getQueues', (_event, id: string) => getServiceQueues(id))
   ipcMainHandle('sendQueueMessage', (_event, queueUrl: string, message: string) => brokerManager.sendMessage(queueUrl, message))
@@ -948,6 +962,27 @@ app.on("ready", async () => {
     }
   })
 
+  // Git operations
+  ipcMainHandle('aiGetBranchInfo', async (_event, taskId) => {
+    return getBranchInfo(taskId)
+  })
+
+  ipcMainHandle('aiRenameBranch', async (_event, taskId, worktreePath, newBranchName, pushToRemote) => {
+    renameBranch(taskId, worktreePath, newBranchName, pushToRemote)
+  })
+
+  ipcMainHandle('aiEditCommitMessage', async (_event, worktreePath, commitHash, newMessage, pushToRemote) => {
+    editCommitMessage(worktreePath, commitHash, newMessage, pushToRemote)
+  })
+
+  ipcMainHandle('aiEditMultipleCommitMessages', async (_event, worktreePath, edits, pushToRemote) => {
+    editMultipleCommitMessages(worktreePath, edits, pushToRemote)
+  })
+
+  ipcMainHandle('aiSquashCommits', async (_event, worktreePath, baseBranch, newMessage, pushToRemote) => {
+    squashCommits(worktreePath, baseBranch, newMessage, pushToRemote)
+  })
+
   store.onDidChange('aiAutomationSettings', (newVal) => {
     if (newVal) {
       ipcWebContentsSend('aiSettings', mainWindow.webContents, newVal)
@@ -978,6 +1013,9 @@ app.on('before-quit', async (event) => {
 
   // Stop all running AI agent processes
   await stopAllAgents()
+
+  // Kill all interactive shells
+  killAllShells()
 
   // Clear polling intervals
   if (portPollingInterval) {

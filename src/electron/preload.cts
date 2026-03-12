@@ -37,6 +37,13 @@ electron.contextBridge.exposeInMainWorld("electron", {
   runService: (id: string) => ipcInvoke('runService', id),
   stopService: (id: string) => ipcInvoke('stopService', id),
   openProjectInBrowser: (id: string) => ipcInvoke('openProjectInBrowser', id),
+  openExternalUrl: (url: string) => ipcInvoke('openExternalUrl', url),
+  shellSpawn: (cwd: string) => ipcInvoke('shellSpawn', cwd),
+  shellWrite: (shellId: string, data: string) => ipcInvoke('shellWrite', shellId, data),
+  shellResize: (shellId: string, cols: number, rows: number) => ipcInvoke('shellResize', shellId, cols, rows),
+  shellKill: (shellId: string) => ipcInvoke('shellKill', shellId),
+  subscribeShellOutput: (callback: (data: { shellId: string; output: string }) => void) => ipcOn('shellOutput', callback),
+  subscribeShellExit: (callback: (data: { shellId: string; exitCode: number }) => void) => ipcOn('shellExit', callback),
   getQueues: (id: string) => ipcInvoke('getQueues', id),
   sendQueueMessage: (queueUrl: string, message: string) => ipcInvoke('sendQueueMessage', queueUrl, message),
   purgeQueue: (queueUrl: string) => ipcInvoke('purgeQueue', queueUrl),
@@ -268,6 +275,11 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiGetSettings: () => ipcInvoke('aiGetSettings'),
   aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => ipcInvoke('aiUpdateSettings', updates),
   aiGenerateKnowledgeDoc: (projectPath: string) => ipcInvoke('aiGenerateKnowledgeDoc', projectPath),
+  aiGetBranchInfo: (taskId: string) => ipcInvoke('aiGetBranchInfo', taskId),
+  aiRenameBranch: (taskId: string, worktreePath: string, newBranchName: string, pushToRemote: boolean) => ipcInvoke('aiRenameBranch', taskId, worktreePath, newBranchName, pushToRemote),
+  aiEditCommitMessage: (worktreePath: string, commitHash: string, newMessage: string, pushToRemote: boolean) => ipcInvoke('aiEditCommitMessage', worktreePath, commitHash, newMessage, pushToRemote),
+  aiEditMultipleCommitMessages: (worktreePath: string, edits: { hash: string; newMessage: string }[], pushToRemote: boolean) => ipcInvoke('aiEditMultipleCommitMessages', worktreePath, edits, pushToRemote),
+  aiSquashCommits: (worktreePath: string, baseBranch: string, newMessage: string, pushToRemote: boolean) => ipcInvoke('aiSquashCommits', worktreePath, baseBranch, newMessage, pushToRemote),
   subscribeAITasks: (callback: (tasks: AITask[]) => void) =>
     ipcOn('aiTasks', (tasks) => {
       callback(tasks);

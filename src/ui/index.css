@@ -160,9 +160,9 @@
   --ai-text-primary: #FAF9F7;
   --ai-text-secondary: #B0AAA4;
   --ai-text-tertiary: #7A756F;
-  /* Soft muted pastels — lavender, sage, peach */
-  --ai-accent: #AA91CD;
-  --ai-accent-subtle: #352D42;
+  /* Soft muted pastels — sage, peach, rose */
+  --ai-accent: #9BB89E;
+  --ai-accent-subtle: #2D3530;
   --ai-success: #8BC5A0;
   --ai-success-subtle: #2A3530;
   --ai-warning: #E5C287;
@@ -174,6 +174,79 @@
   --ai-sage: #9BB89E;
   --ai-sage-subtle: #2D3530;
   --ai-mono: 'JetBrains Mono', monospace;
+  /* Diff semantic colors */
+  --ai-diff-added-bg: rgba(34, 197, 94, 0.12);
+  --ai-diff-removed-bg: rgba(239, 68, 68, 0.12);
+  --ai-diff-added-text: #4ade80;
+  --ai-diff-removed-text: #f87171;
+  --ai-diff-hunk-bg: var(--ai-accent-subtle);
+  --ai-diff-hunk-text: var(--ai-accent);
+  --ai-diff-line-num: var(--ai-text-tertiary);
+  --ai-diff-empty-bg: rgba(255, 255, 255, 0.03);
+}
+
+.ai-kanban.ai-light {
+  --ai-surface-0: #F7F5F2;
+  --ai-surface-1: #FFFFFF;
+  --ai-surface-2: #F0EEEB;
+  --ai-surface-3: #E5E2DD;
+  --ai-border: #D0CBC5;
+  --ai-border-subtle: #E0DCD7;
+  --ai-text-primary: #2C2825;
+  --ai-text-secondary: #5C5752;
+  --ai-text-tertiary: #7A756F;
+  --ai-accent: #4A7A4E;
+  --ai-accent-subtle: #DCEEDE;
+  --ai-success: #4A7A4E;
+  --ai-success-subtle: #DCEEDE;
+  --ai-warning: #9A7A28;
+  --ai-warning-subtle: #F0E4C5;
+  --ai-pink: #A05858;
+  --ai-pink-subtle: #F0DCDC;
+  --ai-purple: #7560A0;
+  --ai-purple-subtle: #E5DDF0;
+  --ai-sage: #4A7A4E;
+  --ai-sage-subtle: #DCEEDE;
+  /* Diff semantic colors — light mode */
+  --ai-diff-added-bg: rgba(34, 197, 94, 0.1);
+  --ai-diff-removed-bg: rgba(239, 68, 68, 0.08);
+  --ai-diff-added-text: #16a34a;
+  --ai-diff-removed-text: #dc2626;
+  --ai-diff-hunk-bg: var(--ai-accent-subtle);
+  --ai-diff-hunk-text: var(--ai-accent);
+  --ai-diff-line-num: #B0AAA4;
+  --ai-diff-empty-bg: #F4F2EF;
+}
+
+/* Override shadcn/Radix CSS variables for light AI theme.
+   Applied to .ai-kanban.ai-light elements AND to all Radix portals (which render at body level)
+   when html[data-ai-theme="light"] is set. */
+.ai-kanban.ai-light,
+[data-ai-theme="light"] [data-radix-popper-content-wrapper],
+[data-ai-theme="light"] [data-radix-portal] {
+  color: #2C2825;
+  --background: #F7F5F2;
+  --foreground: #2C2825;
+  --card: #FFFFFF;
+  --card-foreground: #2C2825;
+  --popover: #FFFFFF;
+  --popover-foreground: #2C2825;
+  --primary: #2C2825;
+  --primary-foreground: #F7F5F2;
+  --secondary: #F0EEEB;
+  --secondary-foreground: #2C2825;
+  --muted: #F0EEEB;
+  --muted-foreground: #7A756F;
+  --accent: #F0EEEB;
+  --accent-foreground: #2C2825;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #E0DCD7;
+  --input: #E0DCD7;
+  --ring: #D0CBC5;
+}
+
+.ai-kanban [contenteditable]:empty::before {
+  color: var(--ai-text-tertiary);
 }
 
 .ai-kanban .ai-card {
@@ -208,3 +281,29 @@
   padding: 2px 8px;
   border-radius: 6px;
 }
+
+/* Markdown viewer */
+.ai-markdown {
+  color: var(--ai-text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.ai-markdown h1, .ai-markdown h2, .ai-markdown h3,
+.ai-markdown h4, .ai-markdown h5, .ai-markdown h6 {
+  color: var(--ai-text-primary);
+  font-weight: 600;
+  margin: 16px 0 8px;
+  line-height: 1.3;
+}
+.ai-markdown h1 { font-size: 1.4em; }
+.ai-markdown h2 { font-size: 1.2em; }
+.ai-markdown h3 { font-size: 1.05em; }
+.ai-markdown p { margin: 6px 0; }
+.ai-markdown ul, .ai-markdown ol {
+  padding-left: 20px;
+  margin: 6px 0;
+}
+.ai-markdown li { margin: 3px 0; }
+.ai-markdown li::marker { color: var(--ai-text-tertiary); }
+.ai-markdown strong { color: var(--ai-text-primary); font-weight: 600; }
+.ai-markdown img { max-width: 100%; border-radius: 6px; }

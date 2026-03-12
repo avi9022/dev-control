@@ -97,7 +97,16 @@ function parseDiff(raw: string): DiffFile[] {
       }
     }
 
-    files.push({ oldPath, newPath, isNew, isDeleted, hunks })
+    // Merge with existing entry if same file path already parsed (e.g. committed + uncommitted diffs)
+    const key = newPath || oldPath
+    const existing = files.find(f => (f.newPath || f.oldPath) === key)
+    if (existing) {
+      existing.hunks.push(...hunks)
+      if (isNew) existing.isNew = true
+      if (isDeleted) existing.isDeleted = true
+    } else {
+      files.push({ oldPath, newPath, isNew, isDeleted, hunks })
+    }
   }
 
   return files
@@ -125,24 +134,37 @@ const InlineComment: FC<{
   onDelete?: () => void
   onToggleResolved?: () => void
 }> = ({ comment, onDelete, onToggleResolved }) => (
-  <div className={`flex items-start gap-2 mx-2 my-1 p-2 rounded border ${
-    comment.resolved
-      ? 'bg-neutral-800/30 border-neutral-700/40'
-      : 'bg-amber-900/20 border-amber-700/40'
-  }`}>
-    <MessageSquare className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${comment.resolved ? 'text-neutral-600' : 'text-amber-400'}`} />
-    <p className={`text-xs flex-1 whitespace-pre-wrap ${comment.resolved ? 'text-neutral-600 line-through' : 'text-amber-200'}`}>{comment.comment}</p>
+  <div
+    className="flex items-start gap-2 mx-2 my-1 p-2 rounded border"
+    style={comment.resolved
+      ? { background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border-subtle)' }
+      : { background: 'var(--ai-warning-subtle)', borderColor: 'var(--ai-warning-subtle)' }
+    }
+  >
+    <MessageSquare
+      className="h-3.5 w-3.5 mt-0.5 shrink-0"
+      style={{ color: comment.resolved ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)' }}
+    />
+    <p
+      className={`text-xs flex-1 whitespace-pre-wrap ${comment.resolved ? 'line-through' : ''}`}
+      style={{ color: comment.resolved ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)' }}
+    >{comment.comment}</p>
     {onToggleResolved && (
       <button
         onClick={onToggleResolved}
-        className={`shrink-0 ${comment.resolved ? 'text-green-500 hover:text-green-400' : 'text-neutral-500 hover:text-green-400'}`}
+        className="shrink-0"
+        style={{ color: comment.resolved ? 'var(--ai-success)' : 'var(--ai-text-tertiary)' }}
         title={comment.resolved ? 'Mark as unresolved' : 'Mark as resolved'}
       >
         <CircleCheck className="h-3.5 w-3.5" />
       </button>
     )}
     {onDelete && (
-      <button onClick={onDelete} className="text-neutral-500 hover:text-neutral-300 shrink-0">
+      <button
+        onClick={onDelete}
+        className="shrink-0"
+        style={{ color: 'var(--ai-text-tertiary)' }}
+      >
         <X className="h-3 w-3" />
       </button>
     )}
@@ -162,7 +184,10 @@ const CommentInput: FC<{
   }, [])
 
   return (
-    <div className="mx-2 my-1 p-2 rounded bg-neutral-800 border border-neutral-600">
+    <div
+      className="mx-2 my-1 p-2 rounded border"
+      style={{ background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border)' }}
+    >
       <textarea
         ref={ref}
         value={text}
@@ -175,7 +200,8 @@ const CommentInput: FC<{
           }
         }}
         placeholder="Add a comment... (Ctrl+Enter to submit, Esc to cancel)"
-        className="w-full min-h-[60px] bg-transparent text-xs text-white placeholder:text-neutral-500 outline-none resize-y"
+        className="w-full min-h-[60px] bg-transparent text-xs outline-none resize-y"
+        style={{ color: 'var(--ai-text-primary)', }}
         rows={2}
       />
       <div className="flex justify-end gap-1 mt-1">
@@ -211,14 +237,18 @@ const DiffLineRow: FC<{
 
   return (
     <>
-      <div className={`flex group ${
-        line.type === 'added' ? 'bg-green-900/20' :
-        line.type === 'removed' ? 'bg-red-900/20' : ''
-      }`}>
+      <div
+        className="flex group"
+        style={{
+          background: line.type === 'added' ? 'var(--ai-diff-added-bg)' :
+            line.type === 'removed' ? 'var(--ai-diff-removed-bg)' : undefined
+        }}
+      >
         {/* Comment gutter */}
         {!readOnly && lineNum !== undefined ? (
           <button
-            className="w-5 shrink-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-300"
+            className="w-5 shrink-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: 'var(--ai-accent)' }}
             onClick={() => key && onStartComment(key)}
           >
             <Plus className="h-3 w-3" />
@@ -264,7 +294,10 @@ const UnifiedView: FC<{
     <div className="font-mono text-xs leading-5">
       {file.hunks.map((hunk, hi) => (
         <div key={hi}>
-          <div className="bg-blue-900/20 text-blue-300 px-4 py-0.5 select-none border-y border-neutral-800">
+          <div
+            className="px-4 py-0.5 select-none border-y"
+            style={{ background: 'var(--ai-accent-subtle)', color: 'var(--ai-accent)', borderColor: 'var(--ai-border-subtle)' }}
+          >
             {hunk.header}
           </div>
           {hunk.lines.map((line, li) => (
@@ -281,16 +314,25 @@ const UnifiedView: FC<{
               onToggleResolved={onToggleResolved}
               readOnly={readOnly}
             >
-              <span className="w-12 text-right pr-2 text-neutral-600 select-none shrink-0 border-r border-neutral-800">
+              <span
+                className="w-12 text-right pr-2 select-none shrink-0 border-r"
+                style={{ color: 'var(--ai-text-tertiary)', borderColor: 'var(--ai-border-subtle)' }}
+              >
                 {line.oldLineNum ?? ''}
               </span>
-              <span className="w-12 text-right pr-2 text-neutral-600 select-none shrink-0 border-r border-neutral-800">
+              <span
+                className="w-12 text-right pr-2 select-none shrink-0 border-r"
+                style={{ color: 'var(--ai-text-tertiary)', borderColor: 'var(--ai-border-subtle)' }}
+              >
                 {line.newLineNum ?? ''}
               </span>
-              <span className={`w-4 text-center select-none shrink-0 ${
-                line.type === 'added' ? 'text-green-400' :
-                line.type === 'removed' ? 'text-red-400' : 'text-neutral-600'
-              }`}>
+              <span
+                className="w-4 text-center select-none shrink-0"
+                style={{
+                  color: line.type === 'added' ? 'var(--ai-diff-added-text)' :
+                    line.type === 'removed' ? 'var(--ai-diff-removed-text)' : 'var(--ai-text-tertiary)'
+                }}
+              >
                 {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
               </span>
               <span className="flex-1 px-2 whitespace-pre overflow-x-auto">{line.content}</span>
@@ -356,7 +398,10 @@ const SplitView: FC<{
         const pairs = buildSplitPairs(hunk.lines)
         return (
           <div key={hi}>
-            <div className="bg-blue-900/20 text-blue-300 px-4 py-0.5 select-none border-y border-neutral-800">
+            <div
+              className="px-4 py-0.5 select-none border-y"
+              style={{ background: 'var(--ai-accent-subtle)', color: 'var(--ai-accent)', borderColor: 'var(--ai-border-subtle)' }}
+            >
               {hunk.header}
             </div>
             {pairs.map((pair, pi) => {
@@ -372,25 +417,38 @@ const SplitView: FC<{
                   <div className="flex group">
                     {/* Left side */}
                     {pair.left ? (
-                      <div className={`flex-1 flex min-w-0 ${pair.left.type === 'removed' ? 'bg-red-900/20' : ''}`}>
-                        <span className="w-12 text-right pr-2 text-neutral-600 select-none shrink-0 border-r border-neutral-800">
+                      <div
+                        className="flex-1 flex min-w-0"
+                        style={{ background: pair.left.type === 'removed' ? 'var(--ai-diff-removed-bg)' : undefined }}
+                      >
+                        <span
+                          className="w-12 text-right pr-2 select-none shrink-0 border-r"
+                          style={{ color: 'var(--ai-diff-line-num)', borderColor: 'var(--ai-border-subtle)' }}
+                        >
                           {pair.left.oldLineNum ?? ''}
                         </span>
-                        <span className={`w-4 text-center select-none shrink-0 ${pair.left.type === 'removed' ? 'text-red-400' : 'text-neutral-600'}`}>
+                        <span
+                          className="w-4 text-center select-none shrink-0"
+                          style={{ color: pair.left.type === 'removed' ? 'var(--ai-diff-removed-text)' : 'var(--ai-text-tertiary)' }}
+                        >
                           {pair.left.type === 'removed' ? '-' : ' '}
                         </span>
                         <span className="flex-1 px-2 whitespace-pre overflow-x-auto">{pair.left.content}</span>
                       </div>
                     ) : (
-                      <div className="flex-1 bg-neutral-900/50 min-w-0" />
+                      <div className="flex-1 min-w-0" style={{ background: 'var(--ai-diff-empty-bg)' }} />
                     )}
-                    <div className="w-px bg-neutral-700 shrink-0" />
+                    <div className="w-px shrink-0" style={{ background: 'var(--ai-surface-3)' }} />
                     {/* Right side */}
                     {pair.right ? (
-                      <div className={`flex-1 flex min-w-0 ${pair.right.type === 'added' ? 'bg-green-900/20' : ''}`}>
+                      <div
+                        className="flex-1 flex min-w-0"
+                        style={{ background: pair.right.type === 'added' ? 'var(--ai-diff-added-bg)' : undefined }}
+                      >
                         {!readOnly && lineNum !== undefined ? (
                           <button
-                            className="w-5 shrink-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-300"
+                            className="w-5 shrink-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ color: 'var(--ai-accent)' }}
                             onClick={() => key && onStartComment(key)}
                           >
                             <Plus className="h-3 w-3" />
@@ -398,16 +456,22 @@ const SplitView: FC<{
                         ) : (
                           <span className="w-5 shrink-0" />
                         )}
-                        <span className="w-12 text-right pr-2 text-neutral-600 select-none shrink-0 border-r border-neutral-800">
+                        <span
+                          className="w-12 text-right pr-2 select-none shrink-0 border-r"
+                          style={{ color: 'var(--ai-text-tertiary)', borderColor: 'var(--ai-border-subtle)' }}
+                        >
                           {pair.right.newLineNum ?? ''}
                         </span>
-                        <span className={`w-4 text-center select-none shrink-0 ${pair.right.type === 'added' ? 'text-green-400' : 'text-neutral-600'}`}>
+                        <span
+                          className="w-4 text-center select-none shrink-0"
+                          style={{ color: pair.right.type === 'added' ? 'var(--ai-diff-added-text)' : 'var(--ai-text-tertiary)' }}
+                        >
                           {pair.right.type === 'added' ? '+' : ' '}
                         </span>
                         <span className="flex-1 px-2 whitespace-pre overflow-x-auto">{pair.right.content}</span>
                       </div>
                     ) : (
-                      <div className="flex-1 bg-neutral-900/50 min-w-0" />
+                      <div className="flex-1 min-w-0" style={{ background: 'var(--ai-diff-empty-bg)' }} />
                     )}
                   </div>
                   {/* Comments below the pair */}
@@ -625,11 +689,11 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
   }, [files])
 
   if (loading) {
-    return <div className="h-full flex items-center justify-center text-neutral-500 text-sm">Loading diff...</div>
+    return <div className="h-full flex items-center justify-center text-sm" style={{ color: 'var(--ai-text-tertiary)' }}>Loading diff...</div>
   }
 
   if (projectDiffs.length === 0 || files.length === 0) {
-    return <div className="h-full flex items-center justify-center text-neutral-500 text-sm">No changes to display</div>
+    return <div className="h-full flex items-center justify-center text-sm" style={{ color: 'var(--ai-text-tertiary)' }}>No changes to display</div>
   }
 
   const toggleProject = (project: string) => {
@@ -645,21 +709,22 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
     <div className="h-full flex flex-col min-h-0">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-1 pb-3 shrink-0">
-        <div className="flex items-center gap-2 text-xs text-neutral-400">
+        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-neutral-400"
+            className="h-6 px-2 text-xs"
+            style={{ color: 'var(--ai-text-tertiary)' }}
             onClick={() => setSidebarOpen(prev => !prev)}
             title={sidebarOpen ? 'Hide file tree' : 'Show file tree'}
           >
             {sidebarOpen ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeft className="h-3.5 w-3.5" />}
           </Button>
           {files.length} file{files.length !== 1 ? 's' : ''} changed
-          <span className="text-green-400 ml-2">+{totalStats.added}</span>
-          <span className="text-red-400 ml-1">-{totalStats.removed}</span>
+          <span style={{ color: 'var(--ai-diff-added-text)' }} className=" ml-2">+{totalStats.added}</span>
+          <span style={{ color: 'var(--ai-diff-removed-text)' }} className=" ml-1">-{totalStats.removed}</span>
           {comments.length > 0 && (
-            <span className="text-amber-400 ml-3">
+            <span className="ml-3" style={{ color: 'var(--ai-warning)' }}>
               <MessageSquare className="h-3 w-3 inline mr-1" />
               {comments.length} comment{comments.length !== 1 ? 's' : ''}
             </span>
@@ -672,14 +737,18 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                 checked={showResolved}
                 onCheckedChange={(checked) => persistShowResolved(!!checked)}
               />
-              <span className="text-xs text-neutral-400">Show resolved ({resolvedCount})</span>
+              <span className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>Show resolved ({resolvedCount})</span>
             </label>
           )}
-          <div className="flex items-center gap-1 bg-neutral-800 rounded p-0.5">
+          <div className="flex items-center gap-1 rounded p-0.5" style={{ background: 'var(--ai-surface-2)' }}>
             <Button
               variant="ghost"
               size="sm"
-              className={`h-6 px-2 text-xs ${viewMode === 'unified' ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}
+              className="h-6 px-2 text-xs"
+              style={viewMode === 'unified'
+                ? { background: 'var(--ai-surface-3)', color: 'var(--ai-text-primary)' }
+                : { color: 'var(--ai-text-tertiary)' }
+              }
               onClick={() => persistViewMode('unified')}
             >
               <Rows3 className="h-3 w-3 mr-1" />
@@ -688,7 +757,11 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
             <Button
               variant="ghost"
               size="sm"
-              className={`h-6 px-2 text-xs ${viewMode === 'split' ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}
+              className="h-6 px-2 text-xs"
+              style={viewMode === 'split'
+                ? { background: 'var(--ai-surface-3)', color: 'var(--ai-text-primary)' }
+                : { color: 'var(--ai-text-tertiary)' }
+              }
               onClick={() => persistViewMode('split')}
             >
               <Columns2 className="h-3 w-3 mr-1" />
@@ -702,7 +775,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
       <div className="flex-1 flex min-h-0 gap-0">
         {/* File tree sidebar */}
         {sidebarOpen && (
-          <div className="w-56 shrink-0 border-r border-neutral-800 overflow-y-auto pr-1">
+          <div className="w-56 shrink-0 border-r overflow-y-auto pr-1" style={{ borderColor: 'var(--ai-border-subtle)' }}>
             {projectGroups.map(group => {
               const sidebarProjectCollapsed = sidebarCollapsedProjects.has(group.project)
               return (
@@ -715,14 +788,15 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                         else next.add(group.project)
                         return next
                       })}
-                      className="w-full flex items-center gap-1.5 px-2 py-1 text-left hover:bg-neutral-800/50 rounded"
+                      className="w-full flex items-center gap-1.5 px-2 py-1 text-left rounded"
+                      style={{ }}
                     >
                       {sidebarProjectCollapsed
-                        ? <ChevronRight className="h-3 w-3 text-blue-400 shrink-0" />
-                        : <ChevronDown className="h-3 w-3 text-blue-400 shrink-0" />
+                        ? <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--ai-accent)' }} />
+                        : <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--ai-accent)' }} />
                       }
-                      <FolderOpen className="h-3 w-3 text-blue-400 shrink-0" />
-                      <span className="text-[11px] font-medium text-blue-300 truncate">{group.project}</span>
+                      <FolderOpen className="h-3 w-3 shrink-0" style={{ color: 'var(--ai-accent)' }} />
+                      <span className="text-[11px] font-medium truncate" style={{ color: 'var(--ai-accent)' }}>{group.project}</span>
                     </button>
                   )}
                   {!sidebarProjectCollapsed && group.files.map(file => {
@@ -733,14 +807,14 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                       <button
                         key={filePath}
                         onClick={() => scrollToFile(filePath)}
-                        className={`w-full flex items-center gap-1.5 px-2 py-0.5 text-left hover:bg-neutral-800/50 rounded group ${multiProject ? 'ml-3' : ''}`}
+                        className={`w-full flex items-center gap-1.5 px-2 py-0.5 text-left rounded group ${multiProject ? 'ml-3' : ''}`}
                         title={filePath}
                       >
-                        <FileCode className="h-3 w-3 text-neutral-500 shrink-0" />
-                        <span className="text-[11px] text-neutral-300 truncate flex-1">{fileName}</span>
+                        <FileCode className="h-3 w-3 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+                        <span className="text-[11px] truncate flex-1" style={{ color: 'var(--ai-text-secondary)' }}>{fileName}</span>
                         <span className="text-[10px] shrink-0 opacity-0 group-hover:opacity-100">
-                          <span className="text-green-400">+{stats.added}</span>
-                          <span className="text-red-400 ml-0.5">-{stats.removed}</span>
+                          <span style={{ color: 'var(--ai-diff-added-text)' }} className="">+{stats.added}</span>
+                          <span style={{ color: 'var(--ai-diff-removed-text)' }} className=" ml-0.5">-{stats.removed}</span>
                         </span>
                       </button>
                     )
@@ -759,7 +833,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
           if (generalComments.length === 0) return null
           return (
             <div className="shrink-0 mb-1 space-y-1">
-              <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wide px-1">General Comments</h4>
+              <h4 className="text-xs font-medium uppercase tracking-wide px-1" style={{ color: 'var(--ai-text-tertiary)' }}>General Comments</h4>
               {generalComments.map((c, i) => (
                 <InlineComment
                   key={i}
@@ -774,16 +848,23 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
         {/* Orphaned comments — files no longer in diff */}
         {orphanedByFile.size > 0 && (
-          <div className="shrink-0 mb-1 border border-orange-800/30 rounded-md bg-orange-900/10 overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-1.5 bg-orange-900/20">
-              <span className="text-[10px] text-orange-300 uppercase tracking-wide font-medium">
+          <div
+            className="shrink-0 mb-1 border rounded-md overflow-hidden"
+            style={{ borderColor: 'var(--ai-warning-subtle)', background: 'var(--ai-warning-subtle)' }}
+          >
+            <div
+              className="flex items-center justify-between px-3 py-1.5"
+              style={{ background: 'var(--ai-warning-subtle)' }}
+            >
+              <span className="text-[10px] uppercase tracking-wide font-medium" style={{ color: 'var(--ai-warning)' }}>
                 Comments on files no longer in diff
               </span>
               {!readOnly && orphanedComments.some(c => !c.resolved) && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 px-2 text-[10px] text-orange-300 hover:text-orange-200"
+                  className="h-5 px-2 text-[10px]"
+                  style={{ color: 'var(--ai-warning)' }}
                   onClick={handleResolveAllOrphaned}
                 >
                   <Check className="h-3 w-3 mr-1" /> Resolve all
@@ -791,14 +872,15 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
               )}
             </div>
             {[...orphanedByFile.entries()].map(([file, fileComments]) => (
-              <div key={file} className="px-3 py-1.5 border-t border-orange-800/20">
+              <div key={file} className="px-3 py-1.5 border-t" style={{ borderColor: 'var(--ai-warning-subtle)' }}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono text-orange-200/70">{file}</span>
+                  <span className="text-xs font-mono" style={{ color: 'var(--ai-warning)', opacity: 0.7 }}>{file}</span>
                   {!readOnly && fileComments.some(c => !c.resolved) && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 px-2 text-[10px] text-orange-300 hover:text-orange-200"
+                      className="h-5 px-2 text-[10px]"
+                      style={{ color: 'var(--ai-warning)' }}
                       onClick={() => handleResolveOrphanedFile(file)}
                     >
                       <Check className="h-3 w-3 mr-1" /> Resolve
@@ -831,18 +913,19 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
               {multiProject && (
                 <button
                   onClick={() => toggleProject(group.project)}
-                  className="w-full flex items-center gap-2 px-3 py-2 mb-1 rounded-md bg-neutral-800/70 hover:bg-neutral-800 transition-colors text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2 mb-1 rounded-md transition-colors text-left"
+                  style={{ background: 'var(--ai-surface-2)' }}
                 >
                   {projectCollapsed
-                    ? <ChevronRight className="h-4 w-4 text-blue-400 shrink-0" />
-                    : <ChevronDown className="h-4 w-4 text-blue-400 shrink-0" />
+                    ? <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'var(--ai-accent)' }} />
+                    : <ChevronDown className="h-4 w-4 shrink-0" style={{ color: 'var(--ai-accent)' }} />
                   }
-                  <FolderOpen className="h-4 w-4 text-blue-400 shrink-0" />
-                  <span className="text-sm font-medium text-blue-300">{group.project}</span>
-                  <span className="text-xs text-neutral-500">{group.files.length} file{group.files.length !== 1 ? 's' : ''}</span>
+                  <FolderOpen className="h-4 w-4 shrink-0" style={{ color: 'var(--ai-accent)' }} />
+                  <span className="text-sm font-medium" style={{ color: 'var(--ai-accent)' }}>{group.project}</span>
+                  <span className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>{group.files.length} file{group.files.length !== 1 ? 's' : ''}</span>
                   <span className="ml-auto text-xs shrink-0">
-                    <span className="text-green-400">+{projectStats.added}</span>
-                    <span className="text-red-400 ml-1">-{projectStats.removed}</span>
+                    <span style={{ color: 'var(--ai-diff-added-text)' }} className="">+{projectStats.added}</span>
+                    <span style={{ color: 'var(--ai-diff-removed-text)' }} className=" ml-1">-{projectStats.removed}</span>
                   </span>
                 </button>
               )}
@@ -857,28 +940,37 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                     const fileCommentCount = comments.filter(c => c.file === filePath).length
 
                     return (
-                      <div key={filePath} ref={el => setFileRef(filePath, el)} className="border border-neutral-800 rounded-md overflow-hidden">
+                      <div
+                        key={filePath}
+                        ref={el => setFileRef(filePath, el)}
+                        className="border rounded-md overflow-hidden"
+                        style={{ borderColor: 'var(--ai-border-subtle)' }}
+                      >
                         {/* File header */}
                         <button
                           onClick={() => toggleFile(filePath)}
-                          className="w-full flex items-center gap-2 px-3 py-1.5 bg-neutral-800/50 hover:bg-neutral-800 transition-colors text-left"
+                          className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
+                          style={{ background: 'var(--ai-surface-2)' }}
                         >
                           {collapsed
-                            ? <ChevronRight className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
-                            : <ChevronDown className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
+                            ? <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+                            : <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
                           }
-                          <FileCode className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
-                          <span className="text-xs text-neutral-200 font-mono truncate">{filePath}</span>
-                          {file.isNew && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/40 text-green-300 shrink-0">new</span>}
-                          {file.isDeleted && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-900/40 text-red-300 shrink-0">deleted</span>}
+                          <FileCode className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+                          <span className="text-xs font-mono truncate" style={{ color: 'var(--ai-text-primary)' }}>{filePath}</span>
+                          {file.isNew && <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: 'var(--ai-diff-added-bg)', color: 'var(--ai-diff-added-text)' }}>new</span>}
+                          {file.isDeleted && <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: 'var(--ai-diff-removed-bg)', color: 'var(--ai-diff-removed-text)' }}>deleted</span>}
                           {fileCommentCount > 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300 shrink-0">
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                              style={{ background: 'var(--ai-warning-subtle)', color: 'var(--ai-warning)' }}
+                            >
                               {fileCommentCount} comment{fileCommentCount !== 1 ? 's' : ''}
                             </span>
                           )}
                           <span className="ml-auto text-xs shrink-0">
-                            <span className="text-green-400">+{stats.added}</span>
-                            <span className="text-red-400 ml-1">-{stats.removed}</span>
+                            <span style={{ color: 'var(--ai-diff-added-text)' }} className="">+{stats.added}</span>
+                            <span style={{ color: 'var(--ai-diff-removed-text)' }} className=" ml-1">-{stats.removed}</span>
                           </span>
                         </button>
 
@@ -890,9 +982,9 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
                           if (isLarge && !isForced) {
                             return (
-                              <div className="flex flex-col items-center gap-2 py-6 px-4 bg-neutral-900/30">
-                                <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                                <p className="text-xs text-neutral-400 text-center">
+                              <div className="flex flex-col items-center gap-2 py-6 px-4" style={{ background: 'var(--ai-surface-0)' }}>
+                                <AlertTriangle className="h-5 w-5" style={{ color: 'var(--ai-warning)' }} />
+                                <p className="text-xs text-center" style={{ color: 'var(--ai-text-tertiary)' }}>
                                   Large diff not rendered — {totalLines} lines changed ({stats.added} additions, {stats.removed} deletions)
                                 </p>
                                 <Button
@@ -911,7 +1003,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                           }
 
                           return (
-                            <div className="overflow-x-auto text-neutral-300">
+                            <div className="overflow-x-auto" style={{ color: 'var(--ai-text-secondary)' }}>
                               {viewMode === 'unified'
                                 ? <UnifiedView
                                     file={file}

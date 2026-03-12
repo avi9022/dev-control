@@ -1,4 +1,4 @@
-import { useState, type FC } from 'react'
+import { useState, useEffect, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { TaskCard } from '@/ui/components/ai-automation/TaskCard'
 import { NewTaskDialog } from '@/ui/components/ai-automation/NewTaskDialog'
@@ -6,14 +6,28 @@ import { AITaskDetail } from './AITaskDetail'
 import { AISettings } from './AISettings'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, Settings, Zap } from 'lucide-react'
+import { Plus, Settings, Zap, Sun, Moon } from 'lucide-react'
 
 export const AIKanban: FC = () => {
-  const { tasks, moveTaskPhase, deleteTask, settings } = useAIAutomation()
+  const { tasks, moveTaskPhase, deleteTask, settings, updateSettings } = useAIAutomation()
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+
+  const theme = settings?.theme || 'dark'
+  const isLight = theme === 'light'
+  const themeClass = isLight ? 'ai-kanban ai-light' : 'ai-kanban'
+
+  // Sync theme to <html> so Radix portals (dialogs, selects, popovers) pick up light overrides
+  useEffect(() => {
+    if (isLight) {
+      document.documentElement.setAttribute('data-ai-theme', 'light')
+    } else {
+      document.documentElement.removeAttribute('data-ai-theme')
+    }
+    return () => document.documentElement.removeAttribute('data-ai-theme')
+  }, [isLight])
 
   const pipeline = settings?.pipeline || []
   const columns: { id: string; label: string; type?: string }[] = [
@@ -58,16 +72,20 @@ export const AIKanban: FC = () => {
     agentPhaseIds.includes(t.phase) && t.activeProcessPid
   ).length
 
+  const toggleTheme = () => {
+    updateSettings({ theme: isLight ? 'dark' : 'light' })
+  }
+
   if (selectedTaskId) {
     return (
-      <div className="h-full ai-kanban">
+      <div className={`h-full ${themeClass}`} style={{ background: 'var(--ai-surface-0)' }}>
         <AITaskDetail taskId={selectedTaskId} onBack={() => setSelectedTaskId(null)} />
       </div>
     )
   }
 
   return (
-    <div className="ai-kanban h-full flex flex-col" style={{ background: 'var(--ai-surface-0)' }}>
+    <div className={`${themeClass} h-full flex flex-col`} style={{ background: 'var(--ai-surface-0)' }}>
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
         <div className="flex items-center gap-4">
@@ -89,6 +107,14 @@ export const AIKanban: FC = () => {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+            style={{ color: 'var(--ai-text-secondary)', background: 'var(--ai-surface-2)' }}
+            title={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
+          >
+            {isLight ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+          </button>
           <Button
             variant="outline"
             size="sm"
@@ -101,8 +127,8 @@ export const AIKanban: FC = () => {
           <Button
             size="sm"
             onClick={() => setNewTaskOpen(true)}
-            className="text-white font-semibold"
-            style={{ background: 'var(--ai-accent)', color: 'white' }}
+            className="font-semibold"
+            style={{ background: 'var(--ai-accent)', color: isLight ? '#FFFFFF' : 'var(--ai-surface-0)' }}
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
             New Task
@@ -160,7 +186,7 @@ export const AIKanban: FC = () => {
       <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
 
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="!max-w-[95vw] h-[85vh] flex flex-col">
+        <DialogContent className={`${themeClass} !max-w-[95vw] h-[85vh] flex flex-col`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
           <DialogHeader>
             <DialogTitle>AI Automation Settings</DialogTitle>
           </DialogHeader>

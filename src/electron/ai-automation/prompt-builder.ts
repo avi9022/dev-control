@@ -48,6 +48,15 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
   } else if (task.projects.length > 0) {
     taskContext += `\n\n**Working Directory:** ${task.projects[0].path}`
   }
+  // Git branch info
+  const projectsWithBranches = task.projects.filter(p => p.baseBranch || p.customBranchName)
+  if (projectsWithBranches.length > 0) {
+    taskContext += `\n\n**Git Branch Info:**`
+    for (const p of projectsWithBranches) {
+      taskContext += `\n- ${p.label}: branch \`${p.customBranchName || 'auto'}\``
+      if (p.baseBranch) taskContext += ` → base \`${p.baseBranch}\``
+    }
+  }
   // Read-only projects
   const readOnlyProjects = task.projects.filter(p => p.gitStrategy === 'none')
   if (readOnlyProjects.length > 0) {
@@ -64,9 +73,10 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
   parts.push(taskContext)
 
   // 5b. Amendments (new requirements added after initial implementation)
-  if (task.amendments && task.amendments.length > 0) {
+  const activeAmendments = (task.amendments || []).filter(a => !a.hidden)
+  if (activeAmendments.length > 0) {
     let amendSection = `## Amendments\n\nThe following requirements were added after the initial task was created. Your existing work already addresses the original task description — focus on these additions:\n`
-    for (const amendment of task.amendments) {
+    for (const amendment of activeAmendments) {
       const date = new Date(amendment.createdAt).toLocaleDateString()
       amendSection += `\n### Amendment (${date})\n\n${amendment.text}\n`
     }

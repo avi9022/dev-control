@@ -30,6 +30,11 @@
 - [ ] **F21**: Diff Viewer File Tree — full collapsible file tree in diff viewer sidebar with directory nesting, file status icons (added/modified/deleted), and change counts
 - [ ] **F22**: Diff Viewer Search — search across all diff content with match highlighting, result count, and prev/next navigation
 - [ ] **F23**: Continue Task — allow resuming a task from any phase (including DONE), re-enter the pipeline at a chosen phase with existing context, worktrees, and history preserved
+- [ ] **F25**: Agent Context Control — manage and limit the context sent to agents (prompt size budgets, smart truncation, section prioritization) to prevent context window overflow as tasks accumulate amendments, comments, files, and history
+- [ ] **F26**: Base Branch Autocomplete — fetch actual git branches from project repos and show autocomplete dropdown in task creation and edit forms for the base branch field
+- [ ] **F27**: Agent Terminal Filtering — clean up agent terminal output with toggleable filters to hide tool usage blocks, system messages, and other noise, showing only meaningful agent output and conversation
+- [ ] **F28**: Agent Terminal Enhancement — color-coded terminal output (distinguish agent responses, tool calls, errors, system messages), info header showing current agent context (active phase, task summary, worktree path, cycle count, elapsed time)
+- [x] **F29**: Amendment Project Management — allow adding/removing projects and worktrees from within the amendment form, so users can expand task scope (new repos, new worktrees) alongside new requirements without going through task edit
 
 ## Design Documents
 

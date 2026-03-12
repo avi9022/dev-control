@@ -107,6 +107,8 @@ function isValidTransition(from: string, to: string, pipeline: AIPipelinePhase[]
   if (from !== 'BACKLOG' && from !== 'DONE' && to !== 'BACKLOG' && to !== 'DONE') return true
   // Moving to DONE from any phase
   if (to === 'DONE' && from !== 'BACKLOG') return true
+  // Amendment routing: DONE can go back to any pipeline phase
+  if (from === 'DONE' && to !== 'BACKLOG' && to !== 'DONE') return true
 
   return false
 }

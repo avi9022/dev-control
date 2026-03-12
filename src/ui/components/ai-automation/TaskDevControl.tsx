@@ -25,7 +25,8 @@ const ServiceTab: FC<{
   return (
     <div
       onClick={onSelect}
-      className={`px-3 py-4 flex justify-between cursor-pointer ${isSelected ? 'bg-stone-300 text-black' : ''}`}
+      className="px-3 py-4 flex justify-between cursor-pointer"
+      style={{ background: isSelected ? 'var(--ai-surface-3)' : undefined, color: isSelected ? 'var(--ai-text-primary)' : undefined }}
     >
       <div className="w-full flex gap-1 justify-start">
         <div>
@@ -51,7 +52,7 @@ const ServiceTab: FC<{
               </TooltipContent>
             </Tooltip>
           </div>
-          <p className="text-xs opacity-60">{dir.runCommand}</p>
+          <p className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>{dir.runCommand}</p>
         </div>
       </div>
       <div className="flex gap-2 items-center">
@@ -59,7 +60,7 @@ const ServiceTab: FC<{
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className="shadow-gray-600"
+                className=""
                 disabled={!isRunning}
                 style={!isRunning ? { pointerEvents: 'auto', cursor: 'auto' } : {}}
                 onClick={ev => {
@@ -86,7 +87,7 @@ const ServiceTab: FC<{
                 if (isRunning || isInitializing) onStop()
                 else onRun()
               }}
-              className={`${isRunning || isInitializing ? 'bg-destructive hover:bg-destructive/80' : 'bg-success hover:bg-success/80'} shadow-gray-600`}
+              className={`${isRunning || isInitializing ? 'bg-destructive hover:bg-destructive/80' : 'bg-success hover:bg-success/80'}`}
               size="sm"
             >
               {isInitializing
@@ -130,17 +131,17 @@ export const TaskDevControl: FC<TaskDevControlProps> = ({ taskId }) => {
   }, [directories])
 
   if (loading) {
-    return <div className="h-full flex items-center justify-center text-neutral-500 text-sm">Setting up services...</div>
+    return <div className="h-full flex items-center justify-center text-sm" style={{ color: 'var(--ai-text-tertiary)' }}>Setting up services...</div>
   }
 
   if (serviceDirs.length === 0) {
-    return <div className="h-full flex items-center justify-center text-neutral-500 text-sm">No worktrees available for this task</div>
+    return <div className="h-full flex items-center justify-center text-sm" style={{ color: 'var(--ai-text-tertiary)' }}>No worktrees available for this task</div>
   }
 
   return (
     <div className="h-full flex min-h-0">
       {/* Sidebar */}
-      <div className="w-[300px] shrink-0 border-r border-neutral-700 overflow-y-auto">
+      <div className="w-[300px] shrink-0 overflow-y-auto" style={{ borderRight: '1px solid var(--ai-border-subtle)' }}>
         {serviceDirs.map((dir, i) => {
           const state = directoriesStateMap[dir.id] || 'UNKNOWN'
           return (
@@ -164,7 +165,7 @@ export const TaskDevControl: FC<TaskDevControlProps> = ({ taskId }) => {
         {selectedId ? (
           <Terminal id={selectedId} />
         ) : (
-          <div className="h-full flex items-center justify-center text-neutral-500 text-sm">
+          <div className="h-full flex items-center justify-center text-sm" style={{ color: 'var(--ai-text-tertiary)' }}>
             Select a service
           </div>
         )}

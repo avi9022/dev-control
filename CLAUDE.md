@@ -96,17 +96,20 @@ src/
 ## Major Features
 
 ### Service Management
+
 - Auto-detects `package.json`, run commands, ports, and frontend frameworks
 - Process spawning via `node-pty`, states: `RUNNING | INITIALIZING | STOPPED | UNKNOWN`
 - Dynamic IDE detection: opens in VS Code, Cursor, Windsurf, or Zed (`src/electron/functions/open-in-ide.ts`)
 - Open in Browser, Open in Finder
 
 ### Database Tools
+
 - **Oracle SQL** (`src/electron/sql/`): Full SQL IDE — worksheets, schema browser, explain plan, DBMS_OUTPUT, query history, saved queries. Uses `oracledb`.
 - **MongoDB** (`src/electron/mongodb/`): Document CRUD, aggregation pipeline builder, schema analyzer, index management, collection import/export. Uses `mongodb`.
 - **DynamoDB** (`src/electron/dynamodb/`): Table browser, scan/query builder, inline cell editing. Supports custom endpoint, AWS credentials, or AWS profile. Uses `@aws-sdk/client-dynamodb`.
 
 ### Docker Management (`src/electron/docker/`)
+
 - Containers: list, start, stop, restart, pause, remove, inspect, exec (interactive PTY), logs, stats
 - Images, volumes, networks: full CRUD
 - Docker Compose: list projects, up/down/restart
@@ -114,6 +117,7 @@ src/
 - Detects Docker availability without requiring active daemon
 
 ### API Client (`src/electron/api-client/`)
+
 - Postman-like HTTP client with workspaces, collections, folders, requests
 - Environment variables with resolution in URLs, headers, and body
 - Auth types: bearer, basic, api-key, OAuth2, digest, hawk, AWS Sig V4, NTLM
@@ -121,21 +125,25 @@ src/
 - Code snippet generation
 
 ### Message Brokers (`src/electron/brokers/`)
+
 - Abstraction layer supporting both **ElasticMQ** and **RabbitMQ**
 - Queue operations: list, create, delete, purge, send, receive
 - Message archiving (last 5 per queue)
 - Legacy SQS module still exists at `src/electron/sqs/`
 
 ### Workflows (`src/ui/components/workflow/`)
+
 - Step-based execution engine with separate start and stop sequences
 - Three step types: `command` (shell), `docker` (container control), `service` (local services)
 - Per-step config: timeout, retries, continueOnError
 - Real-time progress tracking and execution history
 
 ### Developer Tools (21+)
+
 Registered in `src/ui/contexts/tools.tsx`, rendered via `src/ui/views/Tool.tsx` toolComponents map. Categories: encoding, formatting, generators, time, text, network.
 
 ### Todo Widget & Auto-Updates
+
 - Overlay window (Cmd+Shift+T), per-date todo files, priority levels, important values storage
 - Auto-update detection with user prompt/refuse/apply flow
 
@@ -146,16 +154,24 @@ Registered in `src/ui/contexts/tools.tsx`, rendered via `src/ui/views/Tool.tsx` 
 ### Adding a New IPC Handler
 
 1. **Define types** in `types.d.ts` under `EventPayloadMapping`:
+
 ```typescript
-myNewHandler: { input: string; output: number }
+myNewHandler: {
+  input: string;
+  output: number;
+}
 ```
 
 2. **Add handler** in `src/electron/main.ts`:
+
 ```typescript
-ipcMainHandle('myNewHandler', async (input) => { return result })
+ipcMainHandle("myNewHandler", async (input) => {
+  return result;
+});
 ```
 
 3. **Expose in preload** (`src/electron/preload.cts`):
+
 ```typescript
 myNewHandler: (input: string) => ipcInvoke('myNewHandler', input),
 ```
@@ -195,25 +211,25 @@ For push notifications, use `ipcWebContentsSend` in main and `ipcOn` in preload 
 
 ## Key Files Quick Reference
 
-| Purpose | File |
-|---------|------|
-| Main entry + all IPC handlers | `src/electron/main.ts` |
-| IPC bridge + window.electron API | `src/electron/preload.cts` |
-| All type definitions | `types.d.ts` |
-| Store schema | `src/electron/storage/store.ts` |
-| Process spawning | `src/electron/functions/run-service.ts` |
-| IDE detection | `src/electron/functions/open-in-ide.ts` |
-| Port polling | `src/electron/functions/poll-ports.ts` |
-| React entry + providers | `src/ui/App.tsx` |
-| Tools registry | `src/ui/contexts/tools.tsx` |
+| Purpose                          | File                                    |
+| -------------------------------- | --------------------------------------- |
+| Main entry + all IPC handlers    | `src/electron/main.ts`                  |
+| IPC bridge + window.electron API | `src/electron/preload.cts`              |
+| All type definitions             | `types.d.ts`                            |
+| Store schema                     | `src/electron/storage/store.ts`         |
+| Process spawning                 | `src/electron/functions/run-service.ts` |
+| IDE detection                    | `src/electron/functions/open-in-ide.ts` |
+| Port polling                     | `src/electron/functions/poll-ports.ts`  |
+| React entry + providers          | `src/ui/App.tsx`                        |
+| Tools registry                   | `src/ui/contexts/tools.tsx`             |
 
 ---
 
 ## Polling Intervals
 
-| What | Interval | Location |
-|------|----------|----------|
-| Port status | 500ms | `poll-ports.ts` |
-| Queue list | 500ms | `list-queues.ts` |
-| Queue data | 5000ms | `queue-operations.ts` |
-| Log line count cache | 5000ms TTL | log file manager |
+| What                 | Interval   | Location              |
+| -------------------- | ---------- | --------------------- |
+| Port status          | 500ms      | `poll-ports.ts`       |
+| Queue list           | 500ms      | `list-queues.ts`      |
+| Queue data           | 5000ms     | `queue-operations.ts` |
+| Log line count cache | 5000ms TTL | log file manager      |

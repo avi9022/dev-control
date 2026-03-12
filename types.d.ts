@@ -665,6 +665,24 @@ interface AITaskAmendment {
   text: string
   targetPhase: string
   createdAt: string
+  hidden?: boolean
+}
+
+interface AIBranchCommit {
+  hash: string
+  shortHash: string
+  message: string
+}
+
+interface AIBranchInfo {
+  worktreePath: string
+  projectPath: string
+  projectLabel: string
+  branchName: string
+  hasRemote: boolean
+  prNumber: number | null
+  prUrl: string | null
+  commits: AIBranchCommit[]
 }
 
 interface AIKnowledgeDoc {
@@ -692,10 +710,13 @@ interface AIAutomationSettings {
   globalRules: string
   knowledgeDocs: AIKnowledgeDoc[]
   // UI preferences
+  theme?: 'dark' | 'light'
   diffViewMode?: 'unified' | 'split'
   showResolvedComments?: boolean
   defaultRequestChangesPhase?: string
   defaultAmendmentPhase?: string
+  defaultApprovePhase?: string
+  approveSkipConfirm?: boolean
   fileViewMode?: 'list' | 'grid' | 'tree'
 }
 
@@ -888,6 +909,26 @@ type EventPayloadMapping = {
   openProjectInBrowser: {
     return: void;
     args: [string];
+  };
+  openExternalUrl: {
+    return: void;
+    args: [string];
+  };
+  shellSpawn: {
+    return: string; // shellId
+    args: [string]; // cwd
+  };
+  shellWrite: {
+    return: void;
+    args: [string, string]; // shellId, data
+  };
+  shellResize: {
+    return: void;
+    args: [string, number, number]; // shellId, cols, rows
+  };
+  shellKill: {
+    return: void;
+    args: [string]; // shellId
   };
   updateDirectory: {
     return: void;
@@ -1670,6 +1711,34 @@ type EventPayloadMapping = {
     return: AIAutomationSettings;
     args: [AIAutomationSettings];
   }
+  aiGetBranchInfo: {
+    return: AIBranchInfo[];
+    args: [string]; // taskId
+  }
+  aiRenameBranch: {
+    return: void;
+    args: [string, string, string, boolean]; // taskId, worktreePath, newBranchName, pushToRemote
+  }
+  aiEditCommitMessage: {
+    return: void;
+    args: [string, string, string, boolean]; // worktreePath, commitHash, newMessage, pushToRemote
+  }
+  aiEditMultipleCommitMessages: {
+    return: void;
+    args: [string, { hash: string; newMessage: string }[], boolean]; // worktreePath, edits, pushToRemote
+  }
+  aiSquashCommits: {
+    return: void;
+    args: [string, string, string, boolean]; // worktreePath, baseBranch, newMessage, pushToRemote
+  }
+  shellOutput: {
+    return: { shellId: string; output: string };
+    args: [{ shellId: string; output: string }];
+  }
+  shellExit: {
+    return: { shellId: string; exitCode: number };
+    args: [{ shellId: string; exitCode: number }];
+  }
 };
 
 interface Window {
@@ -1684,6 +1753,13 @@ interface Window {
     removeDirectory: (id?: string) => void
     runService: (id: string) => void
     openProjectInBrowser: (id: string) => void
+    openExternalUrl: (url: string) => void
+    shellSpawn: (cwd: string) => Promise<string>
+    shellWrite: (shellId: string, data: string) => void
+    shellResize: (shellId: string, cols: number, rows: number) => void
+    shellKill: (shellId: string) => void
+    subscribeShellOutput: (callback: (data: { shellId: string; output: string }) => void) => () => void
+    subscribeShellExit: (callback: (data: { shellId: string; exitCode: number }) => void) => () => void
     stopService: (id: string) => void
     checkServiceState: (id: string) => Promise<DirectoryState>
     subscribeDirectoriesState: (callback: (statesMap: DirectoryMapByState) => void) => () => void
@@ -1893,6 +1969,11 @@ interface Window {
     aiGetSettings: () => Promise<AIAutomationSettings>
     aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => Promise<void>
     aiGenerateKnowledgeDoc: (projectPath: string) => Promise<AIKnowledgeDoc>
+    aiGetBranchInfo: (taskId: string) => Promise<AIBranchInfo[]>
+    aiRenameBranch: (taskId: string, worktreePath: string, newBranchName: string, pushToRemote: boolean) => Promise<void>
+    aiEditCommitMessage: (worktreePath: string, commitHash: string, newMessage: string, pushToRemote: boolean) => Promise<void>
+    aiEditMultipleCommitMessages: (worktreePath: string, edits: { hash: string; newMessage: string }[], pushToRemote: boolean) => Promise<void>
+    aiSquashCommits: (worktreePath: string, baseBranch: string, newMessage: string, pushToRemote: boolean) => Promise<void>
     subscribeAITasks: (callback: (tasks: AITask[]) => void) => () => void
     subscribeAITaskOutput: (callback: (data: AITaskOutput) => void) => () => void
     subscribeAISettings: (callback: (settings: AIAutomationSettings) => void) => () => void
