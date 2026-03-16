@@ -586,6 +586,7 @@ interface AIPipelinePhase {
   allowedTools?: string
   rejectPattern?: string
   rejectTarget?: string
+  color?: string
 }
 
 interface AITaskProject {
@@ -637,6 +638,7 @@ interface AIPhaseHistoryEntry {
   phase: string
   enteredAt: string
   exitedAt?: string
+  contextHistoryPath?: string
 }
 
 interface AITaskWorktree {
@@ -653,6 +655,7 @@ interface AIReviewComment {
 }
 
 interface AIHumanComment {
+  id: string
   file: string
   line: number
   comment: string
@@ -723,6 +726,21 @@ interface AIAutomationSettings {
 interface AITaskOutput {
   taskId: string
   output: string
+}
+
+interface AIAgentStats {
+  taskId: string
+  inputTokens: number
+  outputTokens: number
+  cacheCreationTokens: number
+  cacheReadTokens: number
+  contextWindowMax: number
+  peakContext: number
+  turns: number
+  toolCalls: number
+  toolNames: string[]
+  costUsd: number
+  startedAt: string
 }
 
 // DynamoDB types
@@ -1659,6 +1677,10 @@ type EventPayloadMapping = {
     return: string[];
     args: [string];
   }
+  aiGetAgentStats: {
+    return: AIAgentStats | null;
+    args: [string];
+  }
   aiGetTaskDiff: {
     return: AIProjectDiff[];
     args: [string];
@@ -1687,6 +1709,10 @@ type EventPayloadMapping = {
     return: string;
     args: [string, string];
   }
+  aiReadContextHistory: {
+    return: { prompt: string; events: string };
+    args: [string]; // contextHistoryPath (absolute)
+  }
   aiGetSettings: {
     return: AIAutomationSettings;
     args: [];
@@ -1706,6 +1732,10 @@ type EventPayloadMapping = {
   aiTaskOutput: {
     return: AITaskOutput;
     args: [AITaskOutput];
+  }
+  aiAgentStats: {
+    return: AIAgentStats;
+    args: [AIAgentStats];
   }
   aiSettings: {
     return: AIAutomationSettings;
@@ -1958,9 +1988,11 @@ interface Window {
     aiMoveTaskPhase: (id: string, targetPhase: string) => Promise<void>
     aiGetTaskFiles: (taskId: string) => Promise<string[]>
     aiReadTaskFile: (taskId: string, filename: string) => Promise<string>
+    aiReadContextHistory: (contextHistoryPath: string) => Promise<{ prompt: string; events: string }>
     aiStopTask: (id: string) => Promise<void>
     aiSendTaskInput: (taskId: string, input: string) => Promise<void>
     aiGetTaskOutputHistory: (taskId: string) => Promise<string[]>
+    aiGetAgentStats: (taskId: string) => Promise<AIAgentStats | null>
     aiGetTaskDiff: (taskId: string) => Promise<AIProjectDiff[]>
     aiOpenTaskDir: (taskId: string) => Promise<void>
     aiCreateTaskServices: (taskId: string) => Promise<DirectorySettings[]>
@@ -1976,6 +2008,7 @@ interface Window {
     aiSquashCommits: (worktreePath: string, baseBranch: string, newMessage: string, pushToRemote: boolean) => Promise<void>
     subscribeAITasks: (callback: (tasks: AITask[]) => void) => () => void
     subscribeAITaskOutput: (callback: (data: AITaskOutput) => void) => () => void
+    subscribeAIAgentStats: (callback: (data: AIAgentStats) => void) => () => void
     subscribeAISettings: (callback: (settings: AIAutomationSettings) => void) => () => void
   }
 }

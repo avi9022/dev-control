@@ -103,6 +103,7 @@ Save your plan to plan.md in the task directory provided via --add-dir. Be speci
 
 IMPORTANT: Do NOT take any action. Do NOT create or modify project files. ONLY explore and write the plan.`,
     roles: ['planner', 'git'],
+    color: '#6B7FD7',
   },
   {
     id: 'in-progress',
@@ -116,6 +117,7 @@ IMPORTANT: Do NOT take any action. Do NOT create or modify project files. ONLY e
 
 Work methodically through the plan step by step.`,
     roles: ['worker', 'git'],
+    color: '#4DA870',
   },
   {
     id: 'agent-review',
@@ -135,11 +137,13 @@ At the end of your review, you MUST output one of:
     roles: ['reviewer', 'git'],
     rejectPattern: 'REVIEW_DECISION: REJECT',
     rejectTarget: 'in-progress',
+    color: '#D4A843',
   },
   {
     id: 'human-review',
     name: 'Human Review',
     type: 'manual',
+    color: '#9B6DC6',
   },
 ]
 
