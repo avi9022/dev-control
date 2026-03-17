@@ -47,7 +47,7 @@ import { dockerManager } from './docker/docker-manager.js'
 import { mongoManager } from './mongodb/mongo-manager.js'
 // AI Automation
 import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks, migrateTaskWorkspaces } from './ai-automation/task-manager.js'
-import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory } from './ai-automation/agent-runner.js'
+import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory, getAgentStats } from './ai-automation/agent-runner.js'
 import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
 import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments, getOrCreateTaskDir } from './ai-automation/task-dir-manager.js'
 import { generateKnowledgeDoc } from './ai-automation/knowledge-generator.js'
@@ -738,6 +738,18 @@ app.on("ready", async () => {
 
   ipcMainHandle('aiGetTaskOutputHistory', async (_event, taskId) => {
     return getTaskOutputHistory(taskId)
+  })
+
+  ipcMainHandle('aiReadContextHistory', async (_event, contextHistoryPath: string) => {
+    let prompt = ''
+    let events = '[]'
+    try { prompt = fs.readFileSync(path.join(contextHistoryPath, 'prompt.md'), 'utf-8') } catch { /* */ }
+    try { events = fs.readFileSync(path.join(contextHistoryPath, 'events.json'), 'utf-8') } catch { /* */ }
+    return { prompt, events }
+  })
+
+  ipcMainHandle('aiGetAgentStats', async (_event, taskId) => {
+    return getAgentStats(taskId)
   })
 
   ipcMainHandle('aiGetTaskDiff', async (_event, taskId) => {

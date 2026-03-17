@@ -17,6 +17,7 @@ const ROLE_TOOLS: Record<string, string[]> = {
 }
 
 const runningProcesses = new Map<string, ChildProcess>()
+const agentStats = new Map<string, AIAgentStats>()
 const taskQueue: string[] = []
 let mainWindow: BrowserWindow | null = null
 let resolvedClaudePath: string | null = null
@@ -185,6 +186,10 @@ export function setAgentMainWindow(window: BrowserWindow) {
   mainWindow = window
 }
 
+export function getAgentStats(taskId: string): AIAgentStats | null {
+  return agentStats.get(taskId) || null
+}
+
 export function getTaskOutputHistory(taskId: string): string[] {
   const logPath = getTaskLogPath(taskId)
   if (!fs.existsSync(logPath)) return []
@@ -268,6 +273,48 @@ function emit(taskId: string, text: string) {
   }
 }
 
+function emitStats(taskId: string) {
+  const stats = agentStats.get(taskId)
+  if (stats && mainWindow && !mainWindow.isDestroyed()) {
+    ipcWebContentsSend('aiAgentStats', mainWindow.webContents, stats)
+  }
+}
+
+// Context window sizes by model family
+const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
+  'claude-opus-4': 200000,
+  'claude-sonnet-4': 200000,
+  'claude-haiku-4': 200000,
+  'claude-3-5': 200000,
+  'claude-3': 200000,
+}
+
+function getContextWindowForModel(model: string): number {
+  for (const [prefix, size] of Object.entries(MODEL_CONTEXT_WINDOWS)) {
+    if (model.startsWith(prefix)) return size
+  }
+  return 200000 // default
+}
+
+function initStats(taskId: string): AIAgentStats {
+  const stats: AIAgentStats = {
+    taskId,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    contextWindowMax: 200000,
+    peakContext: 0,
+    turns: 0,
+    toolCalls: 0,
+    toolNames: [],
+    costUsd: 0,
+    startedAt: new Date().toISOString(),
+  }
+  agentStats.set(taskId, stats)
+  return stats
+}
+
 function formatToolUse(block: Record<string, unknown>): string {
   const name = block.name as string
   const input = block.input as Record<string, unknown> | undefined
@@ -325,7 +372,12 @@ function formatStreamEvent(event: Record<string, unknown>): string | null {
     return null
   }
 
-  if (type === 'content_block_stop' || type === 'message_start' || type === 'message_delta' || type === 'message_stop') {
+  if (type === 'content_block_stop' || type === 'message_stop') {
+    return null
+  }
+
+  // Extract usage data from message events (don't display, but return for stats tracking)
+  if (type === 'message_start' || type === 'message_delta') {
     return null
   }
 
@@ -394,6 +446,38 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   }
 
   const systemPrompt = buildPrompt(task, phaseConfig)
+
+  // Save context history: prompt + events directory
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const contextHistoryDir = path.join(task.taskDirPath!, 'context-history', `${phaseConfig.id}-${timestamp}`)
+  fs.mkdirSync(contextHistoryDir, { recursive: true })
+  fs.writeFileSync(path.join(contextHistoryDir, 'prompt.md'), systemPrompt)
+  fs.writeFileSync(path.join(contextHistoryDir, 'events.json'), '[\n')
+
+  // Update the current phase history entry with contextHistoryPath
+  const phaseHistory = [...task.phaseHistory]
+  if (phaseHistory.length > 0) {
+    const lastEntry = phaseHistory[phaseHistory.length - 1]
+    if (lastEntry.phase === phaseConfig.id && !lastEntry.exitedAt) {
+      phaseHistory[phaseHistory.length - 1] = { ...lastEntry, contextHistoryPath: contextHistoryDir }
+      updateTask(taskId, { phaseHistory })
+      task = getTaskById(taskId)!
+    }
+  }
+
+  let eventCount = 0
+  const appendEvent = (event: Record<string, unknown>) => {
+    try {
+      const prefix = eventCount > 0 ? ',\n' : ''
+      fs.appendFileSync(path.join(contextHistoryDir, 'events.json'), prefix + JSON.stringify(event))
+      eventCount++
+    } catch { /* */ }
+  }
+  const finalizeEvents = () => {
+    try {
+      fs.appendFileSync(path.join(contextHistoryDir, 'events.json'), '\n]')
+    } catch { /* */ }
+  }
 
   let message = task.description
   if (task.humanComments && task.humanComments.length > 0) {
@@ -487,11 +571,62 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   emit(taskId, roleHeader)
 
   let stdoutBuffer = ''
+  const stats = initStats(taskId)
 
   const emitText = (text: string) => {
     fullOutput += text
     appendTaskLog(taskId, text)
     emit(taskId, text)
+  }
+
+  const updateStatsFromEvent = (event: Record<string, unknown>) => {
+    const type = event.type as string
+
+    // assistant events carry usage, model, and tool calls in content
+    if (type === 'assistant') {
+      const message = event.message as Record<string, unknown> | undefined
+      if (!message) return
+
+      const model = message.model as string | undefined
+      if (model) stats.contextWindowMax = getContextWindowForModel(model)
+
+      const usage = message.usage as Record<string, number> | undefined
+      if (usage) {
+        const raw = usage.input_tokens || 0
+        const cacheCreate = usage.cache_creation_input_tokens || 0
+        const cacheRead = usage.cache_read_input_tokens || 0
+        const turnTotal = raw + cacheCreate + cacheRead
+
+        stats.inputTokens = turnTotal
+        if (turnTotal > stats.peakContext) stats.peakContext = turnTotal
+        stats.cacheCreationTokens = cacheCreate
+        stats.cacheReadTokens = cacheRead
+        stats.outputTokens += usage.output_tokens || 0
+      }
+
+      // Count tool calls from content blocks
+      const content = message.content as Record<string, unknown>[] | undefined
+      if (content) {
+        for (const block of content) {
+          if (block.type === 'tool_use') {
+            stats.toolCalls++
+            const name = block.name as string
+            if (name && !stats.toolNames.includes(name)) stats.toolNames.push(name)
+          }
+        }
+      }
+
+      stats.turns++
+      emitStats(taskId)
+    }
+
+    // Final cost from result event
+    if (type === 'result') {
+      if (event.cost_usd !== undefined) {
+        stats.costUsd = event.cost_usd as number
+      }
+      emitStats(taskId)
+    }
   }
 
   child.stdout?.on('data', (data: Buffer) => {
@@ -503,6 +638,12 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
       if (!line.trim()) continue
       try {
         const event = JSON.parse(line)
+        // Save assistant, user, result, error events to context history
+        const evType = event.type as string
+        if (evType === 'assistant' || evType === 'user' || evType === 'result' || evType === 'error') {
+          appendEvent(event)
+        }
+        updateStatsFromEvent(event)
         const formatted = formatStreamEvent(event)
         if (formatted) {
           emitText(formatted)
@@ -522,12 +663,17 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     if (stdoutBuffer.trim()) {
       try {
         const event = JSON.parse(stdoutBuffer)
+        const evType = event.type as string
+        if (evType === 'assistant' || evType === 'user' || evType === 'result' || evType === 'error') {
+          appendEvent(event)
+        }
         const formatted = formatStreamEvent(event)
         if (formatted) emitText(formatted)
       } catch {
         emitText(stdoutBuffer)
       }
     }
+    finalizeEvents()
     console.log(`[ai-agent] Agent exited for task ${taskId} (phase: ${phaseConfig.name}) with code ${code}`)
     runningProcesses.delete(taskId)
     updateTask(taskId, { activeProcessPid: undefined, currentPhaseName: undefined })

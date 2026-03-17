@@ -322,11 +322,11 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${themeClass} max-w-lg`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
-        <DialogHeader>
+      <DialogContent className={`${themeClass} !max-w-[95vw] h-[85vh] flex flex-col`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>New Task</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
           <div>
             <Label>Title</Label>
             <Input
@@ -489,7 +489,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
             </div>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleCreate} disabled={!title.trim()}>Create Task</Button>
         </DialogFooter>

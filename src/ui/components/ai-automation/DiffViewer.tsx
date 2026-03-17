@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type FC } from 'react'
 import { Button } from '@/components/ui/button'
-import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle, Check, CircleCheck, FolderOpen, PanelLeftClose, PanelLeft } from 'lucide-react'
+import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle, Check, CircleCheck, FolderOpen, PanelLeftClose, PanelLeft, Folder } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Checkbox } from '@/components/ui/checkbox'
 
 const LARGE_DIFF_THRESHOLD = 200 // lines changed
@@ -225,8 +226,8 @@ const DiffLineRow: FC<{
   onStartComment: (key: string) => void
   onSubmitComment: (file: string, lineNum: number, text: string) => void
   onCancelComment: () => void
-  onDeleteComment: (file: string, line: number) => void
-  onToggleResolved: (file: string, line: number) => void
+  onDeleteComment: (commentId: string) => void
+  onToggleResolved: (commentId: string) => void
   readOnly: boolean
   children: React.ReactNode
 }> = ({ line, filePath, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly, children }) => {
@@ -259,12 +260,12 @@ const DiffLineRow: FC<{
         {children}
       </div>
       {/* Existing comments on this line */}
-      {lineComments.map((c, ci) => (
+      {lineComments.map(c => (
         <InlineComment
-          key={ci}
+          key={c.id}
           comment={c}
-          onDelete={readOnly ? undefined : () => onDeleteComment(c.file, c.line)}
-          onToggleResolved={readOnly ? undefined : () => onToggleResolved(c.file, c.line)}
+          onDelete={readOnly ? undefined : () => onDeleteComment(c.id)}
+          onToggleResolved={readOnly ? undefined : () => onToggleResolved(c.id)}
         />
       ))}
       {/* Active comment input */}
@@ -285,8 +286,8 @@ const UnifiedView: FC<{
   onStartComment: (key: string) => void
   onSubmitComment: (file: string, line: number, text: string) => void
   onCancelComment: () => void
-  onDeleteComment: (file: string, line: number) => void
-  onToggleResolved: (file: string, line: number) => void
+  onDeleteComment: (commentId: string) => void
+  onToggleResolved: (commentId: string) => void
   readOnly: boolean
 }> = ({ file, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly }) => {
   const filePath = file.newPath || file.oldPath
@@ -387,8 +388,8 @@ const SplitView: FC<{
   onStartComment: (key: string) => void
   onSubmitComment: (file: string, line: number, text: string) => void
   onCancelComment: () => void
-  onDeleteComment: (file: string, line: number) => void
-  onToggleResolved: (file: string, line: number) => void
+  onDeleteComment: (commentId: string) => void
+  onToggleResolved: (commentId: string) => void
   readOnly: boolean
 }> = ({ file, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly }) => {
   const filePath = file.newPath || file.oldPath
@@ -475,12 +476,12 @@ const SplitView: FC<{
                     )}
                   </div>
                   {/* Comments below the pair */}
-                  {lineComments.map((c, ci) => (
+                  {lineComments.map(c => (
                     <InlineComment
-                      key={ci}
+                      key={c.id}
                       comment={c}
-                      onDelete={readOnly ? undefined : () => onDeleteComment(c.file, c.line)}
-                      onToggleResolved={readOnly ? undefined : () => onToggleResolved(c.file, c.line)}
+                      onDelete={readOnly ? undefined : () => onDeleteComment(c.id)}
+                      onToggleResolved={readOnly ? undefined : () => onToggleResolved(c.id)}
                     />
                   ))}
                   {isActive && lineNum !== undefined && (
@@ -495,6 +496,117 @@ const SplitView: FC<{
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// File tree types and builder for sidebar
+interface FileTreeNode {
+  name: string
+  fullPath: string // full file path for leaf nodes
+  children: FileTreeNode[]
+  file?: DiffFile // only on leaf nodes
+}
+
+function buildFileTree(files: DiffFile[]): FileTreeNode[] {
+  const root: FileTreeNode = { name: '', fullPath: '', children: [] }
+
+  for (const file of files) {
+    const filePath = file.newPath || file.oldPath
+    const parts = filePath.split('/')
+    let current = root
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      const isFile = i === parts.length - 1
+      let child = current.children.find(c => c.name === part && !c.file === !isFile)
+      if (!child) {
+        child = { name: part, fullPath: isFile ? filePath : parts.slice(0, i + 1).join('/'), children: [], ...(isFile ? { file } : {}) }
+        current.children.push(child)
+      }
+      current = child
+    }
+  }
+
+  // Collapse single-child folders: a/b/c → a/b/c
+  function collapse(node: FileTreeNode): FileTreeNode {
+    node.children = node.children.map(collapse)
+    if (!node.file && node.children.length === 1 && !node.children[0].file) {
+      const child = node.children[0]
+      return { ...child, name: node.name + '/' + child.name }
+    }
+    return node
+  }
+
+  return root.children.map(collapse)
+}
+
+const FileTreeItem: FC<{
+  node: FileTreeNode
+  depth: number
+  getFileStats: (file: DiffFile) => { added: number; removed: number }
+  onScrollToFile: (path: string) => void
+  collapsedFolders: Set<string>
+  onToggleFolder: (path: string) => void
+}> = ({ node, depth, getFileStats, onScrollToFile, collapsedFolders, onToggleFolder }) => {
+  if (node.file) {
+    const stats = getFileStats(node.file)
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => onScrollToFile(node.fullPath)}
+            className="w-full flex items-center gap-1.5 py-0.5 pr-1 text-left rounded group"
+            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+          >
+            <FileCode className="h-3 w-3 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+            <span className="text-[11px] truncate flex-1" style={{ color: 'var(--ai-text-secondary)' }}>{node.name}</span>
+            <span className="text-[10px] shrink-0 opacity-0 group-hover:opacity-100">
+              <span style={{ color: 'var(--ai-diff-added-text)' }}>+{stats.added}</span>
+              <span style={{ color: 'var(--ai-diff-removed-text)' }} className="ml-0.5">-{stats.removed}</span>
+            </span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <p className="text-xs font-mono">{node.fullPath}</p>
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  const isCollapsed = collapsedFolders.has(node.fullPath)
+
+  return (
+    <div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => onToggleFolder(node.fullPath)}
+            className="w-full flex items-center gap-1 py-0.5 text-left rounded"
+            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+          >
+            {isCollapsed
+              ? <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+              : <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+            }
+            <Folder className="h-3 w-3 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+            <span className="text-[11px] truncate" style={{ color: 'var(--ai-text-tertiary)' }}>{node.name}</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <p className="text-xs font-mono">{node.fullPath}</p>
+        </TooltipContent>
+      </Tooltip>
+      {!isCollapsed && node.children.map(child => (
+        <FileTreeItem
+          key={child.fullPath}
+          node={child}
+          depth={depth + 1}
+          getFileStats={getFileStats}
+          onScrollToFile={onScrollToFile}
+          collapsedFolders={collapsedFolders}
+          onToggleFolder={onToggleFolder}
+        />
+      ))}
     </div>
   )
 }
@@ -516,6 +628,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
   const [showResolved, setShowResolved] = useState(settings?.showResolvedComments ?? true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sidebarCollapsedProjects, setSidebarCollapsedProjects] = useState<Set<string>>(new Set())
+  const [sidebarCollapsedFolders, setSidebarCollapsedFolders] = useState<Set<string>>(new Set())
   const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const setFileRef = useCallback((path: string, el: HTMLDivElement | null) => {
@@ -650,6 +763,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
   const handleSubmitComment = (file: string, line: number, text: string) => {
     const newComment: AIHumanComment = {
+      id: crypto.randomUUID(),
       file,
       line,
       comment: text,
@@ -659,13 +773,13 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
     setActiveComment(null)
   }
 
-  const handleDeleteComment = (file: string, line: number) => {
-    onCommentsChange(comments.filter(c => !(c.file === file && c.line === line)))
+  const handleDeleteComment = (commentId: string) => {
+    onCommentsChange(comments.filter(c => c.id !== commentId))
   }
 
-  const handleToggleResolved = (file: string, line: number) => {
+  const handleToggleResolved = (commentId: string) => {
     onCommentsChange(comments.map(c =>
-      c.file === file && c.line === line ? { ...c, resolved: !c.resolved } : c
+      c.id === commentId ? { ...c, resolved: !c.resolved } : c
     ))
   }
 
@@ -799,26 +913,25 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                       <span className="text-[11px] font-medium truncate" style={{ color: 'var(--ai-accent)' }}>{group.project}</span>
                     </button>
                   )}
-                  {!sidebarProjectCollapsed && group.files.map(file => {
-                    const filePath = file.newPath || file.oldPath
-                    const fileName = filePath.split('/').pop() || filePath
-                    const stats = getFileStats(file)
-                    return (
-                      <button
-                        key={filePath}
-                        onClick={() => scrollToFile(filePath)}
-                        className={`w-full flex items-center gap-1.5 px-2 py-0.5 text-left rounded group ${multiProject ? 'ml-3' : ''}`}
-                        title={filePath}
-                      >
-                        <FileCode className="h-3 w-3 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
-                        <span className="text-[11px] truncate flex-1" style={{ color: 'var(--ai-text-secondary)' }}>{fileName}</span>
-                        <span className="text-[10px] shrink-0 opacity-0 group-hover:opacity-100">
-                          <span style={{ color: 'var(--ai-diff-added-text)' }} className="">+{stats.added}</span>
-                          <span style={{ color: 'var(--ai-diff-removed-text)' }} className=" ml-0.5">-{stats.removed}</span>
-                        </span>
-                      </button>
-                    )
-                  })}
+                  {!sidebarProjectCollapsed && (() => {
+                    const tree = buildFileTree(group.files)
+                    return tree.map(node => (
+                      <FileTreeItem
+                        key={node.fullPath}
+                        node={node}
+                        depth={multiProject ? 1 : 0}
+                        getFileStats={getFileStats}
+                        onScrollToFile={scrollToFile}
+                        collapsedFolders={sidebarCollapsedFolders}
+                        onToggleFolder={path => setSidebarCollapsedFolders(prev => {
+                          const next = new Set(prev)
+                          if (next.has(path)) next.delete(path)
+                          else next.add(path)
+                          return next
+                        })}
+                      />
+                    ))
+                  })()}
                 </div>
               )
             })}
@@ -834,12 +947,12 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
           return (
             <div className="shrink-0 mb-1 space-y-1">
               <h4 className="text-xs font-medium uppercase tracking-wide px-1" style={{ color: 'var(--ai-text-tertiary)' }}>General Comments</h4>
-              {generalComments.map((c, i) => (
+              {generalComments.map(c => (
                 <InlineComment
-                  key={i}
+                  key={c.id}
                   comment={c}
-                  onDelete={readOnly ? undefined : () => onCommentsChange(comments.filter(gc => gc !== c))}
-                  onToggleResolved={readOnly ? undefined : () => onCommentsChange(comments.map(gc => gc === c ? { ...gc, resolved: !gc.resolved } : gc))}
+                  onDelete={readOnly ? undefined : () => onCommentsChange(comments.filter(gc => gc.id !== c.id))}
+                  onToggleResolved={readOnly ? undefined : () => onCommentsChange(comments.map(gc => gc.id === c.id ? { ...gc, resolved: !gc.resolved } : gc))}
                 />
               ))}
             </div>
@@ -887,12 +1000,12 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                     </Button>
                   )}
                 </div>
-                {fileComments.map((c, i) => (
+                {fileComments.map(c => (
                   <InlineComment
-                    key={i}
+                    key={c.id}
                     comment={c}
-                    onDelete={readOnly ? undefined : () => handleDeleteComment(c.file, c.line)}
-                    onToggleResolved={readOnly ? undefined : () => handleToggleResolved(c.file, c.line)}
+                    onDelete={readOnly ? undefined : () => handleDeleteComment(c.id)}
+                    onToggleResolved={readOnly ? undefined : () => handleToggleResolved(c.id)}
                   />
                 ))}
               </div>
@@ -913,7 +1026,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
               {multiProject && (
                 <button
                   onClick={() => toggleProject(group.project)}
-                  className="w-full flex items-center gap-2 px-3 py-2 mb-1 rounded-md transition-colors text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2 mb-1 rounded-md transition-colors text-left sticky top-0 z-20"
                   style={{ background: 'var(--ai-surface-2)' }}
                 >
                   {projectCollapsed
@@ -943,14 +1056,12 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                       <div
                         key={filePath}
                         ref={el => setFileRef(filePath, el)}
-                        className="border rounded-md overflow-hidden"
-                        style={{ borderColor: 'var(--ai-border-subtle)' }}
                       >
-                        {/* File header */}
+                        {/* File header — sticky below project header */}
                         <button
                           onClick={() => toggleFile(filePath)}
-                          className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
-                          style={{ background: 'var(--ai-surface-2)' }}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left sticky z-10 border border-b-0 rounded-t-md"
+                          style={{ background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border-subtle)', top: multiProject ? '37px' : '0px' }}
                         >
                           {collapsed
                             ? <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
@@ -975,62 +1086,70 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                         </button>
 
                         {/* Diff content */}
-                        {!collapsed && (() => {
-                          const totalLines = stats.added + stats.removed
-                          const isLarge = totalLines > LARGE_DIFF_THRESHOLD
-                          const isForced = forcedLargeFiles.has(filePath)
+                        {!collapsed && (
+                          <div
+                            className="border border-t-0 rounded-b-md overflow-hidden mb-2"
+                            style={{ borderColor: 'var(--ai-border-subtle)' }}
+                          >
+                            {(() => {
+                              const totalLines = stats.added + stats.removed
+                              const isLarge = totalLines > LARGE_DIFF_THRESHOLD
+                              const isForced = forcedLargeFiles.has(filePath)
 
-                          if (isLarge && !isForced) {
-                            return (
-                              <div className="flex flex-col items-center gap-2 py-6 px-4" style={{ background: 'var(--ai-surface-0)' }}>
-                                <AlertTriangle className="h-5 w-5" style={{ color: 'var(--ai-warning)' }} />
-                                <p className="text-xs text-center" style={{ color: 'var(--ai-text-tertiary)' }}>
-                                  Large diff not rendered — {totalLines} lines changed ({stats.added} additions, {stats.removed} deletions)
-                                </p>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-xs h-7"
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    setForcedLargeFiles(prev => new Set([...prev, filePath]))
-                                  }}
-                                >
-                                  Load diff
-                                </Button>
-                              </div>
-                            )
-                          }
-
-                          return (
-                            <div className="overflow-x-auto" style={{ color: 'var(--ai-text-secondary)' }}>
-                              {viewMode === 'unified'
-                                ? <UnifiedView
-                                    file={file}
-                                    commentMap={commentMap}
-                                    activeComment={activeComment}
-                                    onStartComment={setActiveComment}
-                                    onSubmitComment={handleSubmitComment}
-                                    onCancelComment={() => setActiveComment(null)}
-                                    onDeleteComment={handleDeleteComment}
-                                    onToggleResolved={handleToggleResolved}
-                                    readOnly={readOnly}
-                                  />
-                                : <SplitView
-                                    file={file}
-                                    commentMap={commentMap}
-                                    activeComment={activeComment}
-                                    onStartComment={setActiveComment}
-                                    onSubmitComment={handleSubmitComment}
-                                    onCancelComment={() => setActiveComment(null)}
-                                    onDeleteComment={handleDeleteComment}
-                                    onToggleResolved={handleToggleResolved}
-                                    readOnly={readOnly}
-                                  />
+                              if (isLarge && !isForced) {
+                                return (
+                                  <div className="flex flex-col items-center gap-2 py-6 px-4" style={{ background: 'var(--ai-surface-0)' }}>
+                                    <AlertTriangle className="h-5 w-5" style={{ color: 'var(--ai-warning)' }} />
+                                    <p className="text-xs text-center" style={{ color: 'var(--ai-text-tertiary)' }}>
+                                      Large diff not rendered — {totalLines} lines changed ({stats.added} additions, {stats.removed} deletions)
+                                    </p>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs h-7"
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        setForcedLargeFiles(prev => new Set([...prev, filePath]))
+                                      }}
+                                    >
+                                      Load diff
+                                    </Button>
+                                  </div>
+                                )
                               }
-                            </div>
-                          )
-                        })()}
+
+                              return (
+                                <div className="overflow-x-auto" style={{ color: 'var(--ai-text-secondary)' }}>
+                                  {viewMode === 'unified'
+                                    ? <UnifiedView
+                                        file={file}
+                                        commentMap={commentMap}
+                                        activeComment={activeComment}
+                                        onStartComment={setActiveComment}
+                                        onSubmitComment={handleSubmitComment}
+                                        onCancelComment={() => setActiveComment(null)}
+                                        onDeleteComment={handleDeleteComment}
+                                        onToggleResolved={handleToggleResolved}
+                                        readOnly={readOnly}
+                                      />
+                                    : <SplitView
+                                        file={file}
+                                        commentMap={commentMap}
+                                        activeComment={activeComment}
+                                        onStartComment={setActiveComment}
+                                        onSubmitComment={handleSubmitComment}
+                                        onCancelComment={() => setActiveComment(null)}
+                                        onDeleteComment={handleDeleteComment}
+                                        onToggleResolved={handleToggleResolved}
+                                        readOnly={readOnly}
+                                      />
+                                  }
+                                </div>
+                              )
+                            })()}
+                          </div>
+                        )}
+                        {collapsed && <div className="mb-2" />}
                       </div>
                     )
                   })}

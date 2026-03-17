@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Pencil, FilePlus, TerminalSquare, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Pencil, FilePlus, TerminalSquare, ChevronDown, Cpu, FileText } from 'lucide-react'
+import { AgentStatsModal } from '@/ui/components/ai-automation/AgentStatsModal'
+import { ContextHistoryModal } from '@/ui/components/ai-automation/ContextHistoryModal'
 import { XtermTerminal } from '@/ui/components/ai-automation/XtermTerminal'
 import { AmendmentForm } from '@/ui/components/ai-automation/AmendmentForm'
 import { TaskDevControl } from '@/ui/components/ai-automation/TaskDevControl'
@@ -77,11 +79,27 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   const [showTerminal, setShowTerminal] = useState(false)
   const [approvePhase, setApprovePhase] = useState<string>('')
   const [elapsed, setElapsed] = useState(0)
+  const [showStatsModal, setShowStatsModal] = useState(false)
+  const [contextHistoryEntry, setContextHistoryEntry] = useState<{ path: string; phaseName: string } | null>(null)
+  const [agentStats, setAgentStats] = useState<AIAgentStats | null>(null)
 
-  // Load existing comments when task changes
+  // Subscribe to live agent stats + fetch current on mount
+  useEffect(() => {
+    if (!task?.id) return
+    // Fetch current stats in case agent is already running
+    window.electron.aiGetAgentStats(task.id).then(s => {
+      if (s) setAgentStats(s)
+    })
+    const unsub = window.electron.subscribeAIAgentStats((data) => {
+      if (data.taskId === task.id) setAgentStats(data)
+    })
+    return () => { unsub?.() }
+  }, [task?.id])
+
+  // Load existing comments when task changes, backfill missing IDs
   useEffect(() => {
     if (task?.humanComments) {
-      setReviewCommentsLocal(task.humanComments)
+      setReviewCommentsLocal(task.humanComments.map(c => c.id ? c : { ...c, id: crypto.randomUUID() }))
     }
   }, [task?.id, task?.humanComments])
 
@@ -128,6 +146,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
     const allComments = [...reviewComments]
     if (generalComment.trim()) {
       allComments.push({
+        id: crypto.randomUUID(),
         file: '',
         line: 0,
         comment: generalComment.trim(),
@@ -222,10 +241,11 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                 <FilePlus className="h-3 w-3 mr-1" /> Amend
               </Button>
             </DialogTrigger>
-            <DialogContent className={`${themeClass} sm:max-w-[500px]`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
-              <DialogHeader>
+            <DialogContent className={`${themeClass} !max-w-[95vw] h-[85vh] flex flex-col`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
+              <DialogHeader className="flex-shrink-0">
                 <DialogTitle>Add Amendment</DialogTitle>
               </DialogHeader>
+              <div className="overflow-y-auto flex-1 min-h-0 pr-1">
               <AmendmentForm
                 pipeline={pipeline}
                 onSubmit={handleAmendment}
@@ -235,6 +255,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                 defaultGitStrategy={settings?.defaultGitStrategy}
                 defaultBaseBranch={settings?.defaultBaseBranch}
               />
+              </div>
             </DialogContent>
           </Dialog>
           {canEdit && !editing && (
@@ -249,10 +270,38 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
             </div>
           )}
           {isAgentRunning && (
-            <Button variant="destructive" size="sm" onClick={() => stopTask(task.id)}>
-              <Square className="h-3 w-3 mr-1" />
-              Stop
-            </Button>
+            <>
+              {agentStats && (() => {
+                const pct = Math.min(100, Math.round((agentStats.inputTokens / agentStats.contextWindowMax) * 100))
+                const color = pct > 80 ? 'var(--ai-pink)' : pct > 60 ? 'var(--ai-warning)' : 'var(--ai-success)'
+                return (
+                  <button
+                    onClick={() => setShowStatsModal(true)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md border transition-colors"
+                    style={{ borderColor: 'var(--ai-border-subtle)', backgroundColor: 'color-mix(in srgb, var(--ai-surface-2) 50%, transparent)' }}
+                    title="Agent stats — click for details"
+                  >
+                    <Cpu className="h-3 w-3" style={{ color }} />
+                    <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--ai-surface-3)' }}>
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: color }} />
+                    </div>
+                    <span className="text-[10px] font-mono font-medium" style={{ color }}>{pct}%</span>
+                  </button>
+                )
+              })()}
+              <Button variant="destructive" size="sm" onClick={() => stopTask(task.id)}>
+                <Square className="h-3 w-3 mr-1" />
+                Stop
+              </Button>
+            </>
+          )}
+          {task && (
+            <AgentStatsModal
+              taskId={task.id}
+              open={showStatsModal}
+              onOpenChange={setShowStatsModal}
+              themeClass={themeClass}
+            />
           )}
           {isManualPhase && (
             <div className="relative flex items-center gap-2">
@@ -550,10 +599,30 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                       exited {new Date(entry.exitedAt).toLocaleString()}
                     </span>
                   )}
+                  {entry.contextHistoryPath && (
+                    <button
+                      onClick={() => setContextHistoryEntry({ path: entry.contextHistoryPath!, phaseName: displayName })}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-colors"
+                      style={{ color: 'var(--ai-accent)', backgroundColor: 'var(--ai-accent-subtle)' }}
+                      title="View context history"
+                    >
+                      <FileText className="h-3 w-3" />
+                      Context
+                    </button>
+                  )}
                 </div>
               )
             })}
           </div>
+          {contextHistoryEntry && (
+            <ContextHistoryModal
+              contextHistoryPath={contextHistoryEntry.path}
+              phaseName={contextHistoryEntry.phaseName}
+              open={!!contextHistoryEntry}
+              onOpenChange={(open) => { if (!open) setContextHistoryEntry(null) }}
+              themeClass={themeClass}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="amendments" className="flex-1 min-h-0 overflow-y-auto p-4">

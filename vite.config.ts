@@ -24,6 +24,9 @@ export default defineConfig({
   },
   server: {
     port: 5123,
-    strictPort: true
+    strictPort: true,
+    watch: {
+      ignored: ['**/docs/**', '**/dist-electron/**', '**/ai-task-data/**']
+    }
   }
 })

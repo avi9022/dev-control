@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -144,9 +145,6 @@
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
-
-/* AI Kanban Theme */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 .ai-kanban {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -307,3 +305,24 @@
 .ai-markdown li::marker { color: var(--ai-text-tertiary); }
 .ai-markdown strong { color: var(--ai-text-primary); font-weight: 600; }
 .ai-markdown img { max-width: 100%; border-radius: 6px; }
+
+/* Pipeline diagram add button */
+.pipeline-add-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--ai-surface-2);
+  border: 1.5px solid var(--ai-border-subtle);
+  color: var(--ai-text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.pipeline-add-btn:hover {
+  border-color: var(--ai-accent);
+  color: var(--ai-accent);
+  background: var(--ai-accent-subtle);
+  transform: scale(1.15);
+}

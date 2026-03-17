@@ -42,6 +42,29 @@ export function createBranch(projectPath: string, branchName: string, baseBranch
   return branchName
 }
 
+function ensureBaseBranchUpToDate(projectPath: string, base: string): void {
+  try {
+    // Fetch latest from remote for the base branch
+    git(['fetch', 'origin', base], projectPath)
+    console.log(`[worktree] Fetched latest for ${base} from origin`)
+
+    // Fast-forward local base branch to match remote (if it exists locally)
+    try {
+      const localRef = git(['rev-parse', base], projectPath)
+      const remoteRef = git(['rev-parse', `origin/${base}`], projectPath)
+      if (localRef !== remoteRef) {
+        // Update local branch ref without checkout
+        git(['update-ref', `refs/heads/${base}`, remoteRef], projectPath)
+        console.log(`[worktree] Updated local ${base} to match origin/${base}`)
+      }
+    } catch {
+      // Local branch might not exist or no remote tracking — that's fine
+    }
+  } catch (err) {
+    console.warn(`[worktree] Could not fetch ${base} from origin (offline or no remote):`, (err as Error).message)
+  }
+}
+
 export function createWorktree(taskId: string, projectPath: string, branchName: string, baseBranch?: string): string {
   const worktreesBase = getWorktreesDir(taskId)
   const repoName = path.basename(projectPath)
@@ -52,6 +75,9 @@ export function createWorktree(taskId: string, projectPath: string, branchName: 
   }
 
   const base = resolveBaseBranch(projectPath, baseBranch)
+
+  // Ensure base branch is up to date with remote before branching
+  ensureBaseBranchUpToDate(projectPath, base)
 
   try {
     git(['worktree', 'add', '-b', branchName, worktreePath, base], projectPath)

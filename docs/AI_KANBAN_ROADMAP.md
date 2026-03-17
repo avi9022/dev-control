@@ -18,7 +18,6 @@
 - [ ] **F6**: Process Crash Recovery & Stall Detection — detect stale PIDs on startup (offer retry/rollback), runtime stall detection (no output for X min → kill + retry with exponential backoff)
 - [ ] **F7**: Terminal Log Persistence — save agent output to log files, reload on task reopen
 - [ ] **F8**: Notifications — system tray notifications, badge counts, in-app indicators
-- [ ] **F9**: GitHub Integration — auto-create PRs, sync review comments via `gh` CLI
 - [ ] **F10**: Cost & Usage Tracking — parse Claude output for token usage, aggregate per task
 - [ ] **F11**: Import from External Trackers — import tickets from Jira (via MCP) or GitHub Issues (via `gh` CLI) into backlog
 - [x] **F12**: General Review Comments & Resolved State — general feedback popover on Request Changes, resolve toggle on all comments, only unresolved sent to agents
@@ -27,7 +26,6 @@
 - [ ] **F19**: Agent Comment Resolution — allow agents to mark review comments as resolved after addressing them
 - [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work
 - [ ] **F17**: Per-Phase Retry Limits — move maxReviewCycles from task to pipeline phase config (`maxRetries` per phase), track retries per-phase instead of globally, remove from task creation dialog
-- [ ] **F21**: Diff Viewer File Tree — full collapsible file tree in diff viewer sidebar with directory nesting, file status icons (added/modified/deleted), and change counts
 - [ ] **F22**: Diff Viewer Search — search across all diff content with match highlighting, result count, and prev/next navigation
 - [ ] **F23**: Continue Task — allow resuming a task from any phase (including DONE), re-enter the pipeline at a chosen phase with existing context, worktrees, and history preserved
 - [ ] **F25**: Agent Context Control — manage and limit the context sent to agents (prompt size budgets, smart truncation, section prioritization) to prevent context window overflow as tasks accumulate amendments, comments, files, and history
@@ -35,6 +33,9 @@
 - [ ] **F27**: Agent Terminal Filtering — clean up agent terminal output with toggleable filters to hide tool usage blocks, system messages, and other noise, showing only meaningful agent output and conversation
 - [ ] **F28**: Agent Terminal Enhancement — color-coded terminal output (distinguish agent responses, tool calls, errors, system messages), info header showing current agent context (active phase, task summary, worktree path, cycle count, elapsed time)
 - [x] **F29**: Amendment Project Management — allow adding/removing projects and worktrees from within the amendment form, so users can expand task scope (new repos, new worktrees) alongside new requirements without going through task edit
+- [ ] **F30**: Partial Knowledge Docs — allow selectively including knowledge docs per task or per phase instead of always sending all docs, reducing context usage for tasks that only need specific project knowledge
+- [ ] **F31**: Scoped Knowledge Doc Generation — allow users to generate a knowledge doc from a specific directory with a custom prompt (e.g., "document the auth module in src/auth"), producing focused docs instead of whole-project scans
+- [ ] **F32**: Image Paste Support — allow pasting/dropping images in comments, amendments, task descriptions, and attachments; store as files in task directory and include in agent context as vision inputs
 
 ## Design Documents
 
@@ -42,7 +43,7 @@
 
 ## Bugs & Fixes
 
-_(None tracked yet)_
+- [ ] **B1**: Stop button not working properly — clicking Stop doesn't reliably kill the running agent process
 
 ## Notes
 
