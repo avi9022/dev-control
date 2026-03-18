@@ -124,6 +124,11 @@ function getFileStats(file: DiffFile): { added: number; removed: number } {
   return { added, removed }
 }
 
+// Qualify a file path with project name to avoid collisions across projects
+function qualifyPath(project: string, filePath: string): string {
+  return `${project}::${filePath}`
+}
+
 // Comment key for looking up comments by file + line
 function commentKey(file: string, line: number): string {
   return `${file}:${line}`
@@ -281,6 +286,7 @@ const DiffLineRow: FC<{
 
 const UnifiedView: FC<{
   file: DiffFile
+  qualifiedPath: string
   commentMap: Map<string, AIHumanComment[]>
   activeComment: string | null
   onStartComment: (key: string) => void
@@ -289,8 +295,8 @@ const UnifiedView: FC<{
   onDeleteComment: (commentId: string) => void
   onToggleResolved: (commentId: string) => void
   readOnly: boolean
-}> = ({ file, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly }) => {
-  const filePath = file.newPath || file.oldPath
+}> = ({ file, qualifiedPath, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly }) => {
+  const filePath = qualifiedPath
   return (
     <div className="font-mono text-xs leading-5">
       {file.hunks.map((hunk, hi) => (
@@ -383,6 +389,7 @@ function buildSplitPairs(lines: DiffLine[]): Array<{ left: DiffLine | null; righ
 
 const SplitView: FC<{
   file: DiffFile
+  qualifiedPath: string
   commentMap: Map<string, AIHumanComment[]>
   activeComment: string | null
   onStartComment: (key: string) => void
@@ -391,8 +398,8 @@ const SplitView: FC<{
   onDeleteComment: (commentId: string) => void
   onToggleResolved: (commentId: string) => void
   readOnly: boolean
-}> = ({ file, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly }) => {
-  const filePath = file.newPath || file.oldPath
+}> = ({ file, qualifiedPath, commentMap, activeComment, onStartComment, onSubmitComment, onCancelComment, onDeleteComment, onToggleResolved, readOnly }) => {
+  const filePath = qualifiedPath
   return (
     <div className="font-mono text-xs leading-5">
       {file.hunks.map((hunk, hi) => {
@@ -728,13 +735,20 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
   // Detect orphaned comments: line-specific comments on files not in the diff at all
   const orphanedComments = useMemo(() => {
-    const fileSet = new Set(files.map(f => f.newPath || f.oldPath))
+    // Build set of all qualified file paths across projects
+    const fileSet = new Set<string>()
+    for (const group of projectGroups) {
+      for (const f of group.files) {
+        const raw = f.newPath || f.oldPath
+        fileSet.add(multiProject ? qualifyPath(group.project, raw) : raw)
+      }
+    }
     return comments.filter(c => {
       if (!c.file) return false
       if (!showResolved && c.resolved) return false
       return !fileSet.has(c.file)
     })
-  }, [comments, files, showResolved])
+  }, [comments, projectGroups, multiProject, showResolved])
 
   // Group orphaned by file
   const orphanedByFile = useMemo(() => {
@@ -748,16 +762,15 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
   }, [orphanedComments])
 
   const handleResolveOrphanedFile = (file: string) => {
-    const fileSet = new Set(files.map(f => f.newPath || f.oldPath))
     onCommentsChange(comments.map(c =>
-      c.file === file && !c.resolved && !fileSet.has(file) ? { ...c, resolved: true } : c
+      c.file === file && !c.resolved ? { ...c, resolved: true } : c
     ))
   }
 
   const handleResolveAllOrphaned = () => {
-    const fileSet = new Set(files.map(f => f.newPath || f.oldPath))
+    const orphanIds = new Set(orphanedComments.map(c => c.id))
     onCommentsChange(comments.map(c =>
-      c.file && !c.resolved && !fileSet.has(c.file) ? { ...c, resolved: true } : c
+      orphanIds.has(c.id) && !c.resolved ? { ...c, resolved: true } : c
     ))
   }
 
@@ -921,7 +934,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                         node={node}
                         depth={multiProject ? 1 : 0}
                         getFileStats={getFileStats}
-                        onScrollToFile={scrollToFile}
+                        onScrollToFile={(raw) => scrollToFile(multiProject ? qualifyPath(group.project, raw) : raw)}
                         collapsedFolders={sidebarCollapsedFolders}
                         onToggleFolder={path => setSidebarCollapsedFolders(prev => {
                           const next = new Set(prev)
@@ -1047,7 +1060,8 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
               {!projectCollapsed && (
                 <div className={`space-y-2 ${multiProject ? 'ml-4' : ''}`}>
                   {group.files.map(file => {
-                    const filePath = file.newPath || file.oldPath
+                    const rawPath = file.newPath || file.oldPath
+                    const filePath = multiProject ? qualifyPath(group.project, rawPath) : rawPath
                     const stats = getFileStats(file)
                     const collapsed = collapsedFiles.has(filePath)
                     const fileCommentCount = comments.filter(c => c.file === filePath).length
@@ -1068,7 +1082,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                             : <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
                           }
                           <FileCode className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
-                          <span className="text-xs font-mono truncate" style={{ color: 'var(--ai-text-primary)' }}>{filePath}</span>
+                          <span className="text-xs font-mono truncate" style={{ color: 'var(--ai-text-primary)' }}>{rawPath}</span>
                           {file.isNew && <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: 'var(--ai-diff-added-bg)', color: 'var(--ai-diff-added-text)' }}>new</span>}
                           {file.isDeleted && <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: 'var(--ai-diff-removed-bg)', color: 'var(--ai-diff-removed-text)' }}>deleted</span>}
                           {fileCommentCount > 0 && (
@@ -1123,6 +1137,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                                   {viewMode === 'unified'
                                     ? <UnifiedView
                                         file={file}
+                                        qualifiedPath={filePath}
                                         commentMap={commentMap}
                                         activeComment={activeComment}
                                         onStartComment={setActiveComment}
@@ -1134,6 +1149,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
                                       />
                                     : <SplitView
                                         file={file}
+                                        qualifiedPath={filePath}
                                         commentMap={commentMap}
                                         activeComment={activeComment}
                                         onStartComment={setActiveComment}

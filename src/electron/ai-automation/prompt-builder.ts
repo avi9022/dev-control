@@ -118,10 +118,21 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
   if (attachments.length > 0) {
     const attachDir = getAttachmentsDir(task.id)
     let attachContext = `## User Attachments\n\nThe user has attached these files to the task:\n`
+    const BINARY_EXTENSIONS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.svg', '.zip', '.tar', '.gz', '.rar', '.7z', '.exe', '.dll', '.so', '.dylib', '.woff', '.woff2', '.ttf', '.eot', '.mp3', '.mp4', '.wav', '.avi', '.mov'])
     for (const file of attachments) {
       attachContext += `- ${file}\n`
+      const ext = path.extname(file).toLowerCase()
+      if (BINARY_EXTENSIONS.has(ext)) {
+        attachContext += `  (binary file — not included in prompt, available at: ${path.join(attachDir, file)})\n`
+        continue
+      }
       try {
         const content = fs.readFileSync(path.join(attachDir, file), 'utf-8')
+        // Skip files with null bytes (binary files with wrong extension)
+        if (content.includes('\0')) {
+          attachContext += `  (binary file — not included in prompt, available at: ${path.join(attachDir, file)})\n`
+          continue
+        }
         if (content.length < 10000) {
           attachContext += `\n\`\`\`\n${content}\n\`\`\`\n`
         } else {

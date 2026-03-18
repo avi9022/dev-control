@@ -113,44 +113,65 @@ export function cleanupWorktree(projectPath: string, worktreePath: string): void
 export function getDiff(projectPath: string, branchName?: string, baseBranch?: string): string {
   const base = resolveBaseBranch(projectPath, baseBranch)
 
-  let committedDiff = ''
+  // Try to use the remote ref for comparison — it's more up-to-date after rebases
+  let diffBase = base
+  try {
+    git(['rev-parse', '--verify', `origin/${base}`], projectPath)
+    diffBase = `origin/${base}`
+  } catch {
+    // No remote ref, use local
+  }
+
+  // Get all changes: committed + staged + unstaged compared to base
+  // Use HEAD diff for committed, then add uncommitted on top
+  let allDiff = ''
+
   if (branchName) {
     try {
-      committedDiff = git(['diff', `${base}...${branchName}`], projectPath)
+      // Committed changes: everything between base and branch tip
+      allDiff = git(['diff', `${diffBase}...${branchName}`], projectPath)
     } catch {
-      // Fall through to uncommitted diff
+      // Fall through
     }
   }
 
-  // Get uncommitted changes (staged + unstaged) in the working directory
+  // Add uncommitted changes (staged + unstaged relative to HEAD)
   try {
-    const staged = git(['diff', '--cached'], projectPath)
-    const unstaged = git(['diff'], projectPath)
-    const untracked = git(['ls-files', '--others', '--exclude-standard'], projectPath)
+    // Single diff: HEAD vs working tree (includes both staged and unstaged)
+    const uncommitted = git(['diff', 'HEAD'], projectPath)
+    if (uncommitted) {
+      // If there are committed diffs, merge; otherwise use uncommitted alone
+      if (allDiff) {
+        allDiff += '\n' + uncommitted
+      } else {
+        allDiff = uncommitted
+      }
+    }
 
-    let diff = ''
-    if (staged) diff += staged + '\n'
-    if (unstaged) diff += unstaged + '\n'
+    // Untracked files (not captured by any diff command)
+    const untracked = git(['ls-files', '--others', '--exclude-standard'], projectPath)
     if (untracked) {
-      // Show content of untracked files as new file diffs
       for (const file of untracked.split('\n').filter(Boolean)) {
         try {
-          const content = fs.readFileSync(path.join(projectPath, file), 'utf-8')
-          diff += `diff --git a/${file} b/${file}\nnew file mode 100644\n--- /dev/null\n+++ b/${file}\n`
+          const filePath = path.join(projectPath, file)
+          const stat = fs.statSync(filePath)
+          if (stat.size > 500000) continue // skip large files
+          const content = fs.readFileSync(filePath, 'utf-8')
+          if (content.includes('\0')) continue // skip binary
+          allDiff += `\ndiff --git a/${file} b/${file}\nnew file mode 100644\n--- /dev/null\n+++ b/${file}\n`
           const lines = content.split('\n')
-          diff += `@@ -0,0 +1,${lines.length} @@\n`
-          diff += lines.map(l => `+${l}`).join('\n') + '\n'
+          allDiff += `@@ -0,0 +1,${lines.length} @@\n`
+          allDiff += lines.map(l => `+${l}`).join('\n') + '\n'
         } catch {
           // Skip binary or unreadable files
         }
       }
     }
-    // Combine committed diff with any uncommitted changes
-    if (committedDiff && diff) return committedDiff + '\n' + diff
-    return committedDiff || diff
   } catch {
-    return committedDiff
+    // Best effort
   }
+
+  return allDiff
 }
 
 export function generateBranchName(taskId: string, taskTitle: string): string {

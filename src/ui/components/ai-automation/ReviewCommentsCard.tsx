@@ -1,5 +1,5 @@
-import { type FC } from 'react'
-import { CheckCircle, EyeOff, Eye, Trash2 } from 'lucide-react'
+import { useState, type FC } from 'react'
+import { CheckCircle, CircleCheck, EyeOff, Eye, Trash2, ArrowUpDown } from 'lucide-react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 
 interface ReviewCommentsCardProps {
@@ -8,12 +8,15 @@ interface ReviewCommentsCardProps {
   isManualPhase: boolean
 }
 
-export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline, isManualPhase }) => {
+type CommentSort = 'date' | 'status'
+
+export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline }) => {
   const { updateTask } = useAIAutomation()
+  const [commentSort, setCommentSort] = useState<CommentSort>('date')
 
   const comments = task.humanComments || []
   const amendments = task.amendments || []
-  const hasComments = comments.length > 0 && !isManualPhase
+  const hasComments = comments.length > 0
   const hasAmendments = amendments.length > 0
 
   if (!hasComments && !hasAmendments) return null
@@ -30,6 +33,23 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
     await updateTask(task.id, { amendments: updated })
   }
 
+  const handleToggleResolved = async (commentId: string) => {
+    const updated = comments.map(c =>
+      c.id === commentId ? { ...c, resolved: !c.resolved } : c
+    )
+    await updateTask(task.id, { humanComments: updated })
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    const updated = comments.filter(c => c.id !== commentId)
+    await updateTask(task.id, { humanComments: updated })
+  }
+
+  const handleResolveAll = async () => {
+    const updated = comments.map(c => c.resolved ? c : { ...c, resolved: true })
+    await updateTask(task.id, { humanComments: updated })
+  }
+
   return (
     <div>
       <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--ai-text-tertiary)' }}>
@@ -42,7 +62,7 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
         {/* Review Comments */}
         {hasComments && (
           <>
-            <div className="px-4 pt-3 pb-2">
+            <div className="px-4 pt-3 pb-2 flex items-center justify-between">
               <span className="text-[11px] font-medium" style={{ color: 'var(--ai-text-tertiary)' }}>
                 Comments
                 <span className="ml-1.5 font-normal" style={{ opacity: 0.7 }}>
@@ -51,10 +71,37 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
                     ` · ${comments.filter(c => c.resolved).length} resolved`}
                 </span>
               </span>
+              <div className="flex items-center gap-2">
+                {comments.some(c => !c.resolved) && (
+                  <button
+                    onClick={handleResolveAll}
+                    className="text-[10px] flex items-center gap-1 transition-colors"
+                    style={{ color: 'var(--ai-accent)' }}
+                  >
+                    <CheckCircle className="h-3 w-3" /> Resolve all
+                  </button>
+                )}
+                <button
+                  onClick={() => setCommentSort(prev => prev === 'date' ? 'status' : 'date')}
+                  className="text-[10px] flex items-center gap-1 transition-colors"
+                  style={{ color: 'var(--ai-text-tertiary)' }}
+                  title={commentSort === 'date' ? 'Sorted by date — click to sort by status' : 'Sorted by status — click to sort by date'}
+                >
+                  <ArrowUpDown className="h-3 w-3" />
+                  {commentSort === 'date' ? 'Date' : 'Status'}
+                </button>
+              </div>
             </div>
-            {comments.map((c, i) => (
+            {[...comments].sort((a, b) => {
+              if (commentSort === 'status') {
+                // Unresolved first, then resolved
+                if (a.resolved !== b.resolved) return a.resolved ? 1 : -1
+              }
+              // By date (newest first)
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            }).map(c => (
               <div
-                key={i}
+                key={c.id}
                 className="flex items-start gap-2.5 px-4 py-2.5"
                 style={{
                   borderTop: '1px solid var(--ai-border-subtle)',
@@ -74,6 +121,11 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
                         General
                       </span>
                     )}
+                    {c.createdAt && (
+                      <span className="text-[10px] font-mono" style={{ color: 'var(--ai-text-tertiary)', opacity: 0.7 }}>
+                        {new Date(c.createdAt).toLocaleDateString('en-GB')}
+                      </span>
+                    )}
                     {c.resolved && (
                       <CheckCircle className="h-3 w-3" style={{ color: 'var(--ai-success)' }} />
                     )}
@@ -84,6 +136,22 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
                   >
                     {c.comment}
                   </p>
+                </div>
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <button
+                    onClick={() => handleToggleResolved(c.id)}
+                    className="p-1 rounded hover:bg-[var(--ai-surface-3)] transition-colors"
+                    title={c.resolved ? 'Mark as unresolved' : 'Mark as resolved'}
+                  >
+                    <CircleCheck className="h-3 w-3" style={{ color: c.resolved ? 'var(--ai-success)' : 'var(--ai-text-tertiary)' }} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteComment(c.id)}
+                    className="p-1 rounded hover:bg-[var(--ai-surface-3)] transition-colors"
+                    title="Delete comment"
+                  >
+                    <Trash2 className="h-3 w-3" style={{ color: 'var(--ai-pink)' }} />
+                  </button>
                 </div>
               </div>
             ))}

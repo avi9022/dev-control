@@ -99,7 +99,11 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   // Load existing comments when task changes, backfill missing IDs
   useEffect(() => {
     if (task?.humanComments) {
-      setReviewCommentsLocal(task.humanComments.map(c => c.id ? c : { ...c, id: crypto.randomUUID() }))
+      setReviewCommentsLocal(task.humanComments.map(c => ({
+        ...c,
+        id: c.id || crypto.randomUUID(),
+        createdAt: c.createdAt || '',
+      })))
     }
   }, [task?.id, task?.humanComments])
 

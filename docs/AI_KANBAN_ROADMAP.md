@@ -36,6 +36,12 @@
 - [ ] **F30**: Partial Knowledge Docs — allow selectively including knowledge docs per task or per phase instead of always sending all docs, reducing context usage for tasks that only need specific project knowledge
 - [ ] **F31**: Scoped Knowledge Doc Generation — allow users to generate a knowledge doc from a specific directory with a custom prompt (e.g., "document the auth module in src/auth"), producing focused docs instead of whole-project scans
 - [ ] **F32**: Image Paste Support — allow pasting/dropping images in comments, amendments, task descriptions, and attachments; store as files in task directory and include in agent context as vision inputs
+- [ ] **F33**: Multiple Boards — allow creating and switching between separate kanban boards, each with its own tasks, pipeline, and settings, for organizing work across different projects or teams
+- [ ] **F34**: Unified Theme — apply the AI kanban warm charcoal design system (palette, typography, component styling) to the original DevControl views (services, databases, Docker, API client, etc.)
+- [ ] **F35**: Kanban as Main View — restructure the app so the kanban board is the primary landing page, with DevControl tools (services, databases, Docker, queues, etc.) accessible as integrated panels or tabs within it, replacing the current toggle between two separate modes
+- [ ] **F36**: AI Task Planner — user describes a goal in natural language, an agent analyzes the codebase and breaks it down into multiple tasks with titles, descriptions, project assignments, and suggested pipeline phases, auto-creating them in the backlog
+- [ ] **F37**: Archive Management — allow archiving completed/old tasks to reduce clutter on the board, with a separate archive view to browse, search, and restore archived tasks
+- [ ] **F38**: Worktree Lifecycle Hooks — configurable pre- and post-worktree-creation commands per project (e.g., `npm install`, `cp .env.example .env`, run migrations), executed automatically when a worktree is created for a task
 
 ## Design Documents
 
@@ -44,6 +50,8 @@
 ## Bugs & Fixes
 
 - [ ] **B1**: Stop button not working properly — clicking Stop doesn't reliably kill the running agent process
+- [ ] **B2**: Silent phase errors — when a phase fails to start (e.g., spawn error, invalid args), there is no UI indication; the task just stops with no error message shown to the user
+- [ ] **B3**: Git section shows unrelated commits — the branch info in task details shows commits that don't belong to the task's branch (likely showing all commits instead of only those since branching from base)
 
 ## Notes
 
