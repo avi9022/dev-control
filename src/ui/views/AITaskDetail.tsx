@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Pencil, FilePlus, TerminalSquare, ChevronDown, Cpu, FileText } from 'lucide-react'
+import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Pencil, FilePlus, TerminalSquare, ChevronDown, Cpu, FileText, AlertTriangle } from 'lucide-react'
 import { AgentStatsModal } from '@/ui/components/ai-automation/AgentStatsModal'
 import { ContextHistoryModal } from '@/ui/components/ai-automation/ContextHistoryModal'
 import { XtermTerminal } from '@/ui/components/ai-automation/XtermTerminal'
@@ -486,6 +486,47 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
               in {task.projects[0].label}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Needs user input warning banner */}
+      {task.needsUserInput && (
+        <div
+          className="flex items-center gap-3 px-4 py-2.5 rounded-lg mx-4 mb-3 mt-3"
+          style={{
+            backgroundColor: 'var(--ai-warning-subtle)',
+            border: '1px solid var(--ai-warning)',
+          }}
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: 'var(--ai-warning)' }} />
+          <span className="text-sm flex-1" style={{ color: 'var(--ai-warning)' }}>
+            {task.needsUserInputReason === 'crashed' && 'This agent was interrupted when the app closed'}
+            {task.needsUserInputReason === 'max_retries' && 'This agent stalled repeatedly and stopped after 3 retries'}
+            {task.needsUserInputReason === 'error' && 'This agent exited with an error'}
+            {!task.needsUserInputReason && 'This task needs attention'}
+          </span>
+          <Button
+            size="sm"
+            className="h-7 text-xs"
+            style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}
+            onClick={async () => {
+              await updateTask(task.id, { needsUserInput: false, needsUserInputReason: undefined, stallRetryCount: 0 })
+              await moveTaskPhase(task.id, task.phase)
+            }}
+          >
+            Retry Phase
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={async () => {
+              await updateTask(task.id, { needsUserInput: false, needsUserInputReason: undefined, stallRetryCount: 0 })
+              await moveTaskPhase(task.id, 'BACKLOG')
+            }}
+          >
+            Move to Backlog
+          </Button>
         </div>
       )}
 

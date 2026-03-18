@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Settings, Zap, Sun, Moon } from 'lucide-react'
 
 export const AIKanban: FC = () => {
-  const { tasks, moveTaskPhase, deleteTask, settings, updateSettings } = useAIAutomation()
+  const { tasks, moveTaskPhase, deleteTask, updateTask, settings, updateSettings } = useAIAutomation()
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
@@ -173,7 +173,19 @@ export const AIKanban: FC = () => {
                       draggable
                       onDragStart={() => handleDragStart(task.id)}
                     >
-                      <TaskCard task={task} onClick={(t) => setSelectedTaskId(t.id)} onDelete={deleteTask} />
+                      <TaskCard
+                        task={task}
+                        onClick={(t) => setSelectedTaskId(t.id)}
+                        onDelete={deleteTask}
+                        onRetryPhase={async (taskId) => {
+                          await updateTask(taskId, { needsUserInput: false, needsUserInputReason: undefined, stallRetryCount: 0 })
+                          await moveTaskPhase(taskId, task.phase)
+                        }}
+                        onMoveToBacklog={async (taskId) => {
+                          await updateTask(taskId, { needsUserInput: false, needsUserInputReason: undefined, stallRetryCount: 0 })
+                          await moveTaskPhase(taskId, 'BACKLOG')
+                        }}
+                      />
                     </div>
                   ))}
                 </div>

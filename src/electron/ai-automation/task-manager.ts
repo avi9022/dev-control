@@ -293,3 +293,35 @@ export function migrateExistingTasks() {
     store.set('aiTasks', tasks)
   }
 }
+
+export function recoverStaleTasks(): void {
+  const tasks = getTasks()
+  let changed = false
+  const updated = tasks.map(task => {
+    if (!task.activeProcessPid) return task
+    let alive = false
+    try {
+      process.kill(task.activeProcessPid, 0)
+      alive = true
+    } catch {
+      // Process doesn't exist
+    }
+    if (!alive) {
+      console.log(`[task-manager] Recovered stale task: ${task.id} (pid ${task.activeProcessPid} no longer running)`)
+      changed = true
+      return {
+        ...task,
+        activeProcessPid: undefined,
+        currentPhaseName: undefined,
+        needsUserInput: true,
+        needsUserInputReason: 'crashed',
+        updatedAt: new Date().toISOString(),
+      }
+    }
+    return task
+  })
+  if (changed) {
+    store.set('aiTasks', updated)
+    broadcastTasks()
+  }
+}

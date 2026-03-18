@@ -209,7 +209,8 @@ export const store = new Store<Schema>({
         reviewing: ''
       },
       globalRules: '',
-      knowledgeDocs: []
+      knowledgeDocs: [],
+      stallTimeoutMinutes: 3
     }
   },
 });

@@ -271,6 +271,20 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
         />
       </div>
       <div>
+        <Label>Stall Timeout (minutes)</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>
+          Kill and retry an agent if no events are received for this duration.
+        </p>
+        <Input
+          type="number"
+          min={1}
+          max={30}
+          value={settings.stallTimeoutMinutes}
+          onChange={e => updateSettings({ stallTimeoutMinutes: Math.max(1, Math.min(30, parseInt(e.target.value) || 3)) })}
+          className="w-24"
+        />
+      </div>
+      <div>
         <Label>Default Git Strategy</Label>
         <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>How the agent manages code changes for new tasks.</p>
         <Select value={settings.defaultGitStrategy === 'none' ? 'none' : 'worktree'} onValueChange={v => updateSettings({ defaultGitStrategy: v as AIGitStrategy })}>

@@ -37,6 +37,7 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
   const [localPrompt, setLocalPrompt] = useState('')
   const [localCustomTools, setLocalCustomTools] = useState('')
   const [localRejectPattern, setLocalRejectPattern] = useState('')
+  const [localStallTimeout, setLocalStallTimeout] = useState('')
 
   useEffect(() => {
     if (phase) {
@@ -44,6 +45,7 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
       setLocalPrompt(phase.prompt || '')
       setLocalCustomTools(phase.customTools || '')
       setLocalRejectPattern(phase.rejectPattern || '')
+      setLocalStallTimeout(phase.stallTimeout?.toString() || '')
     }
   }, [phase?.id])
 
@@ -220,6 +222,21 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Stall Timeout Override */}
+              <div>
+                <Label>Stall Timeout Override <span className="font-normal" style={{ color: 'var(--ai-text-tertiary)' }}>(optional, minutes)</span></Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={localStallTimeout}
+                  onChange={e => setLocalStallTimeout(e.target.value)}
+                  onBlur={() => onUpdate(phase!.id, { stallTimeout: localStallTimeout ? parseInt(localStallTimeout) || undefined : undefined })}
+                  placeholder="Use global default"
+                  className="w-32 mt-1"
+                />
               </div>
             </>
           )}

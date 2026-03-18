@@ -573,6 +573,48 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   let stdoutBuffer = ''
   const stats = initStats(taskId)
 
+  // Stall detection
+  let lastEventTime = Date.now()
+  const stallTimeoutMs = ((phaseConfig.stallTimeout ?? settings.stallTimeoutMinutes ?? 3) * 60 * 1000)
+  const stallCheckInterval = setInterval(() => {
+    const elapsed = Date.now() - lastEventTime
+    if (elapsed > stallTimeoutMs) {
+      clearInterval(stallCheckInterval)
+      const currentTask = getTaskById(taskId)
+      if (!currentTask) return
+      const retryCount = (currentTask.stallRetryCount || 0) + 1
+      const maxRetries = 3
+
+      emit(taskId, `\n⚠️ Agent stalled (no events for ${Math.round(elapsed / 60000)}min)\n`)
+
+      // Kill the process
+      const proc = runningProcesses.get(taskId)
+      if (proc && proc.pid) {
+        try { treeKill(proc.pid, 'SIGKILL') } catch { /* */ }
+      }
+      runningProcesses.delete(taskId)
+
+      if (retryCount < maxRetries) {
+        emit(taskId, `⚠️ Retrying phase (attempt ${retryCount + 1}/${maxRetries})...\n`)
+        updateTask(taskId, {
+          activeProcessPid: undefined,
+          currentPhaseName: undefined,
+          stallRetryCount: retryCount,
+        })
+        enqueueTask(taskId)
+      } else {
+        emit(taskId, `⚠️ Max retries reached — needs attention\n`)
+        updateTask(taskId, {
+          activeProcessPid: undefined,
+          currentPhaseName: undefined,
+          needsUserInput: true,
+          needsUserInputReason: 'max_retries',
+          stallRetryCount: retryCount,
+        })
+      }
+    }
+  }, 30000)
+
   const emitText = (text: string) => {
     fullOutput += text
     appendTaskLog(taskId, text)
@@ -638,6 +680,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
       if (!line.trim()) continue
       try {
         const event = JSON.parse(line)
+        lastEventTime = Date.now()
         // Save assistant, user, result, error events to context history
         const evType = event.type as string
         if (evType === 'assistant' || evType === 'user' || evType === 'result' || evType === 'error') {
@@ -660,6 +703,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   })
 
   child.on('exit', (code) => {
+    clearInterval(stallCheckInterval)
     if (stdoutBuffer.trim()) {
       try {
         const event = JSON.parse(stdoutBuffer)
@@ -682,13 +726,14 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   })
 
   child.on('error', (err) => {
+    clearInterval(stallCheckInterval)
     const errorMsg = `Failed to spawn claude for task ${taskId}: ${err.message}`
     console.error(`[ai-agent] ${errorMsg}`)
     const errorText = `\n[ERROR] ${errorMsg}\n`
     appendTaskLog(taskId, errorText)
     emit(taskId, errorText)
     runningProcesses.delete(taskId)
-    updateTask(taskId, { activeProcessPid: undefined, currentPhaseName: undefined, needsUserInput: true })
+    updateTask(taskId, { activeProcessPid: undefined, currentPhaseName: undefined, needsUserInput: true, needsUserInputReason: 'error' })
   })
 }
 
@@ -704,6 +749,9 @@ function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, out
   const settings = getSettings()
   const pipeline = settings.pipeline || []
   const currentIndex = pipeline.findIndex(p => p.id === phaseConfig.id)
+
+  // Reset stall retry count on successful completion
+  updateTask(taskId, { stallRetryCount: 0 })
 
   // Check for reject pattern
   if (phaseConfig.rejectPattern && output.includes(phaseConfig.rejectPattern) && phaseConfig.rejectTarget) {

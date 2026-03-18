@@ -46,7 +46,7 @@ import { dockerManager } from './docker/docker-manager.js'
 // MongoDB
 import { mongoManager } from './mongodb/mongo-manager.js'
 // AI Automation
-import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks, migrateTaskWorkspaces } from './ai-automation/task-manager.js'
+import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks, migrateTaskWorkspaces, recoverStaleTasks } from './ai-automation/task-manager.js'
 import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory, getAgentStats } from './ai-automation/agent-runner.js'
 import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
 import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments, getOrCreateTaskDir } from './ai-automation/task-dir-manager.js'
@@ -235,6 +235,7 @@ app.on("ready", async () => {
   migrateSettings()
   migrateExistingTasks()
   migrateTaskWorkspaces()
+  recoverStaleTasks()
   setTaskManagerMainWindow(mainWindow)
   setAgentMainWindow(mainWindow)
   setShellMainWindow(mainWindow)
@@ -660,9 +661,9 @@ app.on("ready", async () => {
   ipcMainHandle('mongoGetIndexes', async (_event, database: string, collection: string) => getIndexes(database, collection))
   ipcMainHandle('mongoCreateIndex', async (_event, database: string, collection: string, options: MongoCreateIndexOptions) => createIndex(database, collection, options))
   ipcMainHandle('mongoDropIndex', async (_event, database: string, collection: string, indexName: string) => dropIndex(database, collection, indexName))
-  ipcMainHandle('mongoGetValidationRules', async (_event, _database: string, _collection: string) => null)
-  ipcMainHandle('mongoSetValidationRules', async () => {})
-  ipcMainHandle('mongoExportCollection', async () => {})
+  ipcMainHandle('mongoGetValidationRules', async () => null)
+  ipcMainHandle('mongoSetValidationRules', async () => { })
+  ipcMainHandle('mongoExportCollection', async () => { })
   ipcMainHandle('mongoImportDocuments', async () => 0)
   ipcMainHandle('mongoGetSavedQueries', () => store.get('mongoSavedQueries'))
   ipcMainHandle('mongoSaveQuery', (_event, query: MongoSavedQuery) => {

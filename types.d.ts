@@ -587,6 +587,7 @@ interface AIPipelinePhase {
   rejectPattern?: string
   rejectTarget?: string
   color?: string
+  stallTimeout?: number
 }
 
 interface AITaskProject {
@@ -619,6 +620,8 @@ interface AITask {
   activeProcessPid?: number
   currentPhaseName?: string
   needsUserInput: boolean
+  needsUserInputReason?: AITaskAttentionReason
+  stallRetryCount?: number
   phaseHistory: AIPhaseHistoryEntry[]
   excludedFiles?: string[]
   amendments?: AITaskAmendment[]
@@ -653,6 +656,8 @@ interface AIReviewComment {
   comment: string
   severity: 'critical' | 'suggestion' | 'nitpick'
 }
+
+type AITaskAttentionReason = 'crashed' | 'stalled' | 'max_retries' | 'error'
 
 interface AIHumanComment {
   id: string
@@ -712,6 +717,7 @@ interface AIAutomationSettings {
   }
   globalRules: string
   knowledgeDocs: AIKnowledgeDoc[]
+  stallTimeoutMinutes: number
   // UI preferences
   theme?: 'dark' | 'light'
   diffViewMode?: 'unified' | 'split'
