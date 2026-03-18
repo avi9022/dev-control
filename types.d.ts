@@ -637,10 +637,13 @@ interface AITask {
   projectPaths?: string[]
 }
 
+type AIPhaseHistoryEvent = 'completed' | 'stopped' | 'crashed' | 'stalled' | 'error'
+
 interface AIPhaseHistoryEntry {
   phase: string
   enteredAt: string
   exitedAt?: string
+  exitEvent?: AIPhaseHistoryEvent
   contextHistoryPath?: string
 }
 

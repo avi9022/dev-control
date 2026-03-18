@@ -213,6 +213,19 @@ export function stopAgent(taskId: string): Promise<void> {
       resolve()
       return
     }
+    // Log the manual stop in phase history
+    const task = getTaskById(taskId)
+    if (task) {
+      const history = [...task.phaseHistory]
+      if (history.length > 0) {
+        history[history.length - 1] = {
+          ...history[history.length - 1],
+          exitedAt: new Date().toISOString(),
+          exitEvent: 'stopped',
+        }
+      }
+      updateTask(taskId, { phaseHistory: history })
+    }
     treeKill(proc.pid, 'SIGTERM', (err) => {
       if (err) {
         treeKill(proc.pid!, 'SIGKILL', () => {
@@ -587,6 +600,16 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
 
       emit(taskId, `\n⚠️ Agent stalled (no events for ${Math.round(elapsed / 60000)}min)\n`)
 
+      // Log stall in phase history
+      const history = [...currentTask.phaseHistory]
+      if (history.length > 0) {
+        history[history.length - 1] = {
+          ...history[history.length - 1],
+          exitedAt: new Date().toISOString(),
+          exitEvent: 'stalled',
+        }
+      }
+
       // Kill the process
       const proc = runningProcesses.get(taskId)
       if (proc && proc.pid) {
@@ -600,6 +623,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
           activeProcessPid: undefined,
           currentPhaseName: undefined,
           stallRetryCount: retryCount,
+          phaseHistory: history,
         })
         enqueueTask(taskId)
       } else {
@@ -610,6 +634,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
           needsUserInput: true,
           needsUserInputReason: 'max_retries',
           stallRetryCount: retryCount,
+          phaseHistory: history,
         })
       }
     }
@@ -733,7 +758,12 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     appendTaskLog(taskId, errorText)
     emit(taskId, errorText)
     runningProcesses.delete(taskId)
-    updateTask(taskId, { activeProcessPid: undefined, currentPhaseName: undefined, needsUserInput: true, needsUserInputReason: 'error' })
+    const errTask = getTaskById(taskId)
+    const errHistory = errTask ? [...errTask.phaseHistory] : []
+    if (errHistory.length > 0) {
+      errHistory[errHistory.length - 1] = { ...errHistory[errHistory.length - 1], exitedAt: new Date().toISOString(), exitEvent: 'error' }
+    }
+    updateTask(taskId, { activeProcessPid: undefined, currentPhaseName: undefined, needsUserInput: true, needsUserInputReason: 'error', phaseHistory: errHistory })
   })
 }
 

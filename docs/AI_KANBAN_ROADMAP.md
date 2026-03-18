@@ -12,16 +12,17 @@
 - [x] **F13**: Task File Management — never-overwrite rule with numbered suffixes, phase cycle count in prompts, file include/exclude toggles, delete agent files, description in TaskFilesTab
 - [x] **F20**: Agent Security — role-based tool restriction per phase, PreToolUse guard hook for directory boundary enforcement, phase templates
 - [x] **F24**: Task Amendments — add new requirements to existing/completed tasks, send back to any pipeline phase, amendments tab + quick-action header button, prompt builder includes amendments for agent context
+- [x] **F12**: General Review Comments & Resolved State — general feedback popover on Request Changes, resolve toggle on all comments, only unresolved sent to agents
+- [x] **F14**: Large Diff Truncation — files with 200+ changed lines collapsed by default with "Load diff" button
+- [x] **F29**: Amendment Project Management — allow adding/removing projects and worktrees from within the amendment form, so users can expand task scope (new repos, new worktrees) alongside new requirements without going through task edit
 
 ## Planned Features
 
-- [ ] **F6**: Process Crash Recovery & Stall Detection — detect stale PIDs on startup (offer retry/rollback), runtime stall detection (no output for X min → kill + retry with exponential backoff)
+- [x] **F6**: Process Crash Recovery & Stall Detection — detect stale PIDs on startup (offer retry/rollback), runtime stall detection (no output for X min → kill + retry with exponential backoff)
 - [ ] **F7**: Terminal Log Persistence — save agent output to log files, reload on task reopen
 - [ ] **F8**: Notifications — system tray notifications, badge counts, in-app indicators
 - [ ] **F10**: Cost & Usage Tracking — parse Claude output for token usage, aggregate per task
 - [ ] **F11**: Import from External Trackers — import tickets from Jira (via MCP) or GitHub Issues (via `gh` CLI) into backlog
-- [x] **F12**: General Review Comments & Resolved State — general feedback popover on Request Changes, resolve toggle on all comments, only unresolved sent to agents
-- [x] **F14**: Large Diff Truncation — files with 200+ changed lines collapsed by default with "Load diff" button
 - [ ] **F18**: Diff Virtualization — virtualized rendering for large diffs to avoid DOM performance issues
 - [ ] **F19**: Agent Comment Resolution — allow agents to mark review comments as resolved after addressing them
 - [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work
@@ -32,7 +33,6 @@
 - [ ] **F26**: Base Branch Autocomplete — fetch actual git branches from project repos and show autocomplete dropdown in task creation and edit forms for the base branch field
 - [ ] **F27**: Agent Terminal Filtering — clean up agent terminal output with toggleable filters to hide tool usage blocks, system messages, and other noise, showing only meaningful agent output and conversation
 - [ ] **F28**: Agent Terminal Enhancement — color-coded terminal output (distinguish agent responses, tool calls, errors, system messages), info header showing current agent context (active phase, task summary, worktree path, cycle count, elapsed time)
-- [x] **F29**: Amendment Project Management — allow adding/removing projects and worktrees from within the amendment form, so users can expand task scope (new repos, new worktrees) alongside new requirements without going through task edit
 - [ ] **F30**: Partial Knowledge Docs — allow selectively including knowledge docs per task or per phase instead of always sending all docs, reducing context usage for tasks that only need specific project knowledge
 - [ ] **F31**: Scoped Knowledge Doc Generation — allow users to generate a knowledge doc from a specific directory with a custom prompt (e.g., "document the auth module in src/auth"), producing focused docs instead of whole-project scans
 - [ ] **F32**: Image Paste Support — allow pasting/dropping images in comments, amendments, task descriptions, and attachments; store as files in task directory and include in agent context as vision inputs

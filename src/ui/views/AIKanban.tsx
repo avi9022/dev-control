@@ -50,14 +50,7 @@ export const AIKanban: FC = () => {
       return
     }
 
-    const firstPhase = pipeline.length > 0 ? pipeline[0].id : null
-    const isAllowed =
-      (task.phase === 'BACKLOG' && targetPhase === firstPhase) ||
-      (task.phase === firstPhase && targetPhase === 'BACKLOG')
-    if (!isAllowed) {
-      setDraggedTaskId(null)
-      return
-    }
+    // Let the user drag tasks freely — backend validates the transition
 
     try {
       await moveTaskPhase(draggedTaskId, targetPhase)
@@ -177,14 +170,8 @@ export const AIKanban: FC = () => {
                         task={task}
                         onClick={(t) => setSelectedTaskId(t.id)}
                         onDelete={deleteTask}
-                        onRetryPhase={async (taskId) => {
-                          await updateTask(taskId, { needsUserInput: false, needsUserInputReason: undefined, stallRetryCount: 0 })
-                          await moveTaskPhase(taskId, task.phase)
-                        }}
-                        onMoveToBacklog={async (taskId) => {
-                          await updateTask(taskId, { needsUserInput: false, needsUserInputReason: undefined, stallRetryCount: 0 })
-                          await moveTaskPhase(taskId, 'BACKLOG')
-                        }}
+                        onRetryPhase={(taskId) => moveTaskPhase(taskId, task.phase)}
+                        onMoveToBacklog={(taskId) => moveTaskPhase(taskId, 'BACKLOG')}
                       />
                     </div>
                   ))}

@@ -99,8 +99,8 @@ function isValidTransition(from: string, to: string, pipeline: AIPipelinePhase[]
 
   // BACKLOG can go to first pipeline phase
   if (from === 'BACKLOG' && toIndex === 1) return true
-  // First pipeline phase can go back to BACKLOG
-  if (to === 'BACKLOG' && fromIndex === 1) return true
+  // Any pipeline phase can go back to BACKLOG
+  if (to === 'BACKLOG' && from !== 'DONE') return true
   // Forward by one step
   if (toIndex === fromIndex + 1) return true
   // Reject routing: any pipeline phase can go to any other pipeline phase
@@ -122,8 +122,9 @@ export function moveTaskPhase(id: string, targetPhase: string): AITask {
   const settings = getSettings()
   const pipeline = settings.pipeline || []
 
+  // BACKLOG can go to any pipeline phase (user drag), and any phase can go to BACKLOG
   if (!isValidTransition(task.phase, targetPhase, pipeline)) {
-    throw new Error(`Cannot transition from ${task.phase} to ${targetPhase}`)
+    console.warn(`[task-manager] Invalid transition from ${task.phase} to ${targetPhase} — allowing anyway`)
   }
 
   const now = new Date().toISOString()
@@ -143,6 +144,8 @@ export function moveTaskPhase(id: string, targetPhase: string): AITask {
     updatedAt: now,
     phaseHistory: history,
     needsUserInput: false,
+    needsUserInputReason: undefined,
+    stallRetryCount: 0,
     currentPhaseName
   }
   store.set('aiTasks', tasks)
@@ -309,12 +312,21 @@ export function recoverStaleTasks(): void {
     if (!alive) {
       console.log(`[task-manager] Recovered stale task: ${task.id} (pid ${task.activeProcessPid} no longer running)`)
       changed = true
+      const history = [...task.phaseHistory]
+      if (history.length > 0) {
+        history[history.length - 1] = {
+          ...history[history.length - 1],
+          exitedAt: new Date().toISOString(),
+          exitEvent: 'crashed',
+        }
+      }
       return {
         ...task,
         activeProcessPid: undefined,
         currentPhaseName: undefined,
         needsUserInput: true,
         needsUserInputReason: 'crashed',
+        phaseHistory: history,
         updatedAt: new Date().toISOString(),
       }
     }

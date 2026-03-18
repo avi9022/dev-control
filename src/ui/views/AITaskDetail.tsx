@@ -509,10 +509,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
             size="sm"
             className="h-7 text-xs"
             style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}
-            onClick={async () => {
-              await updateTask(task.id, { needsUserInput: false, needsUserInputReason: undefined, stallRetryCount: 0 })
-              await moveTaskPhase(task.id, task.phase)
-            }}
+            onClick={() => moveTaskPhase(task.id, task.phase)}
           >
             Retry Phase
           </Button>
@@ -520,10 +517,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
             size="sm"
             variant="outline"
             className="h-7 text-xs"
-            onClick={async () => {
-              await updateTask(task.id, { needsUserInput: false, needsUserInputReason: undefined, stallRetryCount: 0 })
-              await moveTaskPhase(task.id, 'BACKLOG')
-            }}
+            onClick={() => moveTaskPhase(task.id, 'BACKLOG')}
           >
             Move to Backlog
           </Button>
@@ -642,6 +636,20 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                   {entry.exitedAt && (
                     <span className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>
                       exited {new Date(entry.exitedAt).toLocaleString()}
+                    </span>
+                  )}
+                  {entry.exitEvent && entry.exitEvent !== 'completed' && (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded"
+                      style={{
+                        backgroundColor: entry.exitEvent === 'stopped' ? 'var(--ai-surface-3)' : 'var(--ai-warning-subtle)',
+                        color: entry.exitEvent === 'stopped' ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)',
+                      }}
+                    >
+                      {entry.exitEvent === 'stopped' && 'manually stopped'}
+                      {entry.exitEvent === 'crashed' && 'app crashed'}
+                      {entry.exitEvent === 'stalled' && 'stalled'}
+                      {entry.exitEvent === 'error' && 'error'}
                     </span>
                   )}
                   {entry.contextHistoryPath && (
