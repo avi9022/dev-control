@@ -649,7 +649,6 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sidebarCollapsedProjects, setSidebarCollapsedProjects] = useState<Set<string>>(new Set())
   const [sidebarCollapsedFolders, setSidebarCollapsedFolders] = useState<Set<string>>(new Set())
-  const diffSearch = useSearchOverlay([files, viewMode])
   const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const setFileRef = useCallback((path: string, el: HTMLDivElement | null) => {
@@ -712,6 +711,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
   }, [projectGroups])
 
   const files = useMemo(() => projectGroups.flatMap(g => g.files), [projectGroups])
+  const diffSearch = useSearchOverlay([files, viewMode])
   const multiProject = projectGroups.length > 1
 
   const resolvedCount = comments.filter(c => c.resolved).length
