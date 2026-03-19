@@ -69,7 +69,7 @@ export function useSearchOverlay(deps: unknown[] = []) {
     }
     processChunk()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, contentMounted, ...deps])
+  }, [searchQuery, contentMounted, ...deps])
 
   // Render highlight overlays — only for visible matches
   const renderOverlays = useCallback(() => {
