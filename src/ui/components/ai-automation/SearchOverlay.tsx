@@ -9,6 +9,7 @@ import { Search, X } from 'lucide-react'
  */
 export function useSearchOverlay(deps: unknown[] = []) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
   const [totalMatches, setTotalMatches] = useState(0)
@@ -16,6 +17,13 @@ export function useSearchOverlay(deps: unknown[] = []) {
   const overlayRef = useRef<HTMLDivElement>(null)
   const matchRangesRef = useRef<Range[]>([])
   const [contentMounted, setContentMounted] = useState(0)
+
+  // Debounce the search query — input stays responsive, search runs after 300ms pause
+  useEffect(() => {
+    if (!searchQuery) { setDebouncedQuery(''); return }
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   const setContentRefCallback = useCallback((el: HTMLDivElement | null) => {
     contentRef.current = el
@@ -26,15 +34,15 @@ export function useSearchOverlay(deps: unknown[] = []) {
   useEffect(() => {
     setCurrentMatchIndex(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, ...deps])
+  }, [debouncedQuery, ...deps])
 
-  // Find matching ranges
+  // Find matching ranges (runs on debounced query)
   useEffect(() => {
     matchRangesRef.current = []
     setTotalMatches(0)
-    if (!searchQuery || !contentRef.current) return
+    if (!debouncedQuery || !contentRef.current) return
 
-    const escaped = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const escaped = debouncedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const regex = new RegExp(escaped, 'gi')
     const walker = document.createTreeWalker(contentRef.current, NodeFilter.SHOW_TEXT)
     const ranges: Range[] = []
@@ -55,7 +63,7 @@ export function useSearchOverlay(deps: unknown[] = []) {
     matchRangesRef.current = ranges
     setTotalMatches(ranges.length)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, contentMounted, ...deps])
+  }, [debouncedQuery, contentMounted, ...deps])
 
   // Render highlight overlays
   const renderOverlays = useCallback(() => {
