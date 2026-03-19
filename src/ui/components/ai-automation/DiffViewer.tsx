@@ -140,15 +140,15 @@ const InlineComment: FC<{
   onDelete?: () => void
   onToggleResolved?: () => void
 }> = ({ comment, onDelete, onToggleResolved }) => {
-  const agentResolved = comment.resolved && comment.resolvedBy === 'agent'
+  const agentResolved = comment.resolvedBy?.includes('agent') && !comment.resolved
   return (
   <div
     className="flex items-start gap-2 mx-2 my-1 p-2 rounded border"
-    style={comment.resolved
-      ? agentResolved
-        ? { background: 'var(--ai-purple-subtle)', borderColor: 'var(--ai-purple-subtle)' }
-        : { background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border-subtle)' }
-      : { background: 'var(--ai-warning-subtle)', borderColor: 'var(--ai-warning-subtle)' }
+    style={agentResolved
+      ? { background: 'var(--ai-purple-subtle)', borderColor: 'var(--ai-purple-subtle)' }
+      : comment.resolved
+        ? { background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border-subtle)' }
+        : { background: 'var(--ai-warning-subtle)', borderColor: 'var(--ai-warning-subtle)' }
     }
   >
     <MessageSquare
@@ -162,7 +162,7 @@ const InlineComment: FC<{
         </span>
       )}
       <p
-        className={`text-xs whitespace-pre-wrap ${comment.resolved && !agentResolved ? 'line-through' : ''}`}
+        className={`text-xs whitespace-pre-wrap ${comment.resolved ? 'line-through' : ''}`}
         style={{ color: agentResolved ? 'var(--ai-text-secondary)' : comment.resolved ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)' }}
       >{comment.comment}</p>
     </div>
@@ -804,7 +804,13 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
   const handleToggleResolved = (commentId: string) => {
     onCommentsChange(comments.map(c =>
-      c.id === commentId ? { ...c, resolved: !c.resolved, resolvedBy: c.resolved ? undefined : 'human' } : c
+      c.id === commentId ? {
+        ...c,
+        resolved: !c.resolved,
+        resolvedBy: c.resolved
+          ? (c.resolvedBy || []).filter(r => r !== 'human')
+          : [...(c.resolvedBy || []).filter(r => r !== 'human'), 'human' as const]
+      } : c
     ))
   }
 

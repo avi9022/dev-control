@@ -1,94 +1,102 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import http from 'http'
-import { getTaskById, updateTask } from './task-manager.js'
-import { z } from 'zod'
+import { randomUUID } from 'crypto'
+import { mcpTools } from './mcp-tools/index.js'
+import { errorResult } from './mcp-tools/types.js'
 
-let server: http.Server | null = null
+let httpServer: http.Server | null = null
 let mcpPort: number | null = null
 
 export function getMcpPort(): number | null {
   return mcpPort
 }
 
-export async function startMcpServer(): Promise<number> {
-  const mcpServer = new McpServer({
-    name: 'devcontrol',
-    version: '1.0.0',
+function createMcpServer(): McpServer {
+  const mcpServer = new McpServer(
+    { name: 'devcontrol', version: '1.0.0' },
+    { capabilities: { tools: {} } }
+  )
+
+  mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: mcpTools.map(t => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema,
+    })),
+  }))
+
+  // @ts-expect-error — MCP SDK type instantiation too deep for CallToolRequestSchema
+  mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request: { params: { name: string; arguments?: Record<string, unknown> } }) => {
+    const { name, arguments: args } = request.params
+    const tool = mcpTools.find(t => t.name === name)
+    if (!tool) {
+      return errorResult(`Unknown tool: ${name}`)
+    }
+    return tool.handler(args || {})
   })
 
-  // Tool: resolve_comment
-  mcpServer.tool(
-    'resolve_comment',
-    'Mark a human review comment as resolved by the agent',
-    {
-      taskId: z.string().describe('The task ID'),
-      commentId: z.string().describe('The comment ID to resolve'),
-    },
-    async ({ taskId, commentId }) => {
-      const task = getTaskById(taskId)
-      if (!task) {
-        return { content: [{ type: 'text' as const, text: `Error: Task ${taskId} not found` }] }
-      }
-      const comments = task.humanComments || []
-      const comment = comments.find(c => c.id === commentId)
-      if (!comment) {
-        return { content: [{ type: 'text' as const, text: `Error: Comment ${commentId} not found` }] }
-      }
-      if (comment.resolved) {
-        return { content: [{ type: 'text' as const, text: `Comment already resolved` }] }
-      }
-      const updated = comments.map(c =>
-        c.id === commentId ? { ...c, resolved: true, resolvedBy: 'agent' as const } : c
-      )
-      updateTask(taskId, { humanComments: updated })
-      return { content: [{ type: 'text' as const, text: `Comment resolved successfully` }] }
-    }
-  )
+  return mcpServer
+}
 
-  // Tool: list_comments
-  mcpServer.tool(
-    'list_comments',
-    'List all unresolved human review comments for a task',
-    {
-      taskId: z.string().describe('The task ID'),
-    },
-    async ({ taskId }) => {
-      const task = getTaskById(taskId)
-      if (!task) {
-        return { content: [{ type: 'text' as const, text: `Error: Task ${taskId} not found` }] }
-      }
-      const comments = (task.humanComments || []).filter(c => !c.resolved)
-      if (comments.length === 0) {
-        return { content: [{ type: 'text' as const, text: 'No unresolved comments' }] }
-      }
-      const list = comments.map(c => ({
-        id: c.id,
-        file: c.file || '(general)',
-        line: c.line,
-        comment: c.comment,
-      }))
-      return { content: [{ type: 'text' as const, text: JSON.stringify(list, null, 2) }] }
-    }
-  )
+export async function startMcpServer(): Promise<number> {
+  // Store active transports by session ID
+  const transports = new Map<string, StreamableHTTPServerTransport>()
 
-  // Create HTTP server with Streamable HTTP transport
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-
-  server = http.createServer(async (req, res) => {
-    if (req.url === '/mcp' || req.url?.startsWith('/mcp')) {
-      await transport.handleRequest(req, res)
-    } else {
+  httpServer = http.createServer(async (req, res) => {
+    if (req.url !== '/mcp' && !req.url?.startsWith('/mcp')) {
       res.writeHead(404)
       res.end('Not found')
+      return
+    }
+
+    try {
+      // Check for existing session
+      const sessionId = req.headers['mcp-session-id'] as string | undefined
+
+      if (sessionId && transports.has(sessionId)) {
+        // Reuse existing transport for this session
+        const transport = transports.get(sessionId)!
+        await transport.handleRequest(req, res)
+        return
+      }
+
+      // New session — create new transport and server
+      if (req.method === 'POST') {
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (id) => {
+            transports.set(id, transport)
+          },
+          onsessionclosed: (id) => {
+            transports.delete(id)
+          },
+        })
+
+        const mcpServer = createMcpServer()
+        await mcpServer.connect(transport)
+        await transport.handleRequest(req, res)
+      } else if (req.method === 'DELETE') {
+        // Session cleanup for unknown session
+        res.writeHead(404)
+        res.end('Session not found')
+      } else {
+        res.writeHead(405)
+        res.end('Method not allowed')
+      }
+    } catch (err) {
+      console.error('[mcp-server] Request error:', err)
+      if (!res.headersSent) {
+        res.writeHead(500)
+        res.end(JSON.stringify({ error: String(err) }))
+      }
     }
   })
 
-  await mcpServer.connect(transport)
-
   return new Promise((resolve, reject) => {
-    server!.listen(0, '127.0.0.1', () => {
-      const addr = server!.address()
+    httpServer!.listen(0, '127.0.0.1', () => {
+      const addr = httpServer!.address()
       if (addr && typeof addr === 'object') {
         mcpPort = addr.port
         console.log(`[mcp-server] DevControl MCP server running on http://127.0.0.1:${mcpPort}/mcp`)
@@ -97,14 +105,14 @@ export async function startMcpServer(): Promise<number> {
         reject(new Error('Failed to get server address'))
       }
     })
-    server!.on('error', reject)
+    httpServer!.on('error', reject)
   })
 }
 
 export function stopMcpServer(): void {
-  if (server) {
-    server.close()
-    server = null
+  if (httpServer) {
+    httpServer.close()
+    httpServer = null
     mcpPort = null
     console.log('[mcp-server] DevControl MCP server stopped')
   }

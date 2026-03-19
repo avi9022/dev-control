@@ -538,19 +538,25 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     }
   }
 
-  // MCP config for agent tools
+  // MCP config for agent tools — write to file since --mcp-config expects a path
   const mcpArgs: string[] = []
   const mcpPortNum = getMcpPort()
   if (mcpPortNum) {
-    const mcpConfig = JSON.stringify({
-      mcpServers: {
-        devcontrol: {
-          type: 'url',
-          url: `http://127.0.0.1:${mcpPortNum}/mcp`,
+    try {
+      const mcpConfigPath = path.join(app.getPath('userData'), 'mcp-config.json')
+      fs.writeFileSync(mcpConfigPath, JSON.stringify({
+        mcpServers: {
+          devcontrol: {
+            type: 'http',
+            url: `http://127.0.0.1:${mcpPortNum}/mcp`,
+          }
         }
-      }
-    })
-    mcpArgs.push('--mcp-config', mcpConfig)
+      }, null, 2))
+      mcpArgs.push('--mcp-config', mcpConfigPath)
+      console.log(`[ai-agent] MCP config written to ${mcpConfigPath}`)
+    } catch (err) {
+      console.warn(`[ai-agent] Failed to write MCP config:`, err)
+    }
   }
 
   const args = [
