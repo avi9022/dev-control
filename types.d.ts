@@ -679,6 +679,7 @@ interface AIHumanComment {
   comment: string
   createdAt: string
   resolved?: boolean
+  resolvedBy?: 'human' | 'agent'
 }
 
 interface AITaskAmendment {

@@ -17,14 +17,13 @@
 - [x] **F29**: Amendment Project Management — allow adding/removing projects and worktrees from within the amendment form, so users can expand task scope (new repos, new worktrees) alongside new requirements without going through task edit
 - [x] **F6**: Process Crash Recovery & Stall Detection — detect stale PIDs on startup (offer retry/rollback), runtime stall detection (no output for X min → kill + retry with exponential backoff)
 - [x] **F7**: Terminal Log Persistence — save agent output to log files, reload on task reopen
+- [x] **F8**: Notifications — system tray notifications, badge counts, in-app indicators
 
 ## Planned Features
 
-- [x] **F8**: Notifications — system tray notifications, badge counts, in-app indicators
-- [ ] **F10**: Cost & Usage Tracking — parse Claude output for token usage, aggregate per task
 - [ ] **F11**: Import from External Trackers — import tickets from Jira (via MCP) or GitHub Issues (via `gh` CLI) into backlog
 - [ ] **F18**: Diff Virtualization — virtualized rendering for large diffs to avoid DOM performance issues
-- [ ] **F19**: Agent Comment Resolution — allow agents to mark review comments as resolved after addressing them
+- [x] **F19**: Agent Comment Resolution — allow agents to mark review comments as resolved after addressing them via MCP tools
 - [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work
 - [ ] **F17**: Per-Phase Retry Limits — move maxReviewCycles from task to pipeline phase config (`maxRetries` per phase), track retries per-phase instead of globally, remove from task creation dialog
 - [ ] **F22**: Diff Viewer Search — search across all diff content with match highlighting, result count, and prev/next navigation

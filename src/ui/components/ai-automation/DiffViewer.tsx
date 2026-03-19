@@ -139,22 +139,33 @@ const InlineComment: FC<{
   comment: AIHumanComment
   onDelete?: () => void
   onToggleResolved?: () => void
-}> = ({ comment, onDelete, onToggleResolved }) => (
+}> = ({ comment, onDelete, onToggleResolved }) => {
+  const agentResolved = comment.resolved && comment.resolvedBy === 'agent'
+  return (
   <div
     className="flex items-start gap-2 mx-2 my-1 p-2 rounded border"
     style={comment.resolved
-      ? { background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border-subtle)' }
+      ? agentResolved
+        ? { background: 'var(--ai-purple-subtle)', borderColor: 'var(--ai-purple-subtle)' }
+        : { background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border-subtle)' }
       : { background: 'var(--ai-warning-subtle)', borderColor: 'var(--ai-warning-subtle)' }
     }
   >
     <MessageSquare
       className="h-3.5 w-3.5 mt-0.5 shrink-0"
-      style={{ color: comment.resolved ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)' }}
+      style={{ color: agentResolved ? 'var(--ai-purple)' : comment.resolved ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)' }}
     />
-    <p
-      className={`text-xs flex-1 whitespace-pre-wrap ${comment.resolved ? 'line-through' : ''}`}
-      style={{ color: comment.resolved ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)' }}
-    >{comment.comment}</p>
+    <div className="flex-1 min-w-0">
+      {agentResolved && (
+        <span className="text-[9px] px-1 py-0.5 rounded mb-0.5 inline-block" style={{ background: 'var(--ai-purple-subtle)', color: 'var(--ai-purple)' }}>
+          agent resolved — verify
+        </span>
+      )}
+      <p
+        className={`text-xs whitespace-pre-wrap ${comment.resolved && !agentResolved ? 'line-through' : ''}`}
+        style={{ color: agentResolved ? 'var(--ai-text-secondary)' : comment.resolved ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)' }}
+      >{comment.comment}</p>
+    </div>
     {onToggleResolved && (
       <button
         onClick={onToggleResolved}
@@ -175,7 +186,8 @@ const InlineComment: FC<{
       </button>
     )}
   </div>
-)
+  )
+}
 
 // Comment input form
 const CommentInput: FC<{
@@ -792,7 +804,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
 
   const handleToggleResolved = (commentId: string) => {
     onCommentsChange(comments.map(c =>
-      c.id === commentId ? { ...c, resolved: !c.resolved } : c
+      c.id === commentId ? { ...c, resolved: !c.resolved, resolvedBy: c.resolved ? undefined : 'human' } : c
     ))
   }
 

@@ -49,6 +49,7 @@ import { mongoManager } from './mongodb/mongo-manager.js'
 import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks, migrateTaskWorkspaces, recoverStaleTasks } from './ai-automation/task-manager.js'
 import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory, getAgentStats } from './ai-automation/agent-runner.js'
 import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
+import { startMcpServer, stopMcpServer } from './ai-automation/mcp-server.js'
 import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments, getOrCreateTaskDir } from './ai-automation/task-dir-manager.js'
 import { generateKnowledgeDoc } from './ai-automation/knowledge-generator.js'
 import { getBranchInfo, renameBranch, editCommitMessage, editMultipleCommitMessages, squashCommits } from './ai-automation/git-operations.js'
@@ -241,6 +242,9 @@ app.on("ready", async () => {
   setAgentMainWindow(mainWindow)
   setNotificationMainWindow(mainWindow)
   setShellMainWindow(mainWindow)
+
+  // Start MCP server for agent tools
+  startMcpServer().catch(err => console.error('[main] Failed to start MCP server:', err))
 
   // Initialize broker manager
   brokerManager.setMainWindow(mainWindow)
@@ -1055,6 +1059,9 @@ app.on('before-quit', async (event) => {
     clearInterval(interval)
   }
   queuePollIntervals.clear()
+
+  // Stop MCP server
+  stopMcpServer()
 
   // Stop Docker polling
   dockerManager.stopPolling()

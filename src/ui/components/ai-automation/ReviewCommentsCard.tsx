@@ -35,7 +35,7 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
 
   const handleToggleResolved = async (commentId: string) => {
     const updated = comments.map(c =>
-      c.id === commentId ? { ...c, resolved: !c.resolved } : c
+      c.id === commentId ? { ...c, resolved: !c.resolved, resolvedBy: c.resolved ? undefined : 'human' } : c
     )
     await updateTask(task.id, { humanComments: updated })
   }
@@ -46,7 +46,7 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
   }
 
   const handleResolveAll = async () => {
-    const updated = comments.map(c => c.resolved ? c : { ...c, resolved: true })
+    const updated = comments.map(c => c.resolved ? c : { ...c, resolved: true, resolvedBy: 'human' as const })
     await updateTask(task.id, { humanComments: updated })
   }
 
@@ -126,7 +126,12 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
                         {new Date(c.createdAt).toLocaleDateString('en-GB')}
                       </span>
                     )}
-                    {c.resolved && (
+                    {c.resolved && c.resolvedBy === 'agent' && (
+                      <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: 'var(--ai-purple-subtle)', color: 'var(--ai-purple)' }}>
+                        agent resolved
+                      </span>
+                    )}
+                    {c.resolved && c.resolvedBy !== 'agent' && (
                       <CheckCircle className="h-3 w-3" style={{ color: 'var(--ai-success)' }} />
                     )}
                   </div>

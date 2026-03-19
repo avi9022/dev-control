@@ -9,6 +9,7 @@ import { sendNotification } from './notification-manager.js'
 import { buildPrompt } from './prompt-builder.js'
 import { createWorktree, generateBranchName, getDiff } from './worktree-manager.js'
 import { getOrCreateTaskDir } from './task-dir-manager.js'
+import { getMcpPort } from './mcp-server.js'
 
 const ROLE_TOOLS: Record<string, string[]> = {
   worker:   ['Bash', 'Edit', 'Write', 'Read', 'Grep', 'Glob'],
@@ -537,6 +538,21 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     }
   }
 
+  // MCP config for agent tools
+  const mcpArgs: string[] = []
+  const mcpPortNum = getMcpPort()
+  if (mcpPortNum) {
+    const mcpConfig = JSON.stringify({
+      mcpServers: {
+        devcontrol: {
+          type: 'url',
+          url: `http://127.0.0.1:${mcpPortNum}/mcp`,
+        }
+      }
+    })
+    mcpArgs.push('--mcp-config', mcpConfig)
+  }
+
   const args = [
     '--print',
     '--verbose',
@@ -546,6 +562,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     '--settings', guardSettings,
     ...toolArgs,
     ...addDirArgs,
+    ...mcpArgs,
     '--',
     message,
   ]

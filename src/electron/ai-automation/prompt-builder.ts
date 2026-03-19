@@ -154,13 +154,14 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
       const commentLines: string[] = []
       if (general.length > 0) {
         commentLines.push('General feedback:')
-        for (const c of general) commentLines.push(`- ${c.comment}`)
+        for (const c of general) commentLines.push(`- [${c.id}] ${c.comment}`)
       }
       if (lineSpecific.length > 0) {
         if (general.length > 0) commentLines.push('\nFile-specific comments:')
-        for (const c of lineSpecific) commentLines.push(`- ${c.file}:${c.line}: ${c.comment}`)
+        for (const c of lineSpecific) commentLines.push(`- [${c.id}] ${c.file}:${c.line}: ${c.comment}`)
       }
-      parts.push(`## Human Review Comments to Address\n\n${commentLines.join('\n')}`)
+      commentLines.push('\nAfter addressing a comment, use the `resolve_comment` MCP tool with the task ID and comment ID (shown in brackets) to mark it as resolved.')
+      parts.push(`## Human Review Comments to Address\n\nTask ID: ${task.id}\n\n${commentLines.join('\n')}`)
     }
   }
 
