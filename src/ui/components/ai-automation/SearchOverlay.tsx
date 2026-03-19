@@ -36,7 +36,7 @@ export function useSearchOverlay(deps: unknown[] = []) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery, ...deps])
 
-  // Find matching ranges (runs on debounced query)
+  // Find matching ranges in chunks to avoid blocking the UI
   useEffect(() => {
     matchRangesRef.current = []
     setTotalMatches(0)
@@ -44,28 +44,42 @@ export function useSearchOverlay(deps: unknown[] = []) {
 
     const escaped = debouncedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const regex = new RegExp(escaped, 'gi')
-    const walker = document.createTreeWalker(contentRef.current, NodeFilter.SHOW_TEXT)
-    const ranges: Range[] = []
+    const container = contentRef.current
 
-    while (walker.nextNode()) {
-      const node = walker.currentNode as Text
-      const text = node.textContent || ''
-      let m: RegExpExecArray | null
-      regex.lastIndex = 0
-      while ((m = regex.exec(text)) !== null) {
-        const range = new Range()
-        range.setStart(node, m.index)
-        range.setEnd(node, m.index + m[0].length)
-        ranges.push(range)
+    // Collect all text nodes first, then process in chunks via requestIdleCallback
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+    const textNodes: Text[] = []
+    while (walker.nextNode()) textNodes.push(walker.currentNode as Text)
+
+    const ranges: Range[] = []
+    let nodeIndex = 0
+    const CHUNK_SIZE = 200
+
+    function processChunk() {
+      const end = Math.min(nodeIndex + CHUNK_SIZE, textNodes.length)
+      for (; nodeIndex < end; nodeIndex++) {
+        const node = textNodes[nodeIndex]
+        const text = node.textContent || ''
+        let m: RegExpExecArray | null
+        regex.lastIndex = 0
+        while ((m = regex.exec(text)) !== null) {
+          const range = new Range()
+          range.setStart(node, m.index)
+          range.setEnd(node, m.index + m[0].length)
+          ranges.push(range)
+        }
+      }
+      matchRangesRef.current = ranges
+      setTotalMatches(ranges.length)
+      if (nodeIndex < textNodes.length) {
+        requestAnimationFrame(processChunk)
       }
     }
-
-    matchRangesRef.current = ranges
-    setTotalMatches(ranges.length)
+    processChunk()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery, contentMounted, ...deps])
 
-  // Render highlight overlays
+  // Render highlight overlays — only for visible matches
   const renderOverlays = useCallback(() => {
     if (!overlayRef.current || !contentRef.current) return
     const container = contentRef.current
@@ -76,13 +90,20 @@ export function useSearchOverlay(deps: unknown[] = []) {
     if (ranges.length === 0) return
 
     const containerRect = container.getBoundingClientRect()
+    const viewTop = container.scrollTop
+    const viewBottom = viewTop + containerRect.height
+    const BUFFER = 200 // render matches slightly outside viewport for smooth scrolling
 
     for (let i = 0; i < ranges.length; i++) {
       const rects = ranges[i].getClientRects()
       for (const rect of rects) {
+        const top = rect.top - containerRect.top + container.scrollTop
+        // Skip matches outside visible area (with buffer)
+        if (top < viewTop - BUFFER || top > viewBottom + BUFFER) continue
+
         const div = document.createElement('div')
         div.style.position = 'absolute'
-        div.style.top = `${rect.top - containerRect.top + container.scrollTop}px`
+        div.style.top = `${top}px`
         div.style.left = `${rect.left - containerRect.left + container.scrollLeft}px`
         div.style.width = `${rect.width}px`
         div.style.height = `${rect.height}px`
