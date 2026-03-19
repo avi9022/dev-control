@@ -4,6 +4,7 @@ import { BrowserWindow } from 'electron'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 import { cleanupWorktree } from './worktree-manager.js'
 import { getOrCreateTaskDir, cleanupTaskDir, migrateTaskDirStructure } from './task-dir-manager.js'
+import { sendNotification } from './notification-manager.js'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -150,6 +151,15 @@ export function moveTaskPhase(id: string, targetPhase: string): AITask {
   }
   store.set('aiTasks', tasks)
   broadcastTasks()
+
+  // Notify on phase transitions
+  const targetPhaseConfig = pipeline.find(p => p.id === targetPhase)
+  if (targetPhase === 'DONE') {
+    sendNotification('task_done', id, task.title, 'Task completed')
+  } else if (targetPhaseConfig?.type === 'manual') {
+    sendNotification('manual_phase', id, task.title, `Ready for ${targetPhaseConfig.name}`)
+  }
+
   return tasks[index]
 }
 

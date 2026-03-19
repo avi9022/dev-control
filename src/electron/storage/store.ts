@@ -52,6 +52,7 @@ type Schema = {
   // AI Automation settings
   aiTasks: AITask[]
   aiAutomationSettings: AIAutomationSettings
+  aiNotifications: AINotification[]
 };
 
 const DEFAULT_DYNAMODB_CONNECTION: DynamoDBConnectionConfig = {
@@ -210,8 +211,13 @@ export const store = new Store<Schema>({
       },
       globalRules: '',
       knowledgeDocs: [],
-      stallTimeoutMinutes: 3
-    }
+      stallTimeoutMinutes: 3,
+      notifyOnManualPhase: true,
+      notifyOnNeedsAttention: true,
+      notifyOnTaskDone: true,
+      notifyOnPhaseStart: false
+    },
+    aiNotifications: [] as AINotification[]
   },
 });
 

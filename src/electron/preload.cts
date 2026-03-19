@@ -294,6 +294,12 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('aiAgentStats', (data) => {
       callback(data);
     }),
+  subscribeAINotifications: (callback: (data: AINotification[]) => void) =>
+    ipcOn('aiNotifications', (data) => {
+      callback(data);
+    }),
+  aiGetNotifications: () => ipcInvoke('aiGetNotifications'),
+  aiMarkNotificationsRead: () => ipcInvoke('aiMarkNotificationsRead'),
   subscribeAISettings: (callback: (settings: AIAutomationSettings) => void) =>
     ipcOn('aiSettings', (settings) => {
       callback(settings);

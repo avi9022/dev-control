@@ -15,12 +15,12 @@
 - [x] **F12**: General Review Comments & Resolved State — general feedback popover on Request Changes, resolve toggle on all comments, only unresolved sent to agents
 - [x] **F14**: Large Diff Truncation — files with 200+ changed lines collapsed by default with "Load diff" button
 - [x] **F29**: Amendment Project Management — allow adding/removing projects and worktrees from within the amendment form, so users can expand task scope (new repos, new worktrees) alongside new requirements without going through task edit
+- [x] **F6**: Process Crash Recovery & Stall Detection — detect stale PIDs on startup (offer retry/rollback), runtime stall detection (no output for X min → kill + retry with exponential backoff)
+- [x] **F7**: Terminal Log Persistence — save agent output to log files, reload on task reopen
 
 ## Planned Features
 
-- [x] **F6**: Process Crash Recovery & Stall Detection — detect stale PIDs on startup (offer retry/rollback), runtime stall detection (no output for X min → kill + retry with exponential backoff)
-- [ ] **F7**: Terminal Log Persistence — save agent output to log files, reload on task reopen
-- [ ] **F8**: Notifications — system tray notifications, badge counts, in-app indicators
+- [x] **F8**: Notifications — system tray notifications, badge counts, in-app indicators
 - [ ] **F10**: Cost & Usage Tracking — parse Claude output for token usage, aggregate per task
 - [ ] **F11**: Import from External Trackers — import tickets from Jira (via MCP) or GitHub Issues (via `gh` CLI) into backlog
 - [ ] **F18**: Diff Virtualization — virtualized rendering for large diffs to avoid DOM performance issues

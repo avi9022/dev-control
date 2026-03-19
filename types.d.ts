@@ -662,6 +662,16 @@ interface AIReviewComment {
 
 type AITaskAttentionReason = 'crashed' | 'stalled' | 'max_retries' | 'error'
 
+interface AINotification {
+  id: string
+  taskId: string
+  taskTitle: string
+  type: 'manual_phase' | 'needs_attention' | 'task_done' | 'phase_start'
+  message: string
+  createdAt: string
+  read: boolean
+}
+
 interface AIHumanComment {
   id: string
   file: string
@@ -721,6 +731,10 @@ interface AIAutomationSettings {
   globalRules: string
   knowledgeDocs: AIKnowledgeDoc[]
   stallTimeoutMinutes: number
+  notifyOnManualPhase: boolean
+  notifyOnNeedsAttention: boolean
+  notifyOnTaskDone: boolean
+  notifyOnPhaseStart: boolean
   // UI preferences
   theme?: 'dark' | 'light'
   diffViewMode?: 'unified' | 'split'
@@ -1690,6 +1704,14 @@ type EventPayloadMapping = {
     return: AIAgentStats | null;
     args: [string];
   }
+  aiGetNotifications: {
+    return: AINotification[];
+    args: [];
+  }
+  aiMarkNotificationsRead: {
+    return: void;
+    args: [];
+  }
   aiGetTaskDiff: {
     return: AIProjectDiff[];
     args: [string];
@@ -1745,6 +1767,10 @@ type EventPayloadMapping = {
   aiAgentStats: {
     return: AIAgentStats;
     args: [AIAgentStats];
+  }
+  aiNotifications: {
+    return: AINotification[];
+    args: [AINotification[]];
   }
   aiSettings: {
     return: AIAutomationSettings;
@@ -2018,6 +2044,9 @@ interface Window {
     subscribeAITasks: (callback: (tasks: AITask[]) => void) => () => void
     subscribeAITaskOutput: (callback: (data: AITaskOutput) => void) => () => void
     subscribeAIAgentStats: (callback: (data: AIAgentStats) => void) => () => void
+    subscribeAINotifications: (callback: (data: AINotification[]) => void) => () => void
+    aiGetNotifications: () => Promise<AINotification[]>
+    aiMarkNotificationsRead: () => Promise<void>
     subscribeAISettings: (callback: (settings: AIAutomationSettings) => void) => () => void
   }
 }

@@ -52,6 +52,7 @@ import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/workt
 import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments, getOrCreateTaskDir } from './ai-automation/task-dir-manager.js'
 import { generateKnowledgeDoc } from './ai-automation/knowledge-generator.js'
 import { getBranchInfo, renameBranch, editCommitMessage, editMultipleCommitMessages, squashCommits } from './ai-automation/git-operations.js'
+import { setNotificationMainWindow, getNotifications, markAllRead } from './ai-automation/notification-manager.js'
 import { randomUUID } from 'crypto'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
 import { getCollections, createCollection as mongoCreateCol, dropCollection, renameCollection, getCollectionStats } from './mongodb/collection-operations.js'
@@ -238,6 +239,7 @@ app.on("ready", async () => {
   recoverStaleTasks()
   setTaskManagerMainWindow(mainWindow)
   setAgentMainWindow(mainWindow)
+  setNotificationMainWindow(mainWindow)
   setShellMainWindow(mainWindow)
 
   // Initialize broker manager
@@ -751,6 +753,14 @@ app.on("ready", async () => {
 
   ipcMainHandle('aiGetAgentStats', async (_event, taskId) => {
     return getAgentStats(taskId)
+  })
+
+  ipcMainHandle('aiGetNotifications', async () => {
+    return getNotifications()
+  })
+
+  ipcMainHandle('aiMarkNotificationsRead', async () => {
+    markAllRead()
   })
 
   ipcMainHandle('aiGetTaskDiff', async (_event, taskId) => {

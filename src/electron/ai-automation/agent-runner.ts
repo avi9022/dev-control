@@ -5,6 +5,7 @@ import treeKill from 'tree-kill'
 import { app, BrowserWindow } from 'electron'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 import { getTaskById, updateTask, moveTaskPhase, getSettings } from './task-manager.js'
+import { sendNotification } from './notification-manager.js'
 import { buildPrompt } from './prompt-builder.js'
 import { createWorktree, generateBranchName, getDiff } from './worktree-manager.js'
 import { getOrCreateTaskDir } from './task-dir-manager.js'
@@ -574,6 +575,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
 
   runningProcesses.set(taskId, child)
   updateTask(taskId, { activeProcessPid: child.pid, currentPhaseName: phaseConfig.name })
+  sendNotification('phase_start', taskId, task.title, `${phaseConfig.name} phase started`)
 
   // Close stdin for --print mode
   child.stdin?.end()
@@ -636,6 +638,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
           stallRetryCount: retryCount,
           phaseHistory: history,
         })
+        sendNotification('needs_attention', taskId, currentTask.title, 'Agent stalled repeatedly — needs attention')
       }
     }
   }, 30000)
@@ -764,6 +767,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
       errHistory[errHistory.length - 1] = { ...errHistory[errHistory.length - 1], exitedAt: new Date().toISOString(), exitEvent: 'error' }
     }
     updateTask(taskId, { activeProcessPid: undefined, currentPhaseName: undefined, needsUserInput: true, needsUserInputReason: 'error', phaseHistory: errHistory })
+    sendNotification('needs_attention', taskId, errTask?.title || taskId, `Agent error: ${err.message}`)
   })
 }
 

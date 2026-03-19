@@ -7,6 +7,7 @@ import { AISettings } from './AISettings'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, Settings, Zap, Sun, Moon } from 'lucide-react'
+import { NotificationBell } from '@/ui/components/ai-automation/NotificationBell'
 
 export const AIKanban: FC = () => {
   const { tasks, moveTaskPhase, deleteTask, updateTask, settings, updateSettings } = useAIAutomation()
@@ -100,6 +101,7 @@ export const AIKanban: FC = () => {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell onNavigateToTask={(taskId) => setSelectedTaskId(taskId)} />
           <button
             onClick={toggleTheme}
             className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"

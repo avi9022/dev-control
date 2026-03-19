@@ -285,6 +285,42 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
         />
       </div>
       <div>
+        <Label>Notifications</Label>
+        <p className="text-xs mb-2" style={{ color: 'var(--ai-text-tertiary)' }}>
+          Choose which events trigger notifications.
+        </p>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={settings.notifyOnManualPhase}
+              onCheckedChange={(v) => updateSettings({ notifyOnManualPhase: !!v })}
+            />
+            <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>Task ready for review</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={settings.notifyOnNeedsAttention}
+              onCheckedChange={(v) => updateSettings({ notifyOnNeedsAttention: !!v })}
+            />
+            <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>Agent needs attention</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={settings.notifyOnTaskDone}
+              onCheckedChange={(v) => updateSettings({ notifyOnTaskDone: !!v })}
+            />
+            <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>Task completed</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={settings.notifyOnPhaseStart}
+              onCheckedChange={(v) => updateSettings({ notifyOnPhaseStart: !!v })}
+            />
+            <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>Phase started</span>
+          </label>
+        </div>
+      </div>
+      <div>
         <Label>Default Git Strategy</Label>
         <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>How the agent manages code changes for new tasks.</p>
         <Select value={settings.defaultGitStrategy === 'none' ? 'none' : 'worktree'} onValueChange={v => updateSettings({ defaultGitStrategy: v as AIGitStrategy })}>
