@@ -30,15 +30,19 @@ export function getTaskById(id: string): AITask | undefined {
 export function createTask(
   title: string,
   description: string,
-  projects: AITaskProject[]
+  projects: AITaskProject[],
+  boardId?: string
 ): AITask {
   const now = new Date().toISOString()
   const id = randomUUID()
   const taskDir = getOrCreateTaskDir(id)
+  const settings = getSettings()
+  const resolvedBoardId = boardId || settings.activeBoardId || 'default'
   const task: AITask = {
     id,
     title,
     description,
+    boardId: resolvedBoardId,
     phase: 'BACKLOG',
     createdAt: now,
     updatedAt: now,
@@ -120,8 +124,7 @@ export function moveTaskPhase(id: string, targetPhase: string): AITask {
   if (index === -1) throw new Error(`Task ${id} not found`)
 
   const task = tasks[index]
-  const settings = getSettings()
-  const pipeline = settings.pipeline || []
+  const pipeline = getBoardPipeline(task.boardId)
 
   // BACKLOG can go to any pipeline phase (user drag), and any phase can go to BACKLOG
   if (!isValidTransition(task.phase, targetPhase, pipeline)) {
@@ -242,42 +245,44 @@ export function migrateTaskWorkspaces() {
 }
 
 export function migrateSettings() {
-  const settings = store.get('aiAutomationSettings')
+  const settings = store.get('aiAutomationSettings') as unknown as Record<string, unknown>
 
-  // If pipeline already exists, skip
-  if (settings.pipeline && settings.pipeline.length > 0) return
+  // If pipeline already exists (pre-boards migration), skip
+  if ((settings as any).pipeline && (settings as any).pipeline.length > 0) return
 
   // Initialize default pipeline
   const pipeline = DEFAULT_PIPELINE.map(p => ({ ...p }))
 
   // Copy existing phase prompts into pipeline
-  if (settings.phasePrompts) {
-    if (settings.phasePrompts.planning) {
+  const phasePrompts = (settings as any).phasePrompts as AIAutomationSettings['phasePrompts'] | undefined
+  if (phasePrompts) {
+    if (phasePrompts.planning) {
       const planningPhase = pipeline.find(p => p.id === 'planning')
-      if (planningPhase) planningPhase.prompt = settings.phasePrompts.planning
+      if (planningPhase) planningPhase.prompt = phasePrompts.planning
     }
-    if (settings.phasePrompts.working) {
+    if (phasePrompts.working) {
       const workingPhase = pipeline.find(p => p.id === 'in-progress')
-      if (workingPhase) workingPhase.prompt = settings.phasePrompts.working
+      if (workingPhase) workingPhase.prompt = phasePrompts.working
     }
-    if (settings.phasePrompts.reviewing) {
+    if (phasePrompts.reviewing) {
       const reviewPhase = pipeline.find(p => p.id === 'agent-review')
-      if (reviewPhase) reviewPhase.prompt = settings.phasePrompts.reviewing
+      if (reviewPhase) reviewPhase.prompt = phasePrompts.reviewing
     }
   }
 
-  store.set('aiAutomationSettings', { ...settings, pipeline })
+  store.set('aiAutomationSettings', { ...settings, pipeline } as unknown as AIAutomationSettings)
 }
 
 export function migrateExistingTasks() {
-  const settings = getSettings()
-  if (!settings.pipeline || settings.pipeline.length === 0) return
+  const settings = getSettings() as unknown as Record<string, unknown>
+  const legacyPipeline = (settings as any).pipeline as AIPipelinePhase[] | undefined
+  if (!legacyPipeline || legacyPipeline.length === 0) return
 
   const tasks = store.get('aiTasks')
   let changed = false
 
   const PHASE_MAP: Record<string, string> = {
-    'TODO': settings.pipeline[0]?.id || 'BACKLOG',
+    'TODO': legacyPipeline[0]?.id || 'BACKLOG',
     'PLANNING': 'planning',
     'IN_PROGRESS': 'in-progress',
     'AGENT_REVIEW': 'agent-review',
@@ -305,6 +310,47 @@ export function migrateExistingTasks() {
   if (changed) {
     store.set('aiTasks', tasks)
   }
+}
+
+export function migrateToBoards(): void {
+  const settings = store.get('aiAutomationSettings')
+
+  // Already migrated
+  if (settings.boards && settings.boards.length > 0) return
+
+  // Create default board from existing pipeline
+  const existingPipeline = (settings as any).pipeline || DEFAULT_PIPELINE
+  const defaultBoard: AIBoard = {
+    id: 'default',
+    name: 'My Board',
+    color: '#9BB89E',
+    pipeline: existingPipeline,
+    createdAt: new Date().toISOString(),
+  }
+
+  // Update settings
+  const updated = { ...settings, boards: [defaultBoard], activeBoardId: 'default' }
+  delete (updated as any).pipeline
+  store.set('aiAutomationSettings', updated)
+
+  // Add boardId to all existing tasks
+  const tasks = store.get('aiTasks')
+  const migrated = tasks.map(t => t.boardId ? t : { ...t, boardId: 'default' })
+  store.set('aiTasks', migrated)
+
+  console.log('[task-manager] Migrated to boards: created default board, assigned boardId to tasks')
+}
+
+export function getActivePipeline(): AIPipelinePhase[] {
+  const settings = getSettings()
+  const board = settings.boards?.find(b => b.id === settings.activeBoardId)
+  return board?.pipeline || []
+}
+
+export function getBoardPipeline(boardId: string): AIPipelinePhase[] {
+  const settings = getSettings()
+  const board = settings.boards?.find(b => b.id === boardId)
+  return board?.pipeline || []
 }
 
 export function recoverStaleTasks(): void {

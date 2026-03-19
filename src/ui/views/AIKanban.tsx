@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, Settings, Zap, Sun, Moon } from 'lucide-react'
 import { NotificationBell } from '@/ui/components/ai-automation/NotificationBell'
+import { BoardSwitcher } from '@/ui/components/ai-automation/BoardSwitcher'
 
 export const AIKanban: FC = () => {
   const { tasks, moveTaskPhase, deleteTask, updateTask, settings, updateSettings } = useAIAutomation()
@@ -30,14 +31,16 @@ export const AIKanban: FC = () => {
     return () => document.documentElement.removeAttribute('data-ai-theme')
   }, [isLight])
 
-  const pipeline = settings?.pipeline || []
+  const activeBoard = settings?.boards?.find(b => b.id === settings.activeBoardId)
+  const pipeline = activeBoard?.pipeline || []
   const columns: { id: string; label: string; type?: string }[] = [
     { id: 'BACKLOG', label: 'Backlog', type: 'fixed' },
     ...pipeline.map(p => ({ id: p.id, label: p.name, type: p.type })),
     { id: 'DONE', label: 'Done', type: 'fixed' },
   ]
 
-  const tasksByPhase = (phaseId: string) => tasks.filter(t => t.phase === phaseId)
+  const boardTasks = tasks.filter(t => t.boardId === settings?.activeBoardId)
+  const tasksByPhase = (phaseId: string) => boardTasks.filter(t => t.phase === phaseId)
 
   const handleDragStart = (taskId: string) => {
     setDraggedTaskId(taskId)
@@ -45,7 +48,7 @@ export const AIKanban: FC = () => {
 
   const handleDrop = async (targetPhase: string) => {
     if (!draggedTaskId) return
-    const task = tasks.find(t => t.id === draggedTaskId)
+    const task = boardTasks.find(t => t.id === draggedTaskId)
     if (!task || task.phase === targetPhase) {
       setDraggedTaskId(null)
       return
@@ -62,7 +65,7 @@ export const AIKanban: FC = () => {
   }
 
   const agentPhaseIds = pipeline.filter(p => p.type === 'agent').map(p => p.id)
-  const runningAgents = tasks.filter(t =>
+  const runningAgents = boardTasks.filter(t =>
     agentPhaseIds.includes(t.phase) && t.activeProcessPid
   ).length
 
@@ -91,6 +94,7 @@ export const AIKanban: FC = () => {
               AI Kanban
             </h2>
           </div>
+          {settings && <BoardSwitcher settings={settings} updateSettings={updateSettings} />}
           {runningAgents > 0 && (
             <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg" style={{ background: 'var(--ai-success-subtle)' }}>
               <div className="ai-dot" style={{ background: 'var(--ai-success)' }} />

@@ -250,8 +250,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
     }),
   // AI Automation API
   aiGetTasks: () => ipcInvoke('aiGetTasks'),
-  aiCreateTask: (title: string, description: string, projects: AITaskProject[]) =>
-    ipcInvoke('aiCreateTask', title, description, projects),
+  aiCreateTask: (title: string, description: string, projects: AITaskProject[], boardId?: string) =>
+    ipcInvoke('aiCreateTask', title, description, projects, boardId),
   aiSelectDirectory: () => ipcInvoke('aiSelectDirectory'),
   aiUpdateTask: (id: string, updates: Partial<AITask>) => ipcInvoke('aiUpdateTask', id, updates),
   aiDeleteTask: (id: string) => ipcInvoke('aiDeleteTask', id),

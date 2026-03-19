@@ -608,6 +608,7 @@ interface AITask {
   id: string
   title: string
   description: string
+  boardId: string
   phase: AITaskPhase
   createdAt: string
   updatedAt: string
@@ -658,6 +659,14 @@ interface AIReviewComment {
   line?: number
   comment: string
   severity: 'critical' | 'suggestion' | 'nitpick'
+}
+
+interface AIBoard {
+  id: string
+  name: string
+  color: string
+  pipeline: AIPipelinePhase[]
+  createdAt: string
 }
 
 type AITaskAttentionReason = 'crashed' | 'stalled' | 'max_retries' | 'error'
@@ -720,10 +729,11 @@ interface AIKnowledgeDoc {
 
 interface AIAutomationSettings {
   maxConcurrency: number
+  boards: AIBoard[]
+  activeBoardId: string
   defaultGitStrategy: AIGitStrategy
   defaultBaseBranch: string
   taskDataRoot?: string
-  pipeline: AIPipelinePhase[]
   phasePrompts: {
     planning: string
     working: string
@@ -1647,7 +1657,7 @@ type EventPayloadMapping = {
   }
   aiCreateTask: {
     return: AITask;
-    args: [string, string, AITaskProject[]];
+    args: [string, string, AITaskProject[], string?];
   }
   aiSelectDirectory: {
     return: string | null;
@@ -2011,7 +2021,7 @@ interface Window {
     subscribeMongoConnectionState: (callback: (state: MongoConnectionState) => void) => () => void
     // AI Automation API
     aiGetTasks: () => Promise<AITask[]>
-    aiCreateTask: (title: string, description: string, projects: AITaskProject[]) => Promise<AITask>
+    aiCreateTask: (title: string, description: string, projects: AITaskProject[], boardId?: string) => Promise<AITask>
     aiSelectDirectory: () => Promise<string | null>
     aiAttachTaskFiles: (taskId: string, filePaths: string[]) => Promise<string[]>
     aiDeleteTaskAttachment: (taskId: string, filename: string) => Promise<void>

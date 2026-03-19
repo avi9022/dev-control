@@ -46,7 +46,7 @@ import { dockerManager } from './docker/docker-manager.js'
 // MongoDB
 import { mongoManager } from './mongodb/mongo-manager.js'
 // AI Automation
-import { getTasks, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks, migrateTaskWorkspaces, recoverStaleTasks } from './ai-automation/task-manager.js'
+import { getTasks, getTaskById, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, setTaskManagerMainWindow, migrateSettings, migrateExistingTasks, migrateTaskWorkspaces, recoverStaleTasks, migrateToBoards, getBoardPipeline } from './ai-automation/task-manager.js'
 import { stopAgent, sendInput, enqueueTask, setAgentMainWindow, stopAllAgents, getTaskOutputHistory, getAgentStats } from './ai-automation/agent-runner.js'
 import { getDiff as getAITaskDiff, cleanupWorktree } from './ai-automation/worktree-manager.js'
 import { startMcpServer, stopMcpServer } from './ai-automation/mcp-server.js'
@@ -238,6 +238,7 @@ app.on("ready", async () => {
   migrateExistingTasks()
   migrateTaskWorkspaces()
   recoverStaleTasks()
+  migrateToBoards()
   setTaskManagerMainWindow(mainWindow)
   setAgentMainWindow(mainWindow)
   setNotificationMainWindow(mainWindow)
@@ -690,8 +691,8 @@ app.on("ready", async () => {
     return getTasks()
   })
 
-  ipcMainHandle('aiCreateTask', async (_event, title, description, projects) => {
-    return aiCreateTask(title, description, projects)
+  ipcMainHandle('aiCreateTask', async (_event, title, description, projects, boardId) => {
+    return aiCreateTask(title, description, projects, boardId)
   })
 
   ipcMainHandle('aiSelectDirectory', async () => {
@@ -727,8 +728,9 @@ app.on("ready", async () => {
   ipcMainHandle('aiMoveTaskPhase', async (_event, id, targetPhase) => {
     moveTaskPhase(id, targetPhase)
     if (targetPhase !== 'BACKLOG' && targetPhase !== 'DONE') {
-      const settings = getAISettings()
-      const phaseConfig = settings.pipeline?.find(p => p.id === targetPhase)
+      const task = getTaskById(id)
+      const pipeline = task ? getBoardPipeline(task.boardId) : []
+      const phaseConfig = pipeline.find(p => p.id === targetPhase)
       if (phaseConfig?.type === 'agent') {
         enqueueTask(id)
       }

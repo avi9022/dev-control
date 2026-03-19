@@ -4,7 +4,7 @@ import path from 'path'
 import treeKill from 'tree-kill'
 import { app, BrowserWindow } from 'electron'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
-import { getTaskById, updateTask, moveTaskPhase, getSettings } from './task-manager.js'
+import { getTaskById, updateTask, moveTaskPhase, getSettings, getBoardPipeline } from './task-manager.js'
 import { sendNotification } from './notification-manager.js'
 import { buildPrompt } from './prompt-builder.js'
 import { createWorktree, generateBranchName, getDiff } from './worktree-manager.js'
@@ -258,7 +258,6 @@ export function enqueueTask(taskId: string) {
 
 function processQueue() {
   const settings = getSettings()
-  const pipeline = settings.pipeline || []
 
   while (taskQueue.length > 0 && runningProcesses.size < settings.maxConcurrency) {
     const taskId = taskQueue.shift()
@@ -266,6 +265,8 @@ function processQueue() {
 
     let task = getTaskById(taskId)
     if (!task) continue
+
+    const pipeline = getBoardPipeline(task.boardId)
 
     // If task is in BACKLOG, move to first pipeline phase
     if (task.phase === 'BACKLOG' && pipeline.length > 0) {
@@ -805,8 +806,7 @@ function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, out
     return
   }
 
-  const settings = getSettings()
-  const pipeline = settings.pipeline || []
+  const pipeline = getBoardPipeline(task.boardId)
   const currentIndex = pipeline.findIndex(p => p.id === phaseConfig.id)
 
   // Reset stall retry count on successful completion

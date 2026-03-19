@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, type FC } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo, type FC } from 'react'
 import {
   ReactFlow,
   Handle,
@@ -158,7 +158,16 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
     return () => { clearTimeout(timer); window.removeEventListener('pointerdown', close, true) }
   }, [addMenu])
 
-  const pipeline = settings.pipeline
+  const activeBoard = settings.boards?.find(b => b.id === settings.activeBoardId)
+  const pipeline = useMemo(() => activeBoard?.pipeline || [], [activeBoard?.pipeline])
+
+  const updateBoardPipeline = useCallback((next: AIPipelinePhase[]) => {
+    if (!activeBoard) return
+    const updatedBoards = (settings.boards || []).map(b =>
+      b.id === activeBoard.id ? { ...b, pipeline: next } : b
+    )
+    updateSettings({ boards: updatedBoards })
+  }, [activeBoard, settings.boards, updateSettings])
 
   /* ---- mutation helpers ---- */
 
@@ -176,18 +185,18 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
       }
       const next = [...pipeline]
       next.splice(index, 0, newPhase)
-      updateSettings({ pipeline: next })
+      updateBoardPipeline(next)
       setEditingPhaseId(newPhase.id)
     },
-    [pipeline, updateSettings],
+    [pipeline, updateBoardPipeline],
   )
 
   const updatePhase = useCallback(
     (id: string, updates: Partial<AIPipelinePhase>) => {
       const next = pipeline.map((p) => (p.id === id ? { ...p, ...updates } : p))
-      updateSettings({ pipeline: next })
+      updateBoardPipeline(next)
     },
-    [pipeline, updateSettings],
+    [pipeline, updateBoardPipeline],
   )
 
   const deletePhase = useCallback(
@@ -196,10 +205,10 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
       const next = pipeline
         .filter((p) => p.id !== id)
         .map((p) => (p.rejectTarget === id ? { ...p, rejectTarget: undefined, rejectPattern: undefined } : p))
-      updateSettings({ pipeline: next })
+      updateBoardPipeline(next)
       setEditingPhaseId(null)
     },
-    [pipeline, updateSettings],
+    [pipeline, updateBoardPipeline],
   )
 
   /* ---- build nodes/edges from pipeline ---- */
@@ -362,7 +371,7 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
         const next = [...pipeline]
         const [moved] = next.splice(currentIndex, 1)
         next.splice(newIndex, 0, moved)
-        updateSettings({ pipeline: next })
+        updateBoardPipeline(next)
       } else {
         // Snap back to original position
         setNodes((nds) =>
@@ -373,7 +382,7 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
         )
       }
     },
-    [pipeline, updateSettings, calcDropIndex, setNodes],
+    [pipeline, updateBoardPipeline, calcDropIndex, setNodes],
   )
 
   /* ---- drag to connect (reject routing) ---- */
@@ -398,9 +407,9 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
         }
         return p
       })
-      updateSettings({ pipeline: next })
+      updateBoardPipeline(next)
     },
-    [pipeline, updateSettings],
+    [pipeline, updateBoardPipeline],
   )
 
   const onEdgesDelete = useCallback(
@@ -415,9 +424,9 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
           )
         }
       }
-      updateSettings({ pipeline: next })
+      updateBoardPipeline(next)
     },
-    [pipeline, updateSettings],
+    [pipeline, updateBoardPipeline],
   )
 
   const isValidConnection = useCallback((connection: Connection) => {

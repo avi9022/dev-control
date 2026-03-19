@@ -203,7 +203,14 @@ export const store = new Store<Schema>({
       maxConcurrency: 1,
       defaultGitStrategy: 'worktree' as AIGitStrategy,
       defaultBaseBranch: 'main',
-      pipeline: DEFAULT_PIPELINE,
+      boards: [{
+        id: 'default',
+        name: 'My Board',
+        color: '#9BB89E',
+        pipeline: DEFAULT_PIPELINE,
+        createdAt: new Date().toISOString(),
+      }],
+      activeBoardId: 'default',
       phasePrompts: {
         planning: '',
         working: '',

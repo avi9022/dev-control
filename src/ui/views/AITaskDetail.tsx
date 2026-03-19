@@ -43,7 +43,8 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   const [editProjects, setEditProjects] = useState<AITaskProject[]>([])
   const editDescRef = useRef<MentionEditorHandle>(null)
 
-  const pipeline = settings?.pipeline || []
+  const taskBoard = settings?.boards?.find(b => b.id === task?.boardId)
+  const pipeline = taskBoard?.pipeline || []
   const currentPhaseConfig = pipeline.find(p => p.id === task?.phase)
   const isManualPhase = currentPhaseConfig?.type === 'manual'
   const canEdit = task?.phase === 'BACKLOG'

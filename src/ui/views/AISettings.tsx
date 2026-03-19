@@ -377,7 +377,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
             <SelectValue placeholder="Auto (nearest previous agent phase)" />
           </SelectTrigger>
           <SelectContent>
-            {(settings.pipeline || []).map(p => (
+            {(settings.boards?.find(b => b.id === settings.activeBoardId)?.pipeline || []).map(p => (
               <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
             ))}
           </SelectContent>
@@ -394,7 +394,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
             <SelectValue placeholder="First pipeline phase" />
           </SelectTrigger>
           <SelectContent>
-            {(settings.pipeline || []).map(p => (
+            {(settings.boards?.find(b => b.id === settings.activeBoardId)?.pipeline || []).map(p => (
               <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
             ))}
           </SelectContent>
@@ -411,7 +411,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(settings.pipeline || []).map(p => (
+            {(settings.boards?.find(b => b.id === settings.activeBoardId)?.pipeline || []).map(p => (
               <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
             ))}
             <SelectItem value="DONE">Done</SelectItem>

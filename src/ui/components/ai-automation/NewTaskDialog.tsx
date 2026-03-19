@@ -308,7 +308,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
         } : {})
       }
     })
-    const task = await createTask(title.trim(), description, projects)
+    const task = await createTask(title.trim(), description, projects, settings?.activeBoardId)
     if (pendingFiles.length > 0) {
       await window.electron.aiAttachTaskFiles(task.id, pendingFiles.map(f => f.path))
     }

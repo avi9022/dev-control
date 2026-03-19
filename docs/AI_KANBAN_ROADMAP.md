@@ -19,14 +19,14 @@
 - [x] **F7**: Terminal Log Persistence — save agent output to log files, reload on task reopen
 - [x] **F8**: Notifications — system tray notifications, badge counts, in-app indicators
 - [x] **F19**: Agent Comment Resolution — allow agents to mark review comments as resolved after addressing them via MCP tools
+- [x] **F22**: Diff Viewer Search — search across all diff content with match highlighting, result count, and prev/next navigation
+- [x] **F23**: Continue Task — allow resuming a task from any phase (including DONE), re-enter the pipeline at a chosen phase with existing context, worktrees, and history preserved
 
 ## Planned Features
 
 - [ ] **F11**: Import from External Trackers — import tickets from Jira (via MCP) or GitHub Issues (via `gh` CLI) into backlog
 - [ ] **F18**: Diff Virtualization — virtualized rendering for large diffs to avoid DOM performance issues
 - [ ] **F17**: Per-Phase Retry Limits — move maxReviewCycles from task to pipeline phase config (`maxRetries` per phase), track retries per-phase instead of globally, remove from task creation dialog
-- [x] **F22**: Diff Viewer Search — search across all diff content with match highlighting, result count, and prev/next navigation
-- [ ] **F23**: Continue Task — allow resuming a task from any phase (including DONE), re-enter the pipeline at a chosen phase with existing context, worktrees, and history preserved
 - [ ] **F25**: Agent Context Control — manage and limit the context sent to agents (prompt size budgets, smart truncation, section prioritization) to prevent context window overflow as tasks accumulate amendments, comments, files, and history
 - [ ] **F26**: Base Branch Autocomplete — fetch actual git branches from project repos and show autocomplete dropdown in task creation and edit forms for the base branch field
 - [ ] **F27**: Agent Terminal Filtering — clean up agent terminal output with toggleable filters to hide tool usage blocks, system messages, and other noise, showing only meaningful agent output and conversation
@@ -34,7 +34,7 @@
 - [ ] **F30**: Partial Knowledge Docs — allow selectively including knowledge docs per task or per phase instead of always sending all docs, reducing context usage for tasks that only need specific project knowledge
 - [ ] **F31**: Scoped Knowledge Doc Generation — allow users to generate a knowledge doc from a specific directory with a custom prompt (e.g., "document the auth module in src/auth"), producing focused docs instead of whole-project scans
 - [ ] **F32**: Image Paste Support — allow pasting/dropping images in comments, amendments, task descriptions, and attachments; store as files in task directory and include in agent context as vision inputs
-- [ ] **F33**: Multiple Boards — allow creating and switching between separate kanban boards, each with its own tasks, pipeline, and settings, for organizing work across different projects or teams
+- [x] **F33**: Multiple Boards — allow creating and switching between separate kanban boards, each with its own tasks and pipeline, for organizing work across different projects or teams
 - [ ] **F34**: Unified Theme — apply the AI kanban warm charcoal design system (palette, typography, component styling) to the original DevControl views (services, databases, Docker, API client, etc.)
 - [ ] **F35**: Kanban as Main View — restructure the app so the kanban board is the primary landing page, with DevControl tools (services, databases, Docker, queues, etc.) accessible as integrated panels or tabs within it, replacing the current toggle between two separate modes
 - [ ] **F36**: AI Task Planner — user describes a goal in natural language, an agent analyzes the codebase and breaks it down into multiple tasks with titles, descriptions, project assignments, and suggested pipeline phases, auto-creating them in the backlog
