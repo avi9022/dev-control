@@ -9,7 +9,6 @@ import { Search, X } from 'lucide-react'
  */
 export function useSearchOverlay(deps: unknown[] = []) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
   const [totalMatches, setTotalMatches] = useState(0)
@@ -17,13 +16,6 @@ export function useSearchOverlay(deps: unknown[] = []) {
   const overlayRef = useRef<HTMLDivElement>(null)
   const matchRangesRef = useRef<Range[]>([])
   const [contentMounted, setContentMounted] = useState(0)
-
-  // Debounce the search query — input stays responsive, search runs after 300ms pause
-  useEffect(() => {
-    if (!searchQuery) { setDebouncedQuery(''); return }
-    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300)
-    return () => clearTimeout(timer)
-  }, [searchQuery])
 
   const setContentRefCallback = useCallback((el: HTMLDivElement | null) => {
     contentRef.current = el
@@ -34,15 +26,15 @@ export function useSearchOverlay(deps: unknown[] = []) {
   useEffect(() => {
     setCurrentMatchIndex(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, ...deps])
+  }, [searchQuery, ...deps])
 
   // Find matching ranges in chunks to avoid blocking the UI
   useEffect(() => {
     matchRangesRef.current = []
     setTotalMatches(0)
-    if (!debouncedQuery || !contentRef.current) return
+    if (!searchQuery || !contentRef.current) return
 
-    const escaped = debouncedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const escaped = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const regex = new RegExp(escaped, 'gi')
     const container = contentRef.current
 
@@ -155,7 +147,8 @@ export function useSearchOverlay(deps: unknown[] = []) {
 }
 
 /**
- * Search bar UI component — renders the input + match count + close button.
+ * Search bar UI component — manages its own input state for responsiveness.
+ * Debounces before pushing to the parent hook so the heavy search doesn't block typing.
  */
 export const SearchBar: FC<{
   showSearch: boolean
@@ -166,20 +159,35 @@ export const SearchBar: FC<{
   scrollToMatch: (index: number) => void
   openSearch: () => void
   closeSearch: () => void
-}> = ({ showSearch, searchQuery, setSearchQuery, totalMatches, currentMatchIndex, scrollToMatch, openSearch, closeSearch }) => {
+}> = ({ showSearch, setSearchQuery, totalMatches, currentMatchIndex, scrollToMatch, openSearch, closeSearch }) => {
+  const [localValue, setLocalValue] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  const handleChange = useCallback((value: string) => {
+    setLocalValue(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setSearchQuery(value), 300)
+  }, [setSearchQuery])
+
+  const handleClose = useCallback(() => {
+    setLocalValue('')
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    closeSearch()
+  }, [closeSearch])
+
   if (showSearch) {
     return (
       <div className="flex items-center gap-1">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3" style={{ color: 'var(--ai-text-tertiary)' }} />
           <Input
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            value={localValue}
+            onChange={e => handleChange(e.target.value)}
             placeholder="Search..."
             className="h-7 text-xs pl-7 w-[200px]"
             autoFocus
             onKeyDown={e => {
-              if (e.key === 'Escape') closeSearch()
+              if (e.key === 'Escape') handleClose()
               if (e.key === 'Enter' && totalMatches > 0) {
                 e.preventDefault()
                 const next = e.shiftKey
@@ -190,13 +198,13 @@ export const SearchBar: FC<{
             }}
           />
         </div>
-        {searchQuery && (
+        {localValue && (
           <span className="text-[10px] font-mono whitespace-nowrap" style={{ color: totalMatches > 0 ? 'var(--ai-text-secondary)' : 'var(--ai-text-tertiary)' }}>
             {totalMatches > 0 ? `${currentMatchIndex + 1}/${totalMatches}` : 'No matches'}
           </span>
         )}
         <button
-          onClick={closeSearch}
+          onClick={handleClose}
           className="p-1 rounded"
           style={{ color: 'var(--ai-text-tertiary)' }}
         >
