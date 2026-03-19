@@ -41,6 +41,8 @@
 - [ ] **F36**: AI Task Planner — user describes a goal in natural language, an agent analyzes the codebase and breaks it down into multiple tasks with titles, descriptions, project assignments, and suggested pipeline phases, auto-creating them in the backlog
 - [ ] **F37**: Archive Management — allow archiving completed/old tasks to reduce clutter on the board, with a separate archive view to browse, search, and restore archived tasks
 - [ ] **F38**: Worktree Lifecycle Hooks — configurable pre- and post-worktree-creation commands per project (e.g., `npm install`, `cp .env.example .env`, run migrations), executed automatically when a worktree is created for a task
+- [ ] **F39**: VS Code Integration — open task worktrees directly in VS Code, sync task context (comments, amendments) as VS Code workspace data, quick-action commands from the editor
+- [ ] **F40**: Browser Extension — browser companion that shows running task status, notifications, and quick actions (approve, reject, view diff) without switching to the app
 
 ## Design Documents
 
