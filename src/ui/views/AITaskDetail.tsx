@@ -254,7 +254,8 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                 pipeline={pipeline}
                 onSubmit={handleAmendment}
                 onCancel={() => setShowAmendDialog(false)}
-                excludeProjectPaths={new Set((task.projects || []).map(p => p.path))}
+                existingProjects={task.projects || []}
+                existingWorktrees={task.worktrees || []}
                 defaultPhase={settings?.defaultAmendmentPhase}
                 defaultGitStrategy={settings?.defaultGitStrategy}
                 defaultBaseBranch={settings?.defaultBaseBranch}

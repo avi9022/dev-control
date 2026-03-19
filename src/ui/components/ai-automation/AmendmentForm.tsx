@@ -3,20 +3,21 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MentionEditor, type MentionEditorHandle } from './MentionEditor'
-import { Send, FolderOpen, X, GitBranch, Eye } from 'lucide-react'
+import { Send, FolderOpen, X, GitBranch, Eye, Lock } from 'lucide-react'
 
 interface AmendmentFormProps {
   pipeline: AIPipelinePhase[]
   onSubmit: (text: string, targetPhase: string, newProjects?: AITaskProject[]) => Promise<void>
   onCancel?: () => void
-  excludeProjectPaths?: Set<string>
+  existingProjects?: AITaskProject[]
+  existingWorktrees?: AITaskWorktree[]
   defaultPhase?: string
   defaultGitStrategy?: AIGitStrategy
   defaultBaseBranch?: string
 }
 
 export const AmendmentForm: FC<AmendmentFormProps> = ({
-  pipeline, onSubmit, onCancel, excludeProjectPaths,
+  pipeline, onSubmit, onCancel, existingProjects = [], existingWorktrees = [],
   defaultPhase, defaultGitStrategy, defaultBaseBranch
 }) => {
   const editorRef = useRef<MentionEditorHandle>(null)
@@ -26,18 +27,23 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
   const [projectConfigs, setProjectConfigs] = useState<Record<string, { gitStrategy: AIGitStrategy; branchName: string; baseBranch: string }>>({})
 
   const phases = pipeline.filter(p => p.id !== 'BACKLOG' && p.id !== 'DONE')
+  const existingPaths = new Set(existingProjects.map(p => p.path))
+  const worktreePaths = new Set(existingWorktrees.map(w => w.projectPath))
 
   const handleProjectTagged = (dir: DirectorySettings) => {
     if (taggedProjects.some(p => p.id === dir.id)) return
     setTaggedProjects(prev => [...prev, dir])
-    setProjectConfigs(prev => ({
-      ...prev,
-      [dir.id]: {
-        gitStrategy: defaultGitStrategy === 'none' ? 'none' : 'worktree',
-        branchName: '',
-        baseBranch: defaultBaseBranch ?? 'main'
-      }
-    }))
+    // Only set config for projects without existing worktrees
+    if (!worktreePaths.has(dir.path)) {
+      setProjectConfigs(prev => ({
+        ...prev,
+        [dir.id]: {
+          gitStrategy: defaultGitStrategy === 'none' ? 'none' : 'worktree',
+          branchName: '',
+          baseBranch: defaultBaseBranch ?? 'main'
+        }
+      }))
+    }
   }
 
   const handleProjectRemoved = (label: string) => {
@@ -63,18 +69,21 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
     if (!text || !targetPhase) return
     setSubmitting(true)
     try {
-      const newProjects: AITaskProject[] = taggedProjects.map(p => {
-        const config = projectConfigs[p.id] || { gitStrategy: 'worktree', branchName: '', baseBranch: 'main' }
-        return {
-          path: p.path,
-          label: p.customLabel || p.name,
-          gitStrategy: config.gitStrategy,
-          ...(config.gitStrategy === 'worktree' ? {
-            baseBranch: config.baseBranch.trim() || 'main',
-            customBranchName: config.branchName.trim() || undefined
-          } : {})
-        }
-      })
+      // Submit projects that don't have worktrees yet (new or existing without worktree)
+      const newProjects: AITaskProject[] = taggedProjects
+        .filter(p => !worktreePaths.has(p.path))
+        .map(p => {
+          const config = projectConfigs[p.id] || { gitStrategy: 'worktree', branchName: '', baseBranch: 'main' }
+          return {
+            path: p.path,
+            label: p.customLabel || p.name,
+            gitStrategy: config.gitStrategy,
+            ...(config.gitStrategy === 'worktree' ? {
+              baseBranch: config.baseBranch.trim() || 'main',
+              customBranchName: config.branchName.trim() || undefined
+            } : {})
+          }
+        })
       await onSubmit(text, targetPhase, newProjects.length > 0 ? newProjects : undefined)
       editorRef.current?.clear()
       setTaggedProjects([])
@@ -84,8 +93,8 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
     }
   }
 
-  // Combine existing excluded paths with newly tagged paths
-  const allExcludedPaths = new Set(excludeProjectPaths)
+  // Combine existing tagged paths with newly tagged paths for dropdown exclusion
+  const allExcludedPaths = new Set<string>()
   for (const p of taggedProjects) allExcludedPaths.add(p.path)
 
   return (
@@ -105,12 +114,57 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
       {/* Tagged project configs */}
       {taggedProjects.length > 0 && (
         <div>
-          <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>New Projects</label>
-          <p className="text-[11px] mb-1.5" style={{ color: 'var(--ai-text-tertiary)' }}>
-            Configure workspace settings for tagged projects.
-          </p>
+          <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>Projects</label>
           <div className="space-y-2">
             {taggedProjects.map(p => {
+              const hasWorktree = worktreePaths.has(p.path)
+              const existingProject = existingProjects.find(ep => ep.path === p.path)
+
+              if (hasWorktree && existingProject) {
+                // Show existing project as disabled card
+                return (
+                  <div
+                    key={p.id}
+                    className="rounded-md border p-2.5"
+                    style={{ borderColor: 'var(--ai-border-subtle)', background: 'var(--ai-surface-2)', opacity: 0.7 }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+                          <span className="text-sm truncate" style={{ color: 'var(--ai-text-secondary)' }}>{existingProject.label}</span>
+                          <Lock className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+                        </div>
+                        <p className="text-[11px] truncate ml-5" style={{ color: 'var(--ai-text-tertiary)' }}>{p.path}</p>
+                      </div>
+                      <button onClick={() => handleProjectRemoved(p.customLabel || p.name)} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--ai-text-tertiary)' }}>
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5 ml-5">
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded"
+                        style={{
+                          background: existingProject.gitStrategy === 'worktree' ? 'var(--ai-accent-subtle)' : 'var(--ai-surface-3)',
+                          color: existingProject.gitStrategy === 'worktree' ? 'var(--ai-accent)' : 'var(--ai-text-tertiary)',
+                        }}
+                      >
+                        {existingProject.gitStrategy === 'worktree' ? 'worktree' : 'read only'}
+                      </span>
+                      {existingProject.baseBranch && (
+                        <span className="text-[10px]" style={{ color: 'var(--ai-text-tertiary)' }}>
+                          base: <span className="font-mono">{existingProject.baseBranch}</span>
+                        </span>
+                      )}
+                      <span className="text-[10px] italic" style={{ color: 'var(--ai-text-tertiary)' }}>
+                        already in task
+                      </span>
+                    </div>
+                  </div>
+                )
+              }
+
+              // New project — editable config
               const config = projectConfigs[p.id] || { gitStrategy: 'worktree', branchName: '', baseBranch: 'main' }
               return (
                 <div key={p.id} className="rounded-md border p-2.5" style={{ borderColor: 'var(--ai-border-subtle)', background: 'var(--ai-surface-2)' }}>

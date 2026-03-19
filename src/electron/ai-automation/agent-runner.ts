@@ -432,11 +432,13 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
 
   const settings = getSettings()
 
-  // Create worktrees on first agent phase for all projects with worktree strategy
-  if (task.worktrees.length === 0 && task.projects.length > 0) {
+  // Create worktrees for any projects that don't have one yet
+  if (task.projects.length > 0) {
+    const existingWorktreePaths = new Set(task.worktrees.map(w => w.projectPath))
     const newWorktrees: AITaskWorktree[] = []
     for (const project of task.projects) {
       if (project.gitStrategy !== 'worktree') continue
+      if (existingWorktreePaths.has(project.path)) continue
       const branchName = project.customBranchName || generateBranchName(taskId, task.title)
       const baseBranch = project.baseBranch || settings.defaultBaseBranch || undefined
       try {
@@ -448,7 +450,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
       }
     }
     if (newWorktrees.length > 0) {
-      updateTask(taskId, { worktrees: newWorktrees })
+      updateTask(taskId, { worktrees: [...task.worktrees, ...newWorktrees] })
       task = getTaskById(taskId)!
     }
   }

@@ -8,7 +8,7 @@ import { renderMentions } from './mention-utils'
 export const AmendmentsTab: FC<{ task: AITask; pipeline: AIPipelinePhase[] }> = ({ task, pipeline }) => {
   const { updateTask, moveTaskPhase, settings } = useAIAutomation()
   const [showForm, setShowForm] = useState(false)
-  const excludePaths = new Set((task.projects || []).map(p => p.path))
+  const existingProjects = task.projects || []
 
   const handleSubmit = async (text: string, targetPhase: string, newProjects?: AITaskProject[]) => {
     const amendment: AITaskAmendment = {
@@ -66,7 +66,8 @@ export const AmendmentsTab: FC<{ task: AITask; pipeline: AIPipelinePhase[] }> = 
             pipeline={pipeline}
             onSubmit={handleSubmit}
             onCancel={() => setShowForm(false)}
-            excludeProjectPaths={excludePaths}
+            existingProjects={existingProjects}
+            existingWorktrees={task.worktrees || []}
             defaultPhase={settings?.defaultAmendmentPhase}
             defaultGitStrategy={settings?.defaultGitStrategy}
             defaultBaseBranch={settings?.defaultBaseBranch}
