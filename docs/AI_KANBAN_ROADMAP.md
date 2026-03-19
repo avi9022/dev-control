@@ -24,9 +24,8 @@
 
 - [ ] **F11**: Import from External Trackers — import tickets from Jira (via MCP) or GitHub Issues (via `gh` CLI) into backlog
 - [ ] **F18**: Diff Virtualization — virtualized rendering for large diffs to avoid DOM performance issues
-- [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work
 - [ ] **F17**: Per-Phase Retry Limits — move maxReviewCycles from task to pipeline phase config (`maxRetries` per phase), track retries per-phase instead of globally, remove from task creation dialog
-- [ ] **F22**: Diff Viewer Search — search across all diff content with match highlighting, result count, and prev/next navigation
+- [x] **F22**: Diff Viewer Search — search across all diff content with match highlighting, result count, and prev/next navigation
 - [ ] **F23**: Continue Task — allow resuming a task from any phase (including DONE), re-enter the pipeline at a chosen phase with existing context, worktrees, and history preserved
 - [ ] **F25**: Agent Context Control — manage and limit the context sent to agents (prompt size budgets, smart truncation, section prioritization) to prevent context window overflow as tasks accumulate amendments, comments, files, and history
 - [ ] **F26**: Base Branch Autocomplete — fetch actual git branches from project repos and show autocomplete dropdown in task creation and edit forms for the base branch field
@@ -43,6 +42,11 @@
 - [ ] **F38**: Worktree Lifecycle Hooks — configurable pre- and post-worktree-creation commands per project (e.g., `npm install`, `cp .env.example .env`, run migrations), executed automatically when a worktree is created for a task
 - [ ] **F39**: VS Code Integration — open task worktrees directly in VS Code, sync task context (comments, amendments) as VS Code workspace data, quick-action commands from the editor
 - [ ] **F40**: Browser Extension — browser companion that shows running task status, notifications, and quick actions (approve, reject, view diff) without switching to the app
+- [ ] **F41**: Advanced Task Filtering — SQL-like query language for filtering tasks (e.g., `phase = "in-progress" AND project = "api" AND has:comments`, `created > 7d ago AND NOT resolved`), with saved filters and quick filter presets on the kanban board
+
+## Backlog (needs investigation)
+
+- [ ] **F16**: Agent History Context — ensure each agent receives full task history so it doesn't redo completed work. Currently agents only see task directory files; they have no awareness of what phases ran, what previous agents did, or whether phases succeeded/failed.
 
 ## Design Documents
 

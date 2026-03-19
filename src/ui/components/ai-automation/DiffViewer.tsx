@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle, Check, CircleCheck, FolderOpen, PanelLeftClose, PanelLeft, Folder } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useSearchOverlay, SearchBar, SearchOverlayLayer } from './SearchOverlay'
 
 const LARGE_DIFF_THRESHOLD = 200 // lines changed
 
@@ -648,6 +649,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sidebarCollapsedProjects, setSidebarCollapsedProjects] = useState<Set<string>>(new Set())
   const [sidebarCollapsedFolders, setSidebarCollapsedFolders] = useState<Set<string>>(new Set())
+  const diffSearch = useSearchOverlay([files, viewMode])
   const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const setFileRef = useCallback((path: string, el: HTMLDivElement | null) => {
@@ -913,6 +915,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
               Split
             </Button>
           </div>
+          <SearchBar {...diffSearch} />
         </div>
       </div>
 
@@ -970,7 +973,8 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
         )}
 
         {/* File list grouped by project */}
-        <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pl-1">
+        <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pl-1 relative" ref={diffSearch.setContentRef}>
+        <SearchOverlayLayer overlayRef={diffSearch.overlayRef} active={!!diffSearch.searchQuery} />
         {/* General comments */}
         {(() => {
           const generalComments = comments.filter(c => !c.file && (showResolved || !c.resolved))

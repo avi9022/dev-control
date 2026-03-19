@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useCallback, type FC } from 'react'
+import { useState, useEffect, type FC } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { FileText, MessageSquare, Code, ChevronDown, ChevronRight, Wrench, Bot, User, Search, X } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { FileText, MessageSquare, Code, ChevronDown, ChevronRight, Wrench, Bot, User } from 'lucide-react'
 import { MarkdownViewer } from './MarkdownViewer'
+import { useSearchOverlay, SearchBar, SearchOverlayLayer } from './SearchOverlay'
 
 interface ContextHistoryModalProps {
   contextHistoryPath: string
@@ -209,114 +209,8 @@ export const ContextHistoryModal: FC<ContextHistoryModalProps> = ({
   const [loading, setLoading] = useState(false)
   const [showRaw, setShowRaw] = useState(false)
   const [activeTab, setActiveTab] = useState('prompt')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showSearch, setShowSearch] = useState(false)
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const matchRangesRef = useRef<Range[]>([])
-  const [totalMatches, setTotalMatches] = useState(0)
-  const [contentMounted, setContentMounted] = useState(0) // bump to trigger re-search
 
-  // Callback ref: when the tab content mounts, store it and trigger re-search
-  const setContentRef = useCallback((el: HTMLDivElement | null) => {
-    contentRef.current = el
-    if (el) setContentMounted(prev => prev + 1)
-  }, [])
-
-  // Reset match index when query or tab changes
-  useEffect(() => {
-    setCurrentMatchIndex(0)
-  }, [searchQuery, activeTab, showRaw])
-
-  const overlayRef = useRef<HTMLDivElement>(null)
-
-  // Find matching ranges and render highlight overlays
-  useEffect(() => {
-    matchRangesRef.current = []
-    setTotalMatches(0)
-    if (!searchQuery || !contentRef.current) return
-
-    const escaped = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const regex = new RegExp(escaped, 'gi')
-    const walker = document.createTreeWalker(contentRef.current, NodeFilter.SHOW_TEXT)
-    const ranges: Range[] = []
-
-    while (walker.nextNode()) {
-      const node = walker.currentNode as Text
-      const text = node.textContent || ''
-      let m: RegExpExecArray | null
-      regex.lastIndex = 0
-      while ((m = regex.exec(text)) !== null) {
-        const range = new Range()
-        range.setStart(node, m.index)
-        range.setEnd(node, m.index + m[0].length)
-        ranges.push(range)
-      }
-    }
-
-    matchRangesRef.current = ranges
-    setTotalMatches(ranges.length)
-  }, [searchQuery, activeTab, showRaw, prompt, events, contentMounted])
-
-  // Render highlight overlays positioned on top of matches
-  const renderOverlays = useCallback(() => {
-    if (!overlayRef.current || !contentRef.current) return
-    const container = contentRef.current
-    const overlay = overlayRef.current
-    overlay.innerHTML = ''
-
-    const ranges = matchRangesRef.current
-    if (ranges.length === 0) return
-
-    const containerRect = container.getBoundingClientRect()
-
-    for (let i = 0; i < ranges.length; i++) {
-      const rects = ranges[i].getClientRects()
-      for (const rect of rects) {
-        const div = document.createElement('div')
-        div.style.position = 'absolute'
-        div.style.top = `${rect.top - containerRect.top + container.scrollTop}px`
-        div.style.left = `${rect.left - containerRect.left + container.scrollLeft}px`
-        div.style.width = `${rect.width}px`
-        div.style.height = `${rect.height}px`
-        div.style.backgroundColor = i === currentMatchIndex ? 'var(--ai-accent)' : 'var(--ai-warning)'
-        div.style.opacity = '0.35'
-        div.style.borderRadius = '2px'
-        div.style.pointerEvents = 'none'
-        overlay.appendChild(div)
-      }
-    }
-  }, [currentMatchIndex])
-
-  // Re-render overlays when matches or active index change
-  useEffect(() => {
-    renderOverlays()
-  }, [totalMatches, currentMatchIndex, renderOverlays])
-
-  // Re-render overlays on scroll
-  useEffect(() => {
-    const container = contentRef.current
-    if (!container || totalMatches === 0) return
-    const onScroll = () => renderOverlays()
-    container.addEventListener('scroll', onScroll)
-    return () => container.removeEventListener('scroll', onScroll)
-  }, [totalMatches, renderOverlays])
-
-  const scrollToMatch = useCallback((index: number) => {
-    const ranges = matchRangesRef.current
-    if (ranges.length === 0) return
-    const wrappedIndex = ((index % ranges.length) + ranges.length) % ranges.length
-    setCurrentMatchIndex(wrappedIndex)
-    // Scroll the range into view by creating a temporary element
-    const range = ranges[wrappedIndex]
-    const container = contentRef.current
-    if (container) {
-      const rect = range.getBoundingClientRect()
-      const containerRect = container.getBoundingClientRect()
-      const scrollTop = container.scrollTop + (rect.top - containerRect.top) - containerRect.height / 2
-      container.scrollTo({ top: scrollTop, behavior: 'smooth' })
-    }
-  }, [])
+  const search = useSearchOverlay([activeTab, showRaw, prompt, events])
 
   useEffect(() => {
     if (!open) return
@@ -367,54 +261,7 @@ export const ContextHistoryModal: FC<ContextHistoryModalProps> = ({
 
               <div className="flex-1" />
 
-              {/* Search */}
-              {showSearch ? (
-                <div className="flex items-center gap-1">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3" style={{ color: 'var(--ai-text-tertiary)' }} />
-                    <Input
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Search..."
-                      className="h-7 text-xs pl-7 w-[200px]"
-                      autoFocus
-                      onKeyDown={e => {
-                        if (e.key === 'Escape') { setShowSearch(false); setSearchQuery('') }
-                        if (e.key === 'Enter' && totalMatches > 0) {
-                          e.preventDefault()
-                          const next = e.shiftKey
-                            ? (currentMatchIndex - 1 + totalMatches) % totalMatches
-                            : (currentMatchIndex + 1) % totalMatches
-                          // Use setTimeout to let React render highlights first
-                          setTimeout(() => scrollToMatch(next), 50)
-                        }
-                      }}
-                    />
-                  </div>
-                  {searchQuery && (
-                    <span className="text-[10px] font-mono whitespace-nowrap" style={{ color: totalMatches > 0 ? 'var(--ai-text-secondary)' : 'var(--ai-text-tertiary)' }}>
-                      {totalMatches > 0 ? `${currentMatchIndex + 1}/${totalMatches}` : 'No matches'}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => { setShowSearch(false); setSearchQuery('') }}
-                    className="p-1 rounded"
-                    style={{ color: 'var(--ai-text-tertiary)' }}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => setShowSearch(true)}
-                >
-                  <Search className="h-3 w-3 mr-1" />
-                  Search
-                </Button>
-              )}
+              <SearchBar {...search} />
 
               {/* Chat/Raw toggle — only on conversation tab */}
               {activeTab === 'conversation' && (
@@ -430,8 +277,8 @@ export const ContextHistoryModal: FC<ContextHistoryModalProps> = ({
               )}
             </div>
 
-            <TabsContent value="prompt" className="flex-1 min-h-0 overflow-y-auto relative" ref={activeTab === 'prompt' ? setContentRef : undefined}>
-              {activeTab === 'prompt' && searchQuery && <div ref={overlayRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }} />}
+            <TabsContent value="prompt" className="flex-1 min-h-0 overflow-y-auto relative" ref={activeTab === 'prompt' ? search.setContentRef : undefined}>
+              <SearchOverlayLayer overlayRef={search.overlayRef} active={activeTab === 'prompt' && !!search.searchQuery} />
               {prompt ? (
                 <MarkdownViewer content={prompt} />
               ) : (
@@ -441,8 +288,8 @@ export const ContextHistoryModal: FC<ContextHistoryModalProps> = ({
               )}
             </TabsContent>
 
-            <TabsContent value="conversation" className="flex-1 min-h-0 overflow-y-auto relative" ref={activeTab === 'conversation' ? setContentRef : undefined}>
-              {activeTab === 'conversation' && searchQuery && <div ref={overlayRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }} />}
+            <TabsContent value="conversation" className="flex-1 min-h-0 overflow-y-auto relative" ref={activeTab === 'conversation' ? search.setContentRef : undefined}>
+              <SearchOverlayLayer overlayRef={search.overlayRef} active={activeTab === 'conversation' && !!search.searchQuery} />
               {showRaw ? (
                 <pre
                   className="text-[11px] font-mono whitespace-pre-wrap p-4 rounded-lg overflow-x-auto"
@@ -451,7 +298,7 @@ export const ContextHistoryModal: FC<ContextHistoryModalProps> = ({
                   {rawJson}
                 </pre>
               ) : (
-                <ChatView events={events} searchQuery={searchQuery} />
+                <ChatView events={events} searchQuery={search.searchQuery} />
               )}
             </TabsContent>
           </Tabs>
