@@ -1,116 +1,12 @@
 import { useState, useEffect, useMemo, type FC } from 'react'
 import { useDirectories } from '@/ui/contexts/directories'
 import { Terminal } from '@/ui/components/terminal'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { ExternalLink, Play, Square, Loader2, Layers, FolderOpen } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Layers, FolderOpen } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+import { ServiceRow } from '@/ui/components/ServiceRow'
 
 interface TaskDevControlProps {
   taskId: string
-}
-
-const ServiceTab: FC<{
-  dir: DirectorySettings
-  isSelected: boolean
-  state: string
-  onSelect: () => void
-  onRun: () => void
-  onStop: () => void
-  isTaskService?: boolean
-}> = ({ dir, isSelected, state, onSelect, onRun, onStop, isTaskService }) => {
-  const isRunning = state === 'RUNNING'
-  const isInitializing = state === 'INITIALIZING'
-
-  return (
-    <div
-      onClick={onSelect}
-      className="px-3 py-4 flex justify-between cursor-pointer"
-      style={{ background: isSelected ? 'var(--ai-surface-3)' : undefined, color: isSelected ? 'var(--ai-text-primary)' : undefined }}
-    >
-      <div className="w-full flex gap-1 justify-start">
-        <div>
-          <div className="flex w-[180px] justify-between items-center">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 max-w-[150px]">
-                  {isTaskService && (
-                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--ai-accent)' }} />
-                  )}
-                  <p className="font-bold text-sm truncate overflow-hidden whitespace-nowrap capitalize">
-                    {dir.name}
-                  </p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="capitalize">{dir.name?.replace('-', ' ')}</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge className={`font-semibold ${
-                  isRunning ? 'bg-success' : isInitializing ? 'bg-yellow-600' : 'bg-destructive'
-                } h-4 w-4 rounded-full`} />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="capitalize font-bold">{state}</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <p className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>{dir.runCommand}</p>
-        </div>
-      </div>
-      <div className="flex gap-2 items-center">
-        {dir.isFrontendProj && !isInitializing && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                className=""
-                disabled={!isRunning}
-                style={!isRunning ? { pointerEvents: 'auto', cursor: 'auto' } : {}}
-                onClick={ev => {
-                  ev.stopPropagation()
-                  window.electron.openProjectInBrowser(dir.id)
-                }}
-                size="sm"
-              >
-                <ExternalLink />
-              </Button>
-            </TooltipTrigger>
-            {!isRunning ? (
-              <TooltipContent><p>Project is not running</p></TooltipContent>
-            ) : (
-              <TooltipContent><p>Open in browser</p></TooltipContent>
-            )}
-          </Tooltip>
-        )}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              onClick={ev => {
-                ev.stopPropagation()
-                if (isRunning || isInitializing) onStop()
-                else onRun()
-              }}
-              className={`${isRunning || isInitializing ? 'bg-destructive hover:bg-destructive/80' : 'bg-success hover:bg-success/80'}`}
-              size="sm"
-            >
-              {isInitializing
-                ? <Loader2 className="h-5 w-5 animate-spin text-white" />
-                : isRunning
-                  ? <Square fill="white" color="white" />
-                  : <Play fill="white" color="white" />
-              }
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{isInitializing ? 'Force stop' : isRunning ? 'Stop' : 'Start'}</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
-    </div>
-  )
 }
 
 export const TaskDevControl: FC<TaskDevControlProps> = ({ taskId }) => {
@@ -194,14 +90,14 @@ export const TaskDevControl: FC<TaskDevControlProps> = ({ taskId }) => {
             const state = directoriesStateMap[dir.id] || 'UNKNOWN'
             return (
               <div key={dir.id}>
-                <ServiceTab
+                <ServiceRow
                   dir={dir}
                   isSelected={selectedId === dir.id}
                   state={state}
                   onSelect={() => setSelectedId(dir.id)}
                   onRun={() => window.electron.runService(dir.id)}
                   onStop={() => window.electron.stopService(dir.id)}
-                  isTaskService
+                  accentDot
                 />
                 {i < serviceDirs.length - 1 && <Separator />}
               </div>
@@ -221,7 +117,7 @@ export const TaskDevControl: FC<TaskDevControlProps> = ({ taskId }) => {
                 const state = directoriesStateMap[dir.id] || 'UNKNOWN'
                 return (
                   <div key={dir.id}>
-                    <ServiceTab
+                    <ServiceRow
                       dir={dir}
                       isSelected={selectedId === dir.id}
                       state={state}
