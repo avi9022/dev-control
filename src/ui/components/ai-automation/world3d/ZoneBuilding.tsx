@@ -1,66 +1,61 @@
 import type { FC } from 'react'
+import { Block } from './blocks'
 
 interface ZoneBuildingProps {
   position: [number, number]
   color: string
 }
 
+/** Simple cottage: wood frame, wool accent walls, darkwood roof, stone floor */
 export const ZoneBuilding: FC<ZoneBuildingProps> = ({ position, color }) => {
   const [x, z] = position
+  const blocks: JSX.Element[] = []
+  let key = 0
 
-  return (
-    <group position={[x, 0.5, z]}>
-      {/* Floor */}
-      <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[6, 0.3, 6]} />
-        <meshStandardMaterial color="#8B7355" />
-      </mesh>
+  const b = (type: Parameters<typeof Block>[0]['type'], bx: number, by: number, bz: number, c?: string) => {
+    blocks.push(<Block key={key++} type={type} position={[x + bx, 0.5 + by, z + bz]} color={c} />)
+  }
 
-      {/* Walls — 4 sides with a gap in front for the door */}
-      {/* Back wall */}
-      <mesh position={[0, 2, -2.85]}>
-        <boxGeometry args={[6, 4, 0.3]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-      {/* Left wall */}
-      <mesh position={[-2.85, 2, 0]}>
-        <boxGeometry args={[0.3, 4, 6]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-      {/* Right wall */}
-      <mesh position={[2.85, 2, 0]}>
-        <boxGeometry args={[0.3, 4, 6]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-      {/* Front wall — left section */}
-      <mesh position={[-1.5, 2, 2.85]}>
-        <boxGeometry args={[2.7, 4, 0.3]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-      {/* Front wall — right section */}
-      <mesh position={[1.5, 2, 2.85]}>
-        <boxGeometry args={[2.7, 4, 0.3]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-      {/* Front wall — above door */}
-      <mesh position={[0, 3.5, 2.85]}>
-        <boxGeometry args={[1.2, 1, 0.3]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
+  // Floor (stone) — 5x5
+  for (let fx = -2; fx <= 2; fx++) {
+    for (let fz = -2; fz <= 2; fz++) {
+      b('stone', fx, 0, fz)
+    }
+  }
 
-      {/* Roof — peaked */}
-      <mesh position={[0, 4.3, 0]} rotation={[0, 0, 0]}>
-        <boxGeometry args={[7, 0.3, 7]} />
-        <meshStandardMaterial color="#6B4A30" />
-      </mesh>
-      <mesh position={[0, 4.8, 0]}>
-        <boxGeometry args={[5, 0.3, 5.5]} />
-        <meshStandardMaterial color="#5C3D28" />
-      </mesh>
-      <mesh position={[0, 5.2, 0]}>
-        <boxGeometry args={[3, 0.3, 4]} />
-        <meshStandardMaterial color="#4E3220" />
-      </mesh>
-    </group>
-  )
+  // Walls — 3 blocks high
+  for (let h = 1; h <= 3; h++) {
+    // Back wall
+    for (let wx = -2; wx <= 2; wx++) {
+      b(h === 2 ? 'wool' : 'wood', wx, h, -2, color)
+    }
+    // Left wall
+    for (let wz = -1; wz <= 2; wz++) {
+      b(h === 2 ? 'wool' : 'wood', -2, h, wz, color)
+    }
+    // Right wall
+    for (let wz = -1; wz <= 2; wz++) {
+      b(h === 2 ? 'wool' : 'wood', 2, h, wz, color)
+    }
+    // Front wall — with door gap
+    b(h === 2 ? 'wool' : 'wood', -2, h, 2, color)
+    b(h === 2 ? 'wool' : 'wood', -1, h, 2, color)
+    if (h >= 3) b('wood', 0, h, 2) // above door
+    b(h === 2 ? 'wool' : 'wood', 1, h, 2, color)
+    b(h === 2 ? 'wool' : 'wood', 2, h, 2, color)
+  }
+
+  // Roof (darkwood) — stepped pyramid
+  for (let rx = -3; rx <= 3; rx++) {
+    for (let rz = -3; rz <= 3; rz++) {
+      b('darkwood', rx, 4, rz)
+    }
+  }
+  for (let rx = -2; rx <= 2; rx++) {
+    for (let rz = -2; rz <= 2; rz++) {
+      b('darkwood', rx, 5, rz)
+    }
+  }
+
+  return <group>{blocks}</group>
 }
