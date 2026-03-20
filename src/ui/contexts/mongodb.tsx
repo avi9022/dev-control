@@ -28,23 +28,23 @@ interface MongoDBContextValue {
   createCollection: (database: string, name: string) => Promise<void>
   dropCollection: (database: string, name: string) => Promise<void>
   renameCollection: (database: string, oldName: string, newName: string) => Promise<void>
-  findDocuments: (database: string, collection: string, query: Record<string, unknown>, options?: MongoFindOptions) => Promise<MongoFindResult>
-  findDocumentById: (database: string, collection: string, id: string) => Promise<Record<string, unknown> | null>
+  findDocuments: (database: string, collection: string, options: MongoQueryOptions) => Promise<MongoQueryResult>
+  findDocumentById: (database: string, collection: string, id: string) => Promise<MongoDocument | null>
   insertDocument: (database: string, collection: string, document: Record<string, unknown>) => Promise<void>
   updateDocument: (database: string, collection: string, id: string, update: Record<string, unknown>) => Promise<void>
   deleteDocument: (database: string, collection: string, id: string) => Promise<void>
   insertMany: (database: string, collection: string, documents: Record<string, unknown>[]) => Promise<void>
   deleteMany: (database: string, collection: string, filter: Record<string, unknown>) => Promise<void>
-  explainQuery: (database: string, collection: string, query: Record<string, unknown>) => Promise<MongoExplainResult>
-  runAggregation: (database: string, collection: string, pipeline: Record<string, unknown>[]) => Promise<Record<string, unknown>[]>
-  analyzeSchema: (database: string, collection: string) => Promise<MongoSchemaAnalysis>
+  explainQuery: (database: string, collection: string, options: MongoQueryOptions) => Promise<MongoExplainResult>
+  runAggregation: (database: string, collection: string, pipeline: MongoAggregationStage[]) => Promise<MongoAggregationResult>
+  analyzeSchema: (database: string, collection: string) => Promise<MongoSchemaField[]>
   getIndexes: (database: string, collection: string) => Promise<MongoIndex[]>
-  createIndex: (database: string, collection: string, keys: Record<string, unknown>, options?: MongoIndexOptions) => Promise<void>
+  createIndex: (database: string, collection: string, options: MongoCreateIndexOptions) => Promise<string>
   dropIndex: (database: string, collection: string, indexName: string) => Promise<void>
-  getValidationRules: (database: string, collection: string) => Promise<MongoValidationRules>
+  getValidationRules: (database: string, collection: string) => Promise<MongoValidationRules | null>
   setValidationRules: (database: string, collection: string, rules: MongoValidationRules) => Promise<void>
-  exportCollection: (database: string, collection: string, format: string) => Promise<string>
-  importDocuments: (database: string, collection: string, data: string, format: string) => Promise<void>
+  exportCollection: (database: string, collection: string, format: 'json' | 'jsonl' | 'csv', options?: MongoQueryOptions) => Promise<void>
+  importDocuments: (database: string, collection: string) => Promise<number>
   getSavedQueries: () => Promise<MongoSavedQuery[]>
   saveQuery: (query: MongoSavedQuery) => Promise<void>
   deleteSavedQuery: (id: string) => Promise<void>
@@ -76,7 +76,7 @@ export const MongoDBContext = createContext<MongoDBContextValue>({
   createCollection: async () => {},
   dropCollection: async () => {},
   renameCollection: async () => {},
-  findDocuments: async () => ({ documents: [], count: 0, totalCount: 0 }) as MongoFindResult,
+  findDocuments: async () => ({ documents: [], totalCount: 0, executionTime: 0 }) as MongoQueryResult,
   findDocumentById: async () => null,
   insertDocument: async () => {},
   updateDocument: async () => {},
@@ -84,15 +84,15 @@ export const MongoDBContext = createContext<MongoDBContextValue>({
   insertMany: async () => {},
   deleteMany: async () => {},
   explainQuery: async () => ({}) as MongoExplainResult,
-  runAggregation: async () => [],
-  analyzeSchema: async () => ({}) as MongoSchemaAnalysis,
+  runAggregation: async () => ({ documents: [], executionTime: 0, stages: 0 }) as MongoAggregationResult,
+  analyzeSchema: async () => [],
   getIndexes: async () => [],
-  createIndex: async () => {},
+  createIndex: async () => '',
   dropIndex: async () => {},
-  getValidationRules: async () => ({}) as MongoValidationRules,
+  getValidationRules: async () => null,
   setValidationRules: async () => {},
-  exportCollection: async () => '',
-  importDocuments: async () => {},
+  exportCollection: async () => {},
+  importDocuments: async () => 0,
   getSavedQueries: async () => [],
   saveQuery: async () => {},
   deleteSavedQuery: async () => {},
@@ -245,8 +245,8 @@ export const MongoDBProvider: FC<PropsWithChildren> = ({ children }) => {
     }
   }, [refreshDatabases, refreshCollections, selectedDatabase, selectedCollection, updateView])
 
-  const findDocuments = useCallback(async (database: string, collection: string, query: Record<string, unknown>, options?: MongoFindOptions) => {
-    return await window.electron.mongoFindDocuments(database, collection, query, options)
+  const findDocuments = useCallback(async (database: string, collection: string, options: MongoQueryOptions) => {
+    return await window.electron.mongoFindDocuments(database, collection, options)
   }, [])
 
   const findDocumentById = useCallback(async (database: string, collection: string, id: string) => {
@@ -273,11 +273,11 @@ export const MongoDBProvider: FC<PropsWithChildren> = ({ children }) => {
     await window.electron.mongoDeleteMany(database, collection, filter)
   }, [])
 
-  const explainQuery = useCallback(async (database: string, collection: string, query: Record<string, unknown>) => {
-    return await window.electron.mongoExplainQuery(database, collection, query)
+  const explainQuery = useCallback(async (database: string, collection: string, options: MongoQueryOptions) => {
+    return await window.electron.mongoExplainQuery(database, collection, options)
   }, [])
 
-  const runAggregation = useCallback(async (database: string, collection: string, pipeline: Record<string, unknown>[]) => {
+  const runAggregation = useCallback(async (database: string, collection: string, pipeline: MongoAggregationStage[]) => {
     return await window.electron.mongoRunAggregation(database, collection, pipeline)
   }, [])
 
@@ -289,8 +289,8 @@ export const MongoDBProvider: FC<PropsWithChildren> = ({ children }) => {
     return await window.electron.mongoGetIndexes(database, collection)
   }, [])
 
-  const createIndex = useCallback(async (database: string, collection: string, keys: Record<string, unknown>, options?: MongoIndexOptions) => {
-    await window.electron.mongoCreateIndex(database, collection, keys, options)
+  const createIndex = useCallback(async (database: string, collection: string, options: MongoCreateIndexOptions) => {
+    return await window.electron.mongoCreateIndex(database, collection, options)
   }, [])
 
   const dropIndex = useCallback(async (database: string, collection: string, indexName: string) => {
@@ -305,12 +305,12 @@ export const MongoDBProvider: FC<PropsWithChildren> = ({ children }) => {
     await window.electron.mongoSetValidationRules(database, collection, rules)
   }, [])
 
-  const exportCollection = useCallback(async (database: string, collection: string, format: string) => {
-    return await window.electron.mongoExportCollection(database, collection, format)
+  const exportCollection = useCallback(async (database: string, collection: string, format: 'json' | 'jsonl' | 'csv', options?: MongoQueryOptions) => {
+    return await window.electron.mongoExportCollection(database, collection, format, options)
   }, [])
 
-  const importDocuments = useCallback(async (database: string, collection: string, data: string, format: string) => {
-    await window.electron.mongoImportDocuments(database, collection, data, format)
+  const importDocuments = useCallback(async (database: string, collection: string) => {
+    return await window.electron.mongoImportDocuments(database, collection)
   }, [])
 
   const getSavedQueries = useCallback(async () => {

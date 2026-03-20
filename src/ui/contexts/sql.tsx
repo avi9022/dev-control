@@ -384,7 +384,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
         messages: [...prev.messages, {
           id: crypto.randomUUID(),
           type: 'success' as const,
-          text: `Script executed: ${result.results.length} statements in ${result.totalExecutionTime}ms`,
+          text: `Script executed: ${result.results.length} statements in ${result.totalTime}ms`,
           timestamp: Date.now(),
         }],
       }))
@@ -570,6 +570,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
 
   const removeWorksheet = useCallback((id: string) => {
     setWorksheetStates((prev) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [id]: _, ...rest } = prev
       return rest
     })

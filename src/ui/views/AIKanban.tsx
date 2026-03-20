@@ -1,9 +1,9 @@
-import { useState, useEffect, lazy, Suspense, type FC } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { TaskCard } from '@/ui/components/ai-automation/TaskCard'
 import { AITaskDetail } from './AITaskDetail'
 
-const World3D = lazy(() => import('@/ui/components/ai-automation/World3D').then(m => ({ default: m.World3D })))
+const World3DLazy = lazy(() => import('@/ui/components/ai-automation/World3D').then(m => ({ default: m.World3D })))
 
 interface AIKanbanProps {
   selectedTaskId: string | null
@@ -59,6 +59,23 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
     setDraggedTaskId(null)
   }
 
+  const zones = useMemo(() => {
+    const backlog = { id: 'BACKLOG', label: 'Backlog', color: '#7C8894' }
+    const pipelineZones = pipeline.map(p => ({ id: p.id, label: p.name, color: p.color }))
+    const done = { id: 'DONE', label: 'Done', color: '#9BB89E' }
+    return [backlog, ...pipelineZones, done]
+  }, [pipeline])
+
+  const tasks3D = useMemo(() =>
+    boardTasks.map(t => ({
+      id: t.id,
+      title: t.title,
+      phase: t.phase,
+      isRunning: !!t.activeProcessPid,
+      needsAttention: !!t.needsUserInput,
+    })),
+  [boardTasks])
+
   if (selectedTaskId) {
     return (
       <div className="h-full" style={{ background: 'var(--ai-surface-0)' }}>
@@ -71,7 +88,7 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
     return (
       <div className="h-full" style={{ background: 'var(--ai-surface-0)' }}>
         <Suspense fallback={<div className="h-full flex items-center justify-center" style={{ color: 'var(--ai-text-tertiary)' }}>Loading 3D world...</div>}>
-          <World3D />
+          <World3DLazy zones={zones} tasks={tasks3D} onTaskClick={(id) => onSelectTask(id)} />
         </Suspense>
       </div>
     )

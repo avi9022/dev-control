@@ -2,7 +2,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { FC } from "react";
 import { ServiceSettings } from "../components/ServiceSettings";
 import { Terminal } from "../components/terminal";
-import { useLogger } from "../contexts/logger";
 import { useDirectories } from "../contexts/directories";
 import { useViews } from "../contexts/views";
 import clsx from "clsx";
@@ -21,7 +20,6 @@ export const Service: FC<ServiceProps> = ({
   id
 }) => {
   const { directories } = useDirectories()
-  const { getLogsByDirId } = useLogger()
   const { views } = useViews()
 
   if (!id) {

@@ -43,7 +43,9 @@
 - [ ] **F39**: VS Code Integration — open task worktrees directly in VS Code, sync task context (comments, amendments) as VS Code workspace data, quick-action commands from the editor
 - [ ] **F40**: Browser Extension — browser companion that shows running task status, notifications, and quick actions (approve, reject, view diff) without switching to the app
 - [ ] **F41**: Advanced Task Filtering — SQL-like query language for filtering tasks (e.g., `phase = "in-progress" AND project = "api" AND has:comments`, `created > 7d ago AND NOT resolved`), with saved filters and quick filter presets on the kanban board
-- [ ] **F42**: 3D Task Visualization — fun alternative view that renders tasks as characters in a Minecraft-style voxel world, where agents visually perform their work (planning agent reads blueprints, worker agent builds structures, reviewer agent inspects buildings), with task progress reflected as construction progress and phase transitions as movement between zones
+- [ ] **F42**: 3D Task Visualization — fun alternative view that renders tasks as characters in a Minecraft-style voxel world, where agents visually perform their work (planning agent reads blueprints, worker agent builds structures, reviewer agent inspects buildings), with task progress reflected as construction progress and phase transitions as movement between zones (sub-roadmap: `docs/F42_3D_VISUALIZATION_ROADMAP.md`)
+- [ ] **F43**: Code Quality & Linting Rules — establish and enforce project-wide coding standards with ESLint rules, run a full codebase quality assessment, fix inconsistencies (naming, patterns, dead code, error handling), and document conventions in CLAUDE.md
+- [ ] **F44**: Codebase Audit & Refactor — comprehensive review of the entire codebase for code quality, performance, accessibility, and maintainability; identify tech debt, refactor large files, extract shared utilities, and ensure consistent patterns across all modules
 
 ## Backlog (needs investigation)
 

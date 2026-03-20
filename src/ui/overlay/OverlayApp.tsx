@@ -5,7 +5,7 @@ import { ImportantValuesList } from './ImportantValuesList'
 import { DateNav } from './DateNav'
 import { Settings } from './Settings'
 import { Settings as SettingsIcon } from 'lucide-react'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const hexToRgb = (hex: string) => {
   const n = parseInt(hex.slice(1), 16)

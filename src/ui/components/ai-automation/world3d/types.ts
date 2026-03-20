@@ -1,0 +1,16 @@
+export interface Zone {
+  id: string
+  label: string
+  color?: string
+}
+
+export interface Task3D {
+  id: string
+  title: string
+  phase: string
+  isRunning: boolean
+  needsAttention: boolean
+}
+
+export const TERRAIN_SIZE = 200
+export const FOG_COLOR = '#a8c8a0'

@@ -57,7 +57,7 @@ export const AISettings: FC<AISettingsProps> = ({ defaultTab }) => {
                           }
                         }}
                       />
-                      <Icon className="size-4" style={{ color: 'var(--ai-text-secondary)' }} />
+                      <Icon className="size-4 text-[var(--ai-text-secondary)]" />
                       <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>{label}</span>
                     </label>
                   )
