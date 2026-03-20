@@ -11,11 +11,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EnvironmentManager } from '../api-client/EnvironmentManager'
 
 const METHOD_COLORS: Record<ApiHttpMethod, string> = {
-  GET: 'text-green-400',
+  GET: 'text-status-green',
   POST: 'text-yellow-400',
   PUT: 'text-blue-400',
   PATCH: 'text-orange-400',
-  DELETE: 'text-red-400',
+  DELETE: 'text-status-red',
   HEAD: 'text-gray-400',
   OPTIONS: 'text-gray-400',
 }

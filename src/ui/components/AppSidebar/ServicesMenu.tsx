@@ -17,8 +17,8 @@ export const ServicesMenu: FC = () => {
     <ScrollArea className="h-[calc(100vh-80px-40px-40px-50px-50px)]">
       <DirectoriesList searchTerm={directorySearchTerm} />
     </ScrollArea>
-    <div className="flex justify-between items-center px-4 gap-20 h-[80px] bg-stone-600">
-      <Button disabled={!directories.length} onClick={() => removeDirectory()} className="bg-destructive text-foreground flex-1">
+    <div className="flex justify-between items-center px-4 gap-20 h-[80px] bg-muted">
+      <Button disabled={!directories.length} onClick={() => removeDirectory()} variant="destructive" className="flex-1">
         Remove all
       </Button>
       <div className="flex gap-2">

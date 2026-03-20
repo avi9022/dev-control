@@ -73,7 +73,7 @@ export const DynamoDBMenu: FC = () => {
             </div>
           </ScrollArea>
 
-          <div className="flex justify-between items-center px-4 gap-4 h-[80px] bg-stone-600">
+          <div className="flex justify-between items-center px-4 gap-4 h-[80px] bg-muted">
             <Button
               variant="outline"
               size="sm"

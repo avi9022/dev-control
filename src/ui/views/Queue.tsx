@@ -98,7 +98,7 @@ export const Queue: FC<QueueProps> = ({
             <CardTitle>
               <div className="flex gap-3 items-start">
                 <div className="pt-1">
-                  <Clock className="text-green-400" />
+                  <Clock className="text-status-green" />
                 </div>
                 <div>
                   <p className="text-2xl mb-2">Previous messages sent</p>

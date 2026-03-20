@@ -7,10 +7,10 @@ import {
 import { Check } from 'lucide-react'
 
 const priorityColors: Record<TodoPriority, string> = {
-  high: 'bg-red-500',
-  medium: 'bg-yellow-500',
+  high: 'bg-status-red',
+  medium: 'bg-status-yellow',
   low: 'bg-blue-500',
-  none: 'bg-neutral-600'
+  none: 'bg-muted'
 }
 
 const priorityLabels: Record<TodoPriority, string> = {

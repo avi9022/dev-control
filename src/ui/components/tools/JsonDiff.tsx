@@ -73,7 +73,7 @@ const DiffLine: FC<{ diff: DiffResult }> = ({ diff }) => {
   switch (diff.type) {
     case 'added':
       return (
-        <div className="flex items-start py-1 px-2 bg-green-500/10 text-green-600 rounded text-sm font-mono">
+        <div className="flex items-start py-1 px-2 bg-status-green-bg text-green-600 rounded text-sm font-mono">
           <Plus className={iconClass} />
           <span className="font-semibold">{diff.path}:</span>
           <span className="ml-2">{formatValue(diff.newValue)}</span>
@@ -81,7 +81,7 @@ const DiffLine: FC<{ diff: DiffResult }> = ({ diff }) => {
       )
     case 'removed':
       return (
-        <div className="flex items-start py-1 px-2 bg-red-500/10 text-red-600 rounded text-sm font-mono">
+        <div className="flex items-start py-1 px-2 bg-status-red-bg text-red-600 rounded text-sm font-mono">
           <Minus className={iconClass} />
           <span className="font-semibold">{diff.path}:</span>
           <span className="ml-2">{formatValue(diff.oldValue)}</span>
@@ -89,7 +89,7 @@ const DiffLine: FC<{ diff: DiffResult }> = ({ diff }) => {
       )
     case 'changed':
       return (
-        <div className="py-1 px-2 bg-yellow-500/10 rounded text-sm font-mono space-y-1">
+        <div className="py-1 px-2 bg-status-yellow-bg rounded text-sm font-mono space-y-1">
           <div className="flex items-start text-red-600">
             <Minus className={iconClass} />
             <span className="font-semibold">{diff.path}:</span>
@@ -180,7 +180,7 @@ export const JsonDiff: FC = () => {
         )}
 
         {!error && left.trim() && right.trim() && diffs.length === 0 && (
-          <div className="flex items-center gap-2 text-green-600 text-sm p-3 bg-green-500/10 rounded-md">
+          <div className="flex items-center gap-2 text-green-600 text-sm p-3 bg-status-green-bg rounded-md">
             <Equal className="h-4 w-4" />
             JSON objects are identical
           </div>

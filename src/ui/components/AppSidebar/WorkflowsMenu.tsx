@@ -24,7 +24,7 @@ export const WorkflowsMenu: FC<WorkflowsMenuProps> = ({ onStartWorkflow }) => {
     <ScrollArea className="h-[calc(100vh-80px-40px-80px-35px-20px)]">
       <WorkflowsList onStartWorkflow={onStartWorkflow} searchTerm={searchTerm} />
     </ScrollArea>
-    <div className="flex justify-between items-center px-4 gap-20 h-[80px] bg-stone-600">
+    <div className="flex justify-between items-center px-4 gap-20 h-[80px] bg-muted">
       <SaveWorkflowButton />
     </div>
   </div>

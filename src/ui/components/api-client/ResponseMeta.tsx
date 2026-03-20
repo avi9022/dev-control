@@ -10,7 +10,7 @@ interface ResponseMetaProps {
 }
 
 const getStatusColor = (status: number): string => {
-  if (status >= 200 && status < 300) return 'bg-green-600 text-white'
+  if (status >= 200 && status < 300) return 'bg-status-green text-white'
   if (status >= 300 && status < 400) return 'bg-blue-600 text-white'
   if (status >= 400 && status < 500) return 'bg-yellow-600 text-white'
   if (status >= 500) return 'bg-red-600 text-white'

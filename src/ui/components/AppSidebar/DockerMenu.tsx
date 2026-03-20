@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const STATE_DOT_COLORS: Record<string, string> = {
-  running: 'bg-green-500',
-  paused: 'bg-yellow-500',
+  running: 'bg-status-green',
+  paused: 'bg-status-yellow',
   restarting: 'bg-blue-500',
   exited: 'bg-gray-500',
   dead: 'bg-gray-500',
@@ -61,7 +61,7 @@ export const DockerMenu: FC = () => {
     <div>
       <div className="mb-4 px-5">
         <Select value={activeContext} onValueChange={switchContext}>
-          <SelectTrigger className="w-full bg-stone-700 border-none text-white h-8">
+          <SelectTrigger className="w-full bg-muted border-none text-foreground h-8">
             {activeContext === '__all__' ? 'All' : activeContext}
           </SelectTrigger>
           <SelectContent>
@@ -78,7 +78,7 @@ export const DockerMenu: FC = () => {
       {dashboardStats && (
         <div className="grid grid-cols-2 gap-2 px-5 mb-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
-            <Circle className="h-2 w-2 fill-green-500 text-green-500" />
+            <Circle className="h-2 w-2 fill-status-green text-status-green" />
             {dashboardStats.containersRunning} running
           </div>
           <div className="flex items-center gap-1">

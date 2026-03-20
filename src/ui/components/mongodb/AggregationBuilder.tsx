@@ -292,7 +292,7 @@ export const AggregationBuilder: FC<AggregationBuilderProps> = ({ database, coll
           {/* Error */}
           {error && (
             <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-              <p className="text-sm text-red-500">{error}</p>
+              <p className="text-sm text-status-red">{error}</p>
             </div>
           )}
 

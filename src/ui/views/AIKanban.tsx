@@ -19,16 +19,15 @@ export const AIKanban: FC = () => {
 
   const theme = settings?.theme || 'dark'
   const isLight = theme === 'light'
-  const themeClass = isLight ? 'ai-kanban ai-light' : 'ai-kanban'
 
-  // Sync theme to <html> so Radix portals (dialogs, selects, popovers) pick up light overrides
+  // Sync theme to <html> so all components pick up light/dark overrides
   useEffect(() => {
     if (isLight) {
-      document.documentElement.setAttribute('data-ai-theme', 'light')
+      document.documentElement.classList.add('light')
     } else {
-      document.documentElement.removeAttribute('data-ai-theme')
+      document.documentElement.classList.remove('light')
     }
-    return () => document.documentElement.removeAttribute('data-ai-theme')
+    // No cleanup — App.tsx manages the global theme class
   }, [isLight])
 
   const activeBoard = settings?.boards?.find(b => b.id === settings.activeBoardId)
@@ -75,14 +74,14 @@ export const AIKanban: FC = () => {
 
   if (selectedTaskId) {
     return (
-      <div className={`h-full ${themeClass}`} style={{ background: 'var(--ai-surface-0)' }}>
+      <div className="h-full" style={{ background: 'var(--ai-surface-0)' }}>
         <AITaskDetail taskId={selectedTaskId} onBack={() => setSelectedTaskId(null)} />
       </div>
     )
   }
 
   return (
-    <div className={`${themeClass} h-full flex flex-col`} style={{ background: 'var(--ai-surface-0)' }}>
+    <div className="h-full flex flex-col" style={{ background: 'var(--ai-surface-0)' }}>
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
         <div className="flex items-center gap-4">
@@ -191,7 +190,7 @@ export const AIKanban: FC = () => {
       <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
 
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className={`${themeClass} !max-w-[95vw] h-[85vh] flex flex-col`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
+        <DialogContent className="!max-w-[95vw] h-[85vh] flex flex-col" style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
           <DialogHeader>
             <DialogTitle>AI Automation Settings</DialogTitle>
           </DialogHeader>

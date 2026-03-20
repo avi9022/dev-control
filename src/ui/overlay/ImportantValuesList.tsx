@@ -67,7 +67,7 @@ export const ImportantValuesList = ({
     <div className="flex flex-col h-full">
       {values.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-neutral-500 text-sm text-center">
+          <div className="text-muted-foreground text-sm text-center">
             <p className="mb-2">No important values yet.</p>
             <p className="text-xs">Click "Add Value" below to create one.</p>
           </div>
@@ -102,7 +102,7 @@ export const ImportantValuesList = ({
                 className={`flex-1 text-sm font-mono cursor-text min-w-[120px] ${
                   value.key 
                     ? 'text-neutral-300' 
-                    : 'text-neutral-500 italic'
+                    : 'text-muted-foreground italic'
                 }`}
                 onDoubleClick={() => onKeyChange && handleKeyEdit(value)}
                 onClick={() => onKeyChange && handleKeyEdit(value)}
@@ -138,7 +138,7 @@ export const ImportantValuesList = ({
                 className={`flex-1 text-sm cursor-text ${
                   value.value 
                     ? 'text-neutral-200' 
-                    : 'text-neutral-500 italic'
+                    : 'text-muted-foreground italic'
                 }`}
                 onDoubleClick={() => onValueChange && handleValueEdit(value)}
                 onClick={() => onValueChange && handleValueEdit(value)}
@@ -152,7 +152,7 @@ export const ImportantValuesList = ({
             {onDelete && (
               <button
                 onClick={() => onDelete(value.id)}
-                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-900/30 text-neutral-500 hover:text-red-400 transition-all"
+                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-status-red-bg text-muted-foreground hover:text-status-red transition-all"
                 title="Delete"
               >
                 <Trash2 size={14} />

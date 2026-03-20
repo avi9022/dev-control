@@ -370,7 +370,7 @@ export const IndexList: FC<IndexListProps> = ({ database, collection }) => {
               </div>
             </div>
 
-            {createError && <p className="text-sm text-red-500">{createError}</p>}
+            {createError && <p className="text-sm text-status-red">{createError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>

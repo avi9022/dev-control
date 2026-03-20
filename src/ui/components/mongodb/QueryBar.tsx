@@ -114,10 +114,10 @@ export const QueryBar: FC<QueryBarProps> = ({ options, onChange }) => {
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             onKeyDown={handleKeyDown}
-            className={`font-mono text-sm h-8 ${errors.filter ? 'border-red-500' : ''}`}
+            className={`font-mono text-sm h-8 ${errors.filter ? 'border-status-red' : ''}`}
           />
           {errors.filter && (
-            <p className="text-xs text-red-500">{errors.filter}</p>
+            <p className="text-xs text-status-red">{errors.filter}</p>
           )}
         </div>
         <div className="flex items-end gap-1 pb-0.5">
@@ -150,10 +150,10 @@ export const QueryBar: FC<QueryBarProps> = ({ options, onChange }) => {
               value={projectionText}
               onChange={(e) => setProjectionText(e.target.value)}
               onKeyDown={handleKeyDown}
-              className={`font-mono text-sm h-8 ${errors.projection ? 'border-red-500' : ''}`}
+              className={`font-mono text-sm h-8 ${errors.projection ? 'border-status-red' : ''}`}
             />
             {errors.projection && (
-              <p className="text-xs text-red-500">{errors.projection}</p>
+              <p className="text-xs text-status-red">{errors.projection}</p>
             )}
           </div>
           <div className="space-y-1">
@@ -163,10 +163,10 @@ export const QueryBar: FC<QueryBarProps> = ({ options, onChange }) => {
               value={sortText}
               onChange={(e) => setSortText(e.target.value)}
               onKeyDown={handleKeyDown}
-              className={`font-mono text-sm h-8 ${errors.sort ? 'border-red-500' : ''}`}
+              className={`font-mono text-sm h-8 ${errors.sort ? 'border-status-red' : ''}`}
             />
             {errors.sort && (
-              <p className="text-xs text-red-500">{errors.sort}</p>
+              <p className="text-xs text-status-red">{errors.sort}</p>
             )}
           </div>
           <div className="flex gap-2">

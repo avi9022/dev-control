@@ -74,7 +74,7 @@ const JsonNode: FC<JsonNodeProps> = ({ keyName, value, depth, isLast, maxInitial
           title="Copy value"
         >
           {copied ? (
-            <Check className="h-3 w-3 text-green-500" />
+            <Check className="h-3 w-3 text-status-green" />
           ) : (
             <Copy className="h-3 w-3 text-muted-foreground" />
           )}
@@ -127,7 +127,7 @@ const JsonNode: FC<JsonNodeProps> = ({ keyName, value, depth, isLast, maxInitial
           title="Copy object"
         >
           {copied ? (
-            <Check className="h-3 w-3 text-green-500" />
+            <Check className="h-3 w-3 text-status-green" />
           ) : (
             <Copy className="h-3 w-3 text-muted-foreground" />
           )}
@@ -186,7 +186,7 @@ const ValueRenderer: FC<{ value: unknown }> = ({ value }) => {
       }
 
       return (
-        <span className="text-green-400 break-all">
+        <span className="text-status-green break-all">
           "<span
             onClick={handleClick}
             className="text-blue-400 hover:underline cursor-pointer"
@@ -205,7 +205,7 @@ const ValueRenderer: FC<{ value: unknown }> = ({ value }) => {
     }
 
     // Regular string
-    return <span className="text-green-400 break-all">"{value}"</span>
+    return <span className="text-status-green break-all">"{value}"</span>
   }
 
   return <span className="text-foreground">{String(value)}</span>
@@ -282,7 +282,7 @@ export const JsonToolbar: FC<JsonToolbarProps> = ({
         onClick={onCopy}
         className="px-2 py-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
       >
-        {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+        {copied ? <Check className="h-3 w-3 text-status-green" /> : <Copy className="h-3 w-3" />}
         {copied ? 'Copied' : 'Copy'}
       </button>
     </div>

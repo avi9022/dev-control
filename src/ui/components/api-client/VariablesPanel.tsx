@@ -226,7 +226,7 @@ export const VariablesPanel: FC<VariablesPanelProps> = ({ requestData, requestId
           "inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold",
           resolved
             ? "bg-emerald-600 text-white"
-            : "bg-red-500/20 text-red-400 border border-red-500/30"
+            : "bg-status-red-bg text-status-red border border-status-red/30"
         )}>
           {resolved ? 'E' : '!'}
         </span>

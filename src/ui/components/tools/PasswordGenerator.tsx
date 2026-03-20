@@ -49,11 +49,11 @@ function calculateStrength(password: string, options: PasswordOptions): { score:
 
   const bits = Math.log2(Math.pow(entropy, password.length))
 
-  if (bits < 28) return { score: 1, label: 'Very Weak', color: 'bg-red-500' }
+  if (bits < 28) return { score: 1, label: 'Very Weak', color: 'bg-status-red' }
   if (bits < 36) return { score: 2, label: 'Weak', color: 'bg-orange-500' }
-  if (bits < 60) return { score: 3, label: 'Moderate', color: 'bg-yellow-500' }
-  if (bits < 128) return { score: 4, label: 'Strong', color: 'bg-green-500' }
-  return { score: 5, label: 'Very Strong', color: 'bg-green-600' }
+  if (bits < 60) return { score: 3, label: 'Moderate', color: 'bg-status-yellow' }
+  if (bits < 128) return { score: 4, label: 'Strong', color: 'bg-status-green' }
+  return { score: 5, label: 'Very Strong', color: 'bg-status-green' }
 }
 
 export const PasswordGenerator: FC = () => {

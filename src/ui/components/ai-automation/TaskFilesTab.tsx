@@ -192,7 +192,7 @@ const FileTreeView: FC<{
 export const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
   const { tasks, settings, updateSettings } = useAIAutomation()
   const task = tasks.find(t => t.id === taskId)
-  const themeClass = settings?.theme === 'light' ? 'ai-kanban ai-light' : 'ai-kanban'
+  const themeClass = ''
   const [agentFiles, setAgentFiles] = useState<string[]>([])
   const [attachments, setAttachments] = useState<string[]>([])
   const [selectedFile, setSelectedFile] = useState<{ name: string; type: 'agent' | 'attachments' } | null>(null)

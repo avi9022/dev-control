@@ -26,11 +26,11 @@ interface RequestUrlBarProps {
 }
 
 const METHOD_COLORS: Record<ApiHttpMethod, string> = {
-  GET: 'text-green-500',
-  POST: 'text-yellow-500',
+  GET: 'text-status-green',
+  POST: 'text-status-yellow',
   PUT: 'text-blue-500',
   PATCH: 'text-orange-500',
-  DELETE: 'text-red-500',
+  DELETE: 'text-status-red',
   HEAD: 'text-purple-500',
   OPTIONS: 'text-gray-500',
 }

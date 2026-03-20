@@ -505,7 +505,7 @@ export const CodeSnippetPanel: FC<CodeSnippetPanelProps> = ({
         >
           {copied ? (
             <>
-              <Check className="h-3 w-3 text-green-500" />
+              <Check className="h-3 w-3 text-status-green" />
               Copied
             </>
           ) : (

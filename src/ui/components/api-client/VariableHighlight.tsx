@@ -112,7 +112,7 @@ export const VariableHighlightText: FC<{ text: string; className?: string }> = (
                 "rounded px-0.5 cursor-default",
                 seg.resolved
                   ? "text-orange-400 bg-orange-400/10"
-                  : "text-red-400 bg-red-400/10",
+                  : "text-status-red bg-status-red/10",
               )}
               onMouseEnter={(e) => handleVarMouseEnter(e, seg.varName!)}
               onMouseLeave={handleVarMouseLeave}
@@ -141,7 +141,7 @@ export const VariableHighlightText: FC<{ text: string; className?: string }> = (
                   <span>{envName ?? 'Environment'}</span>
                 </>
               ) : (
-                <span className="text-red-400">Variable not found in any environment</span>
+                <span className="text-status-red">Variable not found in any environment</span>
               )}
             </div>
           </div>

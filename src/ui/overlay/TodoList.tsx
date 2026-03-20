@@ -18,10 +18,10 @@ const priorityOrder: Record<TodoPriority, number> = {
 }
 
 const priorityColors: Record<TodoPriority, string> = {
-  high: 'bg-red-500',
-  medium: 'bg-yellow-500',
+  high: 'bg-status-red',
+  medium: 'bg-status-yellow',
   low: 'bg-blue-500',
-  none: 'bg-neutral-600'
+  none: 'bg-muted'
 }
 
 export const TodoList = ({ todos, onToggle, onDelete, onPriorityChange, onTextChange }: TodoListProps) => {
@@ -70,7 +70,7 @@ export const TodoList = ({ todos, onToggle, onDelete, onPriorityChange, onTextCh
             className={`
               flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
               ${todo.completed
-                ? 'bg-green-600 border-green-600 text-white'
+                ? 'bg-status-green border-status-green text-white'
                 : 'border-neutral-500 hover:border-neutral-400'
               }
               ${!onToggle ? 'cursor-default' : 'cursor-pointer'}
@@ -103,7 +103,7 @@ export const TodoList = ({ todos, onToggle, onDelete, onPriorityChange, onTextCh
             <span
               className={`flex-1 text-sm transition-all ${
                 todo.completed
-                  ? 'text-neutral-500 line-through'
+                  ? 'text-muted-foreground line-through'
                   : 'text-neutral-200'
               } ${onTextChange ? 'cursor-text' : ''}`}
               onDoubleClick={() => onTextChange && setEditingId(todo.id)}
@@ -114,7 +114,7 @@ export const TodoList = ({ todos, onToggle, onDelete, onPriorityChange, onTextCh
           {onDelete && (
             <button
               onClick={() => onDelete(todo.id)}
-              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-900/30 text-neutral-500 hover:text-red-400 transition-all"
+              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-status-red-bg text-muted-foreground hover:text-status-red transition-all"
             >
               <Trash2 size={14} />
             </button>

@@ -26,7 +26,7 @@ interface AITaskDetailProps {
 
 export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
   const { tasks, stopTask, moveTaskPhase, updateTask, settings, updateSettings } = useAIAutomation()
-  const themeClass = settings?.theme === 'light' ? 'ai-kanban ai-light' : 'ai-kanban'
+  const themeClass = ''
   const task = tasks.find(t => t.id === taskId)
   const [reviewComments, setReviewCommentsLocal] = useState<AIHumanComment[]>([])
 

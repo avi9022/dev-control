@@ -25,7 +25,7 @@ export const QueuesMenu: FC = () => {
     <ScrollArea className="h-[calc(100vh-80px-40px-80px-35px-20px-56px)]">
       <QueuesList searchTerm={queueSearchTerm} />
     </ScrollArea>
-    <div className="flex items-center px-4 pb-4 gap-2 h-[80px] bg-stone-600">
+    <div className="flex items-center px-4 pb-4 gap-2 h-[80px] bg-muted">
       <AddNewQueueButton />
       <PurgeAllQueuesButton />
     </div>

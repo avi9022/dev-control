@@ -17,9 +17,9 @@ interface SchemaViewProps {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  String: 'bg-green-500',
+  String: 'bg-status-green',
   Number: 'bg-blue-500',
-  Boolean: 'bg-yellow-500',
+  Boolean: 'bg-status-yellow',
   ObjectId: 'bg-purple-500',
   Date: 'bg-orange-500',
   Array: 'bg-cyan-500',
@@ -36,9 +36,9 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 const TYPE_TEXT_COLORS: Record<string, string> = {
-  String: 'text-green-500',
+  String: 'text-status-green',
   Number: 'text-blue-500',
-  Boolean: 'text-yellow-500',
+  Boolean: 'text-status-yellow',
   ObjectId: 'text-purple-500',
   Date: 'text-orange-500',
   Array: 'text-cyan-500',
@@ -179,7 +179,7 @@ export const SchemaView: FC<SchemaViewProps> = ({ database, collection }) => {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-status-red">{error}</p>
         <Button size="sm" variant="outline" onClick={handleAnalyze}>
           Retry
         </Button>

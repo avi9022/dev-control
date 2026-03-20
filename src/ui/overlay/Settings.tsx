@@ -123,7 +123,7 @@ export const Settings = ({ onBack, onAppearanceChange }: SettingsProps) => {
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center bg-neutral-900/95 backdrop-blur-xl rounded-lg border border-neutral-700/50">
-        <div className="text-neutral-500 text-sm">Loading...</div>
+        <div className="text-muted-foreground text-sm">Loading...</div>
       </div>
     )
   }
@@ -161,7 +161,7 @@ export const Settings = ({ onBack, onAppearanceChange }: SettingsProps) => {
               <FolderOpen size={16} />
             </button>
           </div>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-muted-foreground">
             Todo files are stored as TODOS-YYYY-MM-DD.json
           </p>
         </div>
@@ -187,7 +187,7 @@ export const Settings = ({ onBack, onAppearanceChange }: SettingsProps) => {
               <p className="text-sm text-neutral-200 group-hover:text-white transition-colors">
                 Auto-hide on blur
               </p>
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-muted-foreground">
                 Hide overlay when clicking outside
               </p>
             </div>
@@ -231,7 +231,7 @@ export const Settings = ({ onBack, onAppearanceChange }: SettingsProps) => {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm text-neutral-200">Background opacity</p>
-              <span className="text-xs text-neutral-500 tabular-nums">{opacity}%</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{opacity}%</span>
             </div>
             <input
               type="range"
@@ -275,7 +275,7 @@ export const Settings = ({ onBack, onAppearanceChange }: SettingsProps) => {
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-neutral-700/50 bg-neutral-800/30">
-        <p className="text-xs text-neutral-500 text-center">
+        <p className="text-xs text-muted-foreground text-center">
           Todo Widget v1.0
         </p>
       </div>

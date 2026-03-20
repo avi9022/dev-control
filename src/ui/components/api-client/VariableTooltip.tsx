@@ -73,7 +73,7 @@ export const VariableTooltip: FC<VariableTooltipProps> = ({ varName, resolved })
           "rounded px-0.5 italic pointer-events-auto cursor-default",
           resolved
             ? "text-sky-400 bg-sky-400/10"
-            : "text-red-400 bg-red-400/10",
+            : "text-status-red bg-status-red/10",
         )}
         onMouseEnter={handleVariableEnter}
         onMouseLeave={handleVariableLeave}

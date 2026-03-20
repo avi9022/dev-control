@@ -41,7 +41,7 @@ export const JsonInput: FC<JsonInputProps> = ({
           minimap: { enabled: false },
         }}
       />
-      {error && <p className="text-sm text-red-500 px-2">⚠️ {error}</p>}
+      {error && <p className="text-sm text-status-red px-2">⚠️ {error}</p>}
     </div>
   );
 };

@@ -584,7 +584,7 @@ export const DocumentList: FC<DocumentListProps> = ({ database, collection, quer
             onChange={(e) => setInsertText(e.target.value)}
             placeholder='{ "key": "value" }'
           />
-          {insertError && <p className="text-sm text-red-500">{insertError}</p>}
+          {insertError && <p className="text-sm text-status-red">{insertError}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setInsertOpen(false)}>
               Cancel
@@ -611,7 +611,7 @@ export const DocumentList: FC<DocumentListProps> = ({ database, collection, quer
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
           />
-          {editError && <p className="text-sm text-red-500">{editError}</p>}
+          {editError && <p className="text-sm text-status-red">{editError}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel

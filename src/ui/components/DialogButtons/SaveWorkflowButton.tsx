@@ -129,7 +129,7 @@ export const SaveWorkflowButton: FC<SaveWorkflowButtonProps> = ({ id }) => {
                         <FormLabel className="capitalize w-full">
                           <div className="flex gap-1 items-center justify-between w-full">
                             {name}
-                            {isFrontendProj ? <Monitor className="text-green-500" /> : <Server className="text-blue-500" />}
+                            {isFrontendProj ? <Monitor className="text-status-green" /> : <Server className="text-blue-500" />}
                           </div>
                         </FormLabel>
                         <FormMessage />

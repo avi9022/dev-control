@@ -19,8 +19,8 @@ export const BrokerEmptyState: FC = () => {
 
   return (
     <div className="flex flex-col items-center justify-center h-[400px] px-6 text-center gap-4">
-      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10">
-        <AlertCircle className="w-6 h-6 text-red-500" />
+      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-status-red-bg">
+        <AlertCircle className="w-6 h-6 text-status-red" />
       </div>
 
       <div className="space-y-2">
@@ -29,7 +29,7 @@ export const BrokerEmptyState: FC = () => {
           Unable to connect to {brokerLabel}
         </p>
         {connectionState?.lastError && (
-          <p className="text-xs text-red-400 max-w-[280px] break-words">
+          <p className="text-xs text-status-red max-w-[280px] break-words">
             {connectionState.lastError}
           </p>
         )}

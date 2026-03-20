@@ -104,7 +104,7 @@ export const JwtDecoder: FC = () => {
           <>
             <div className="flex gap-4">
               <JsonPanel title="Header" data={decoded.header} color="text-blue-500" />
-              <JsonPanel title="Payload" data={decoded.payload} color="text-green-500" />
+              <JsonPanel title="Payload" data={decoded.payload} color="text-status-green" />
             </div>
 
             <div>
@@ -119,7 +119,7 @@ export const JwtDecoder: FC = () => {
 
             {expiry && (
               <div className={`flex items-center gap-2 text-sm p-3 rounded-md ${
-                expiry.isExpired ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-500'
+                expiry.isExpired ? 'bg-destructive/10 text-destructive' : 'bg-status-green-bg text-status-green'
               }`}>
                 {expiry.isExpired ? <AlertCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                 {expiry.text}

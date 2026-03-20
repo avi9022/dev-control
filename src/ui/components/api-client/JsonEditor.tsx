@@ -441,7 +441,7 @@ export const JsonEditor: FC<JsonEditorProps> = ({
         <div
           className={cn(
             "rounded-md border overflow-hidden flex-1 min-h-0 relative",
-            jsonError && value.trim() && "border-red-500/50"
+            jsonError && value.trim() && "border-status-red/50"
           )}
         >
           <div className="absolute inset-0">
@@ -514,12 +514,12 @@ export const JsonEditor: FC<JsonEditorProps> = ({
       {/* Status bar */}
       <div className="flex items-center justify-between px-0.5 flex-shrink-0">
         {jsonError && value.trim() ? (
-          <div className="flex items-center gap-1.5 text-[10px] text-red-400">
+          <div className="flex items-center gap-1.5 text-[10px] text-status-red">
             <AlertCircle className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{jsonError}</span>
           </div>
         ) : isValidJson ? (
-          <div className="flex items-center gap-1.5 text-[10px] text-green-500">
+          <div className="flex items-center gap-1.5 text-[10px] text-status-green">
             <Check className="h-3 w-3" />
             <span>
               Valid JSON

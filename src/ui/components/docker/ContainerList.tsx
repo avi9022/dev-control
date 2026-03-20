@@ -25,9 +25,9 @@ import {
 type StateFilter = 'all' | 'running' | 'stopped' | 'paused'
 
 const STATE_DOT_COLORS: Record<string, string> = {
-  running: 'bg-green-500',
-  paused: 'bg-yellow-500',
-  exited: 'bg-red-500',
+  running: 'bg-status-green',
+  paused: 'bg-status-yellow',
+  exited: 'bg-status-red',
   created: 'bg-blue-500',
   dead: 'bg-gray-500',
   restarting: 'bg-orange-500',
@@ -54,7 +54,7 @@ function matchesFilter(state: DockerContainerState, filter: StateFilter): boolea
 
 function ResourceBar({ label, percent }: { label: string; percent: number }) {
   const clamped = Math.min(100, Math.max(0, percent))
-  const barColor = clamped > 80 ? 'bg-red-500' : clamped > 50 ? 'bg-yellow-500' : 'bg-green-500'
+  const barColor = clamped > 80 ? 'bg-status-red' : clamped > 50 ? 'bg-status-yellow' : 'bg-status-green'
 
   return (
     <div className="flex items-center gap-2 text-xs">

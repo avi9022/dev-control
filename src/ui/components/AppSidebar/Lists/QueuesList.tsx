@@ -31,7 +31,7 @@ export const QueuesList: FC<QueuesListProps> = ({
       const isCurrent = views.some(({ itemId, type }) => type === 'queue' && itemId === url)
 
       return <div key={url}>
-        <div className={`py-5 px-3 flex w-full justify-between items-center ${isCurrent ? 'bg-stone-300 text-black' : ''}`}
+        <div className={`py-5 px-3 flex w-full justify-between items-center ${isCurrent ? 'bg-accent text-accent-foreground' : ''}`}
           onClick={() => {
             onChooseQueue(url)
           }}>

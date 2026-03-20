@@ -130,7 +130,7 @@ export const VariableEditPopup: FC<VariableEditPopupProps> = ({
                   <span>{envName ?? 'Environment'}</span>
                 </>
               ) : (
-                <span className="text-red-400">Not defined</span>
+                <span className="text-status-red">Not defined</span>
               )}
             </div>
 

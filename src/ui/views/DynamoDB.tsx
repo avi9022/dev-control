@@ -255,7 +255,7 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
               <span>{formatBytes(tableInfo.tableSizeBytes)}</span>
               <span className={cn(
                 "px-1.5 py-0.5 rounded",
-                tableInfo.tableStatus === 'ACTIVE' ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'
+                tableInfo.tableStatus === 'ACTIVE' ? 'bg-status-green-bg text-status-green' : 'bg-status-yellow-bg text-status-yellow'
               )}>
                 {tableInfo.tableStatus}
               </span>

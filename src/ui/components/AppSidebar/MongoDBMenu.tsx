@@ -150,7 +150,7 @@ function AddConnectionDialog({ open, onOpenChange, onSave, onTest, onActivate }:
             />
           </div>
           {testResult && (
-            <p className={cn("text-xs", testResult === 'success' ? 'text-green-500' : 'text-red-500')}>
+            <p className={cn("text-xs", testResult === 'success' ? 'text-status-green' : 'text-status-red')}>
               {testResult === 'success' ? 'Connection successful' : testError}
             </p>
           )}
@@ -232,7 +232,7 @@ function CreateDatabaseDialog({ open, onOpenChange, onSubmit }: CreateDatabaseDi
               onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
             />
           </div>
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-xs text-status-red">{error}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); reset() }}>Cancel</Button>
@@ -294,7 +294,7 @@ function CreateCollectionDialog({ open, onOpenChange, databaseName, onSubmit }: 
               onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
             />
           </div>
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-xs text-status-red">{error}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); reset() }}>Cancel</Button>
@@ -355,7 +355,7 @@ function RenameCollectionDialog({ open, onOpenChange, databaseName, currentName,
               onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
             />
           </div>
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-xs text-status-red">{error}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); reset() }}>Cancel</Button>
@@ -601,7 +601,7 @@ export const MongoDBMenu: FC = () => {
                     }
                     <PlugZap className={cn(
                       "h-4 w-4 flex-shrink-0",
-                      connIsConnected && "text-green-500",
+                      connIsConnected && "text-status-green",
                       connIsError && "text-destructive",
                       connIsConnecting && "text-muted-foreground animate-pulse",
                       !isActive && "text-muted-foreground"

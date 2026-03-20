@@ -86,7 +86,7 @@ const VariableEditTooltip: FC<{
               E
             </span>
           ) : (
-            <span className="text-[10px] text-red-400">new</span>
+            <span className="text-[10px] text-status-red">new</span>
           )}
         </div>
       </div>

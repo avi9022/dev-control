@@ -48,7 +48,7 @@ function clearEditor(el: HTMLElement) {
 
 export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) => {
   const { createTask, settings } = useAIAutomation()
-  const themeClass = settings?.theme === 'light' ? 'ai-kanban ai-light' : 'ai-kanban'
+  const themeClass = ''
   const [title, setTitle] = useState('')
   const [taggedProjects, setTaggedProjects] = useState<DirectorySettings[]>([])
   const [projectConfigs, setProjectConfigs] = useState<Record<string, { gitStrategy: AIGitStrategy; branchName: string; baseBranch: string }>>({})

@@ -50,7 +50,7 @@ function formatDate(timestamp: number): string {
 
 function ResourceBar({ label, percent, detail }: { label: string; percent: number; detail: string }) {
   const clamped = Math.min(100, Math.max(0, percent))
-  const barColor = clamped > 80 ? 'bg-red-500' : clamped > 50 ? 'bg-yellow-500' : 'bg-green-500'
+  const barColor = clamped > 80 ? 'bg-status-red' : clamped > 50 ? 'bg-status-yellow' : 'bg-status-green'
 
   return (
     <div className="space-y-1">

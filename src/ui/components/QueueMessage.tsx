@@ -18,7 +18,7 @@ export const QueueMessage: FC<QueueMessageProps> = ({
   message,
   onReuseMessage
 }) => {
-  return <Card className="px-5 bg-stone-900">
+  return <Card className="px-5 bg-card">
     <div className="flex justify-between">
       <div>
         <div className="flex gap-2 items-center mb-2">

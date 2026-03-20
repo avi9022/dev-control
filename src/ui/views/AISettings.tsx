@@ -28,7 +28,7 @@ export const AISettings: FC = () => {
           <PipelineDiagram
             settings={settings}
             updateSettings={updateSettings}
-            themeClass={settings.theme === 'light' ? 'ai-kanban ai-light' : 'ai-kanban'}
+            themeClass=""
           />
         </TabsContent>
 

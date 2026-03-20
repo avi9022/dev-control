@@ -203,14 +203,14 @@ export const BrokerSettingsDialog: FC<BrokerSettingsDialogProps> = ({ open, onOp
           </Button>
 
           {status === 'success' && (
-            <div className="flex items-center gap-2 text-green-500">
+            <div className="flex items-center gap-2 text-status-green">
               <CheckCircle className="h-4 w-4" />
               <span className="text-sm">Connected</span>
             </div>
           )}
 
           {status === 'error' && (
-            <div className="flex items-center gap-2 text-red-500">
+            <div className="flex items-center gap-2 text-status-red">
               <XCircle className="h-4 w-4" />
               <span className="text-sm">{error || 'Connection failed'}</span>
             </div>

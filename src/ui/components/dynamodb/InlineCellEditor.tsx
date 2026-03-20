@@ -190,7 +190,7 @@ export const InlineCellEditor: FC<InlineCellEditorProps> = ({
               {attributeName}
             </span>
             {isKey && (
-              <span className="text-xs bg-yellow-500/20 text-yellow-600 px-1.5 py-0.5 rounded flex items-center gap-1">
+              <span className="text-xs bg-status-yellow-bg text-yellow-600 px-1.5 py-0.5 rounded flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 Key
               </span>

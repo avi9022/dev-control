@@ -172,7 +172,7 @@ export const ResponsePanel: FC<ResponsePanelProps> = ({ response, error }) => {
               Body
               <span className={cn(
                 "ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-medium",
-                bodyType === 'json' && "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400",
+                bodyType === 'json' && "bg-status-yellow-bg text-yellow-600 dark:text-yellow-400",
                 bodyType === 'xml' && "bg-orange-500/20 text-orange-600 dark:text-orange-400",
                 bodyType === 'html' && "bg-blue-500/20 text-blue-600 dark:text-blue-400",
                 bodyType === 'text' && "bg-gray-500/20 text-gray-600 dark:text-gray-400",
@@ -273,7 +273,7 @@ const HeaderRow: FC<{ name: string; value: string }> = ({ name, value }) => {
       <span className="font-mono text-[11px] text-purple-400 font-medium min-w-[140px] flex-shrink-0">
         {name}
       </span>
-      <span className="font-mono text-[11px] text-green-400 break-all flex-1">
+      <span className="font-mono text-[11px] text-status-green break-all flex-1">
         {value}
       </span>
       <button
@@ -282,7 +282,7 @@ const HeaderRow: FC<{ name: string; value: string }> = ({ name, value }) => {
         title="Copy value"
       >
         {copied ? (
-          <Check className="h-3 w-3 text-green-500" />
+          <Check className="h-3 w-3 text-status-green" />
         ) : (
           <Copy className="h-3 w-3 text-muted-foreground" />
         )}
@@ -322,7 +322,7 @@ const XmlHighlighter: FC<{ xml: string }> = ({ xml }) => {
           </span>
         )
       } else if (fullMatch.startsWith('"') || fullMatch.startsWith("'")) {
-        result.push(<span key={key++} className="text-green-400">{fullMatch}</span>)
+        result.push(<span key={key++} className="text-status-green">{fullMatch}</span>)
       } else if (fullMatch === '>') {
         result.push(<span key={key++} className="text-muted-foreground">{'>'}</span>)
       } else {

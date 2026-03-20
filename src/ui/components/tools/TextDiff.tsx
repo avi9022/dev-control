@@ -154,9 +154,9 @@ export const TextDiff: FC = () => {
                   key={i}
                   className={`flex ${
                     line.type === 'added'
-                      ? 'bg-green-500/10'
+                      ? 'bg-status-green-bg'
                       : line.type === 'removed'
-                      ? 'bg-red-500/10'
+                      ? 'bg-status-red-bg'
                       : ''
                   }`}
                 >
