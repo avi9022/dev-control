@@ -25,6 +25,7 @@ import { useState } from "react"
 interface MainContentProps {
   selectedTaskId?: string | null
   onSelectTask?: (taskId: string | null) => void
+  show3D?: boolean
 }
 
 function ViewSidebar({ children }: { children: React.ReactNode }) {
@@ -54,13 +55,13 @@ function ViewSidebar({ children }: { children: React.ReactNode }) {
   )
 }
 
-export const MainContent: FC<MainContentProps> = ({ selectedTaskId = null, onSelectTask }) => {
+export const MainContent: FC<MainContentProps> = ({ selectedTaskId = null, onSelectTask, show3D }) => {
   const { views, setCurrentViewIndex, currentViewIndex, closeView } = useViews()
 
   const renderView = (type: string, itemId: string | null, index: number) => {
     switch (type) {
       case 'kanban':
-        return <AIKanban key={index} selectedTaskId={selectedTaskId} onSelectTask={onSelectTask || (() => {})} />
+        return <AIKanban key={index} selectedTaskId={selectedTaskId} onSelectTask={onSelectTask || (() => {})} show3D={show3D} />
       case 'directory':
         return (
           <div className="flex h-full" key={index}>

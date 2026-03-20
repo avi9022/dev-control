@@ -1,14 +1,17 @@
-import { useState, useEffect, type FC } from 'react'
+import { useState, useEffect, lazy, Suspense, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { TaskCard } from '@/ui/components/ai-automation/TaskCard'
 import { AITaskDetail } from './AITaskDetail'
 
+const World3D = lazy(() => import('@/ui/components/ai-automation/World3D').then(m => ({ default: m.World3D })))
+
 interface AIKanbanProps {
   selectedTaskId: string | null
   onSelectTask: (taskId: string | null) => void
+  show3D?: boolean
 }
 
-export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask }) => {
+export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show3D }) => {
   const { tasks, moveTaskPhase, deleteTask, settings } = useAIAutomation()
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
 
@@ -60,6 +63,16 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask }) =>
     return (
       <div className="h-full" style={{ background: 'var(--ai-surface-0)' }}>
         <AITaskDetail taskId={selectedTaskId} onBack={() => onSelectTask(null)} />
+      </div>
+    )
+  }
+
+  if (show3D) {
+    return (
+      <div className="h-full" style={{ background: 'var(--ai-surface-0)' }}>
+        <Suspense fallback={<div className="h-full flex items-center justify-center" style={{ color: 'var(--ai-text-tertiary)' }}>Loading 3D world...</div>}>
+          <World3D />
+        </Suspense>
       </div>
     )
   }

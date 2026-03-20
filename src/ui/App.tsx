@@ -4,7 +4,7 @@ import { DirectoriesProvider } from './contexts/directories'
 import { LoggerProvider } from './contexts/logger'
 import { QueuesProvider } from './contexts/queues'
 import { useEffect, useState } from 'react'
-import { ViewsProvider } from './contexts/views'
+import { ViewsProvider, useViews } from './contexts/views'
 import { MainContent } from './components/MainContent'
 import { WorkflowsProvider } from './contexts/workflows'
 import { ToolsProvider } from './contexts/tools'
@@ -24,6 +24,9 @@ function AppContent() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState<string | undefined>()
+  const [show3D, setShow3D] = useState(false)
+  const { views, currentViewIndex } = useViews()
+  const currentViewIsKanban = views[currentViewIndex]?.type === 'kanban'
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground pl-12">
@@ -40,11 +43,13 @@ function AppContent() {
           setSettingsOpen(open)
           if (!open) setSettingsTab(undefined)
         }}
+        show3D={show3D}
+        onToggle3D={currentViewIsKanban ? () => setShow3D(!show3D) : undefined}
         defaultSettingsTab={settingsTab}
       />
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        <MainContent selectedTaskId={selectedTaskId} onSelectTask={setSelectedTaskId} />
+        <MainContent selectedTaskId={selectedTaskId} onSelectTask={setSelectedTaskId} show3D={show3D} />
       </div>
       <Toaster />
     </div>

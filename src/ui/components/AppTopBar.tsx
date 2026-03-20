@@ -1,7 +1,7 @@
 import { useState, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { Button } from '@/components/ui/button'
-import { Plus, Settings, Zap, Sun, Moon } from 'lucide-react'
+import { Plus, Settings, Zap, Sun, Moon, Cuboid } from 'lucide-react'
 import { NotificationBell } from '@/ui/components/ai-automation/NotificationBell'
 import { SplitScreenChoice } from '@/ui/components/SplitScreenChoice'
 import { BoardSwitcher } from '@/ui/components/ai-automation/BoardSwitcher'
@@ -14,9 +14,11 @@ interface AppTopBarProps {
   settingsOpen?: boolean
   onSettingsOpenChange?: (open: boolean) => void
   defaultSettingsTab?: string
+  show3D?: boolean
+  onToggle3D?: () => void
 }
 
-export const AppTopBar: FC<AppTopBarProps> = ({ onNavigateToTask, settingsOpen, onSettingsOpenChange, defaultSettingsTab }) => {
+export const AppTopBar: FC<AppTopBarProps> = ({ onNavigateToTask, settingsOpen, onSettingsOpenChange, defaultSettingsTab, show3D, onToggle3D }) => {
   const { tasks, settings, updateSettings } = useAIAutomation()
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -62,6 +64,19 @@ export const AppTopBar: FC<AppTopBarProps> = ({ onNavigateToTask, settingsOpen, 
           )}
         </div>
         <div className="flex items-center gap-2">
+          {onToggle3D && (
+            <button
+              onClick={onToggle3D}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+              style={{
+                color: show3D ? 'var(--ai-accent)' : 'var(--ai-text-secondary)',
+                background: show3D ? 'var(--ai-accent-subtle)' : 'var(--ai-surface-2)',
+              }}
+              title={show3D ? 'Back to board' : '3D View'}
+            >
+              <Cuboid className="h-3.5 w-3.5" />
+            </button>
+          )}
           <SplitScreenChoice />
           <NotificationBell onNavigateToTask={onNavigateToTask} />
           <button
