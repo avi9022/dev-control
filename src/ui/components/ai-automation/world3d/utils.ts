@@ -4,27 +4,48 @@ export function hash(x: number, z: number) {
   return n - Math.floor(n)
 }
 
-/** Scatter zones in a village-like cluster around the origin */
+/**
+ * Place zones with guaranteed minimum spacing but irregular, village-like scatter.
+ * Uses deterministic pseudo-random placement with collision avoidance.
+ */
 export function getZonePositions(count: number): [number, number][] {
   if (count <= 1) return [[0, 0]]
 
+  const minDist = 15
   const positions: [number, number][] = []
-  const angleStep = (Math.PI * 2) / Math.max(count - 1, 1)
-  const baseRadius = 14
 
-  // First zone (BACKLOG) near center-left
-  positions.push([-12, 8])
+  for (let i = 0; i < count; i++) {
+    let placed = false
+    // Try angles radiating outward from center, using deterministic offsets
+    for (let attempt = 0; attempt < 200; attempt++) {
+      // Spiral outward with irregular angles
+      const angle = hash(i * 31, attempt * 17) * Math.PI * 2
+      const baseRadius = 8 + attempt * 0.6 + hash(i, attempt) * 5
+      const x = Math.round(Math.cos(angle) * baseRadius)
+      const z = Math.round(Math.sin(angle) * baseRadius)
 
-  for (let i = 1; i < count - 1; i++) {
-    const angle = angleStep * (i - 1) - Math.PI / 4
-    const radius = baseRadius + (i % 2 === 0 ? 3 : -2)
-    const x = Math.cos(angle) * radius + (hash(i, 0) - 0.5) * 4
-    const z = Math.sin(angle) * radius + (hash(0, i) - 0.5) * 4
-    positions.push([Math.round(x), Math.round(z)])
+      // Check distance from all existing positions
+      let tooClose = false
+      for (const [px, pz] of positions) {
+        const dist = Math.sqrt((x - px) ** 2 + (z - pz) ** 2)
+        if (dist < minDist) {
+          tooClose = true
+          break
+        }
+      }
+
+      if (!tooClose) {
+        positions.push([x, z])
+        placed = true
+        break
+      }
+    }
+
+    // Fallback — shouldn't happen but just in case
+    if (!placed) {
+      positions.push([i * minDist, 0])
+    }
   }
-
-  // Last zone (DONE) offset from cluster
-  positions.push([18, -10])
 
   return positions
 }

@@ -60,6 +60,7 @@
 - [ ] **B1**: Stop button not working properly — clicking Stop doesn't reliably kill the running agent process
 - [ ] **B2**: Silent phase errors — when a phase fails to start (e.g., spawn error, invalid args), there is no UI indication; the task just stops with no error message shown to the user
 - [ ] **B3**: Git section shows unrelated commits — the branch info in task details shows commits that don't belong to the task's branch (likely showing all commits instead of only those since branching from base)
+- [ ] **B4**: Lint errors across codebase — ~60+ ESLint errors (unused imports, `any` types, missing hook deps) need a full sweep to fix. Run `npm run lint` to see all issues.
 
 ## Notes
 
