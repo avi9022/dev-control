@@ -2,7 +2,7 @@ import { useMemo, type FC } from 'react'
 import * as THREE from 'three'
 import { getBlockTextures } from './textures'
 
-export type BlockType = 'grass' | 'dirt' | 'stone' | 'wood' | 'darkwood' | 'cobble' | 'sand' | 'wool' | 'leaf' | 'water'
+export type BlockType = 'grass' | 'darkgrass' | 'dirt' | 'stone' | 'wood' | 'darkwood' | 'cobble' | 'sand' | 'wool' | 'leaf' | 'water'
 
 // Shared geometry for all blocks
 const boxGeometry = new THREE.BoxGeometry(1, 1, 1)

@@ -7,6 +7,7 @@ import { Terrain } from './Terrain'
 import { Zones } from './Zones'
 import { Mountains } from './Mountains'
 import { Trees } from './Trees'
+import { Decorations } from './Decorations'
 
 interface SceneProps {
   zones: Zone[]
@@ -41,6 +42,7 @@ export const Scene: FC<SceneProps> = ({ zones, tasks, onTaskClick }) => {
       <Terrain />
       <Mountains />
       <Trees buildingPositions={buildingPositions} />
+      <Decorations buildingPositions={buildingPositions} />
       <Zones zones={zones} tasks={tasks} onTaskClick={onTaskClick} />
     </>
   )

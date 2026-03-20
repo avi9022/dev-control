@@ -100,6 +100,67 @@ function grassSide() {
   return texture
 }
 
+/** Dark grass top — deeper green */
+function darkGrassTop() {
+  const size = 16
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+
+  for (let x = 0; x < size; x++) {
+    for (let y = 0; y < size; y++) {
+      const n = Math.sin(x * 127.1 + y * 311.7 + 33) * 43758.5453
+      const rand = n - Math.floor(n)
+      const dark = rand > 0.7
+      const r = dark ? 28 : 35 + Math.round(rand * 12)
+      const g = dark ? 65 : 80 + Math.round(rand * 18)
+      const b = dark ? 18 : 22 + Math.round(rand * 8)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(x, y, 1, 1)
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  return texture
+}
+
+/** Dark grass side — dirt with darker green fringe */
+function darkGrassSide() {
+  const size = 16
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+
+  for (let x = 0; x < size; x++) {
+    for (let y = 0; y < size; y++) {
+      const n = Math.sin(x * 127.1 + y * 311.7 + 66) * 43758.5453
+      const rand = n - Math.floor(n)
+
+      if (y < 3 + Math.round(rand * 2)) {
+        const r = 30 + Math.round(rand * 10)
+        const g = 65 + Math.round(rand * 15)
+        const b = 16 + Math.round(rand * 6)
+        ctx.fillStyle = `rgb(${r},${g},${b})`
+      } else {
+        const r = 85 + Math.round(rand * 16)
+        const g = 68 + Math.round(rand * 12)
+        const b = 40 + Math.round(rand * 8)
+        ctx.fillStyle = `rgb(${r},${g},${b})`
+      }
+      ctx.fillRect(x, y, 1, 1)
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  return texture
+}
+
 /** Stone — grey with dark cracks/spots */
 function stoneTexture() {
   const size = 16
@@ -214,6 +275,12 @@ export function getBlockTextures(type: string, color?: string): {
       return {
         top: cached('grass-top', grassTop),
         side: cached('grass-side', grassSide),
+        bottom: cached('dirt-tex', () => generateTexture(110, 85, 55, 18, 1)),
+      }
+    case 'darkgrass':
+      return {
+        top: cached('darkgrass-top', darkGrassTop),
+        side: cached('darkgrass-side', darkGrassSide),
         bottom: cached('dirt-tex', () => generateTexture(110, 85, 55, 18, 1)),
       }
     case 'dirt':

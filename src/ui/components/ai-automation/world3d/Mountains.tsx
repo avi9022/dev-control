@@ -1,62 +1,78 @@
 import { useMemo, useRef, useEffect, type FC } from 'react'
 import * as THREE from 'three'
 import { hash } from './utils'
+import { getBlockTextures } from './textures'
 
-const RING_RADIUS = 90
-const MAX_HEIGHT = 14
+const EDGE_START = 75
+const MAX_HEIGHT = 25
 
-const COLORS = {
-  stone: new THREE.Color('#808080'),
-  dirt: new THREE.Color('#6B5A40'),
-  grass: new THREE.Color('#4a8c38'),
+/** Bilinear interpolated noise — produces smooth continuous values */
+function smoothNoise(wx: number, wz: number, scale: number, seed: number): number {
+  const sx = wx / scale
+  const sz = wz / scale
+  const x0 = Math.floor(sx)
+  const z0 = Math.floor(sz)
+  const fx = sx - x0
+  const fz = sz - z0
+
+  // Smoothstep interpolation
+  const ux = fx * fx * (3 - 2 * fx)
+  const uz = fz * fz * (3 - 2 * fz)
+
+  // Four corner samples
+  const n00 = hash(x0 + seed, z0 + seed)
+  const n10 = hash(x0 + 1 + seed, z0 + seed)
+  const n01 = hash(x0 + seed, z0 + 1 + seed)
+  const n11 = hash(x0 + 1 + seed, z0 + 1 + seed)
+
+  // Bilinear interpolation
+  const nx0 = n00 * (1 - ux) + n10 * ux
+  const nx1 = n01 * (1 - ux) + n11 * ux
+  return nx0 * (1 - uz) + nx1 * uz
 }
 
 interface BlockData {
   x: number
   y: number
   z: number
-  type: 'stone' | 'dirt' | 'grass'
 }
 
-/**
- * Generate a height value for a world position using layered noise.
- * Creates natural mountain terrain with peaks, valleys, and gaps.
- */
 function getHeight(wx: number, wz: number): number {
+  // Use distance from center (circular) to avoid square corners
   const distFromCenter = Math.sqrt(wx * wx + wz * wz)
+
+  // Mountains start at EDGE_START distance from center
+  if (distFromCenter < EDGE_START) return 0
+
+  // Height increases with distance from the start ring
+  const edgeFactor = Math.max(0, (distFromCenter - EDGE_START) / (100 - EDGE_START))
+
+  // Bilinear interpolated noise — smooth hills without stair-stepping
+  const surfaceNoise = smoothNoise(wx, wz, 8, 50) * 0.6 + smoothNoise(wx, wz, 14, 100) * 0.4
+
+  // Angular variation — broad peaks and valleys
   const angle = Math.atan2(wz, wx)
+  const peakNoise = smoothNoise(angle * 5, 0, 1, 300)
+  const valleyMask = 0.3 + peakNoise * 0.7
 
-  // Vary the ring radius itself — makes it not a perfect circle
-  const radiusNoise = hash(Math.round(angle * 5) + 500, 0) * 15
-  const localRadius = RING_RADIUS + radiusNoise - 7
+  // Smooth cubic curve from edge
+  const curve = edgeFactor * edgeFactor * edgeFactor
 
-  // Smooth falloff from the local ring center
-  const ringDist = Math.abs(distFromCenter - localRadius)
-  const ringFalloff = Math.max(0, 1 - ringDist / 25)
-
-  // Angular variation — creates distinct peaks and valleys/gaps
-  const peakNoise = hash(Math.round(angle * 3) + 300, 42)
-  const valleyMask = Math.pow(peakNoise, 0.6) // some directions are valleys (low), others are peaks (high)
-
-  // Layered noise for surface detail
-  const n1 = hash(wx * 0.15 + 50, wz * 0.15 + 50) // broad rolling hills
-  const n2 = hash(wx * 0.4 + 100, wz * 0.4 + 100) * 0.5 // medium bumps
-  const n3 = hash(wx * 1.2 + 200, wz * 1.2 + 200) * 0.2 // small detail
-  const surfaceNoise = (n1 + n2 + n3) / 1.7
-
-  return Math.round(MAX_HEIGHT * ringFalloff * valleyMask * surfaceNoise)
+  return Math.round(MAX_HEIGHT * curve * (0.4 + surfaceNoise * 0.6) * valleyMask)
 }
 
-function generateMountainBlocks(): BlockData[] {
-  const result: BlockData[] = []
+function generateMountainBlocks(): { stone: BlockData[]; dirt: BlockData[]; darkgrass: BlockData[]; grass: BlockData[] } {
+  const stone: BlockData[] = []
+  const dirt: BlockData[] = []
+  const darkgrass: BlockData[] = []
+  const grass: BlockData[] = []
   const seen = new Set<string>()
 
-  // Sample a wide band around the ring
-  for (let wx = -RING_RADIUS - 15; wx <= RING_RADIUS + 15; wx += 1) {
-    for (let wz = -RING_RADIUS - 15; wz <= RING_RADIUS + 15; wz += 1) {
+  for (let wx = -99; wx <= 99; wx += 1) {
+    for (let wz = -99; wz <= 99; wz += 1) {
+      // Only process blocks beyond the mountain start radius
       const distFromCenter = Math.sqrt(wx * wx + wz * wz)
-      // Only generate in the mountain band
-      if (distFromCenter < RING_RADIUS - 30 || distFromCenter > RING_RADIUS + 20) continue
+      if (distFromCenter < EDGE_START) continue
 
       const height = getHeight(wx, wz)
       if (height <= 0) continue
@@ -68,22 +84,39 @@ function generateMountainBlocks(): BlockData[] {
       for (let y = 0; y < height; y++) {
         const isTop = y === height - 1
         const isNearTop = y >= height - 2
-        result.push({
-          x: wx,
-          y: y + 0.5,
-          z: wz,
-          type: isTop ? 'grass' : isNearTop ? 'dirt' : 'stone',
-        })
+        const block = { x: wx, y: y + 0.5, z: wz }
+
+        if (isTop) {
+          // Blend zone: between height 4 and 12, probability of light grass increases
+          const blendStart = 4
+          const blendEnd = 12
+          const blend = Math.max(0, Math.min(1, (height - blendStart) / (blendEnd - blendStart)))
+          // Use hash for per-column randomness in the blend zone
+          const roll = hash(wx + 999, wz + 999)
+          if (roll < blend) grass.push(block)
+          else darkgrass.push(block)
+        }
+        else if (isNearTop) dirt.push(block)
+        else stone.push(block)
       }
     }
   }
 
-  return result
+  return { stone, dirt, darkgrass, grass }
 }
 
-function MountainLayer({ blocks, color }: { blocks: BlockData[]; color: THREE.Color }) {
+function MountainLayer({ blocks, type }: { blocks: BlockData[]; type: 'stone' | 'dirt' | 'grass' }) {
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const dummy = useMemo(() => new THREE.Object3D(), [])
+
+  const materials = useMemo(() => {
+    const textures = getBlockTextures(type)
+    const side = new THREE.MeshStandardMaterial({ map: textures.side })
+    const top = new THREE.MeshStandardMaterial({ map: textures.top })
+    const bottom = new THREE.MeshStandardMaterial({ map: textures.bottom })
+    // +x, -x, +y, -y, +z, -z
+    return [side, side, top, bottom, side, side]
+  }, [type])
 
   useEffect(() => {
     if (!meshRef.current) return
@@ -98,28 +131,21 @@ function MountainLayer({ blocks, color }: { blocks: BlockData[]; color: THREE.Co
   if (blocks.length === 0) return null
 
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, blocks.length]}>
+    <instancedMesh ref={meshRef} args={[undefined, undefined, blocks.length]} material={materials}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color={color} />
     </instancedMesh>
   )
 }
 
 export const Mountains: FC = () => {
-  const { stone, dirt, grass } = useMemo(() => {
-    const allBlocks = generateMountainBlocks()
-    return {
-      stone: allBlocks.filter(b => b.type === 'stone'),
-      dirt: allBlocks.filter(b => b.type === 'dirt'),
-      grass: allBlocks.filter(b => b.type === 'grass'),
-    }
-  }, [])
+  const { stone, dirt, darkgrass, grass } = useMemo(() => generateMountainBlocks(), [])
 
   return (
     <group>
-      <MountainLayer blocks={stone} color={COLORS.stone} />
-      <MountainLayer blocks={dirt} color={COLORS.dirt} />
-      <MountainLayer blocks={grass} color={COLORS.grass} />
+      <MountainLayer blocks={stone} type="stone" />
+      <MountainLayer blocks={dirt} type="dirt" />
+      <MountainLayer blocks={darkgrass} type="darkgrass" />
+      <MountainLayer blocks={grass} type="grass" />
     </group>
   )
 }
