@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type FC } from 'react'
 import { ChevronDown, Pencil, Trash2, Plus, Check, X } from 'lucide-react'
-import { DEFAULT_PIPELINE } from '@/electron/storage/store'
+import { DEFAULT_BOARD_PIPELINE } from './pipeline-constants'
 
 interface BoardSwitcherProps {
   settings: AIAutomationSettings
@@ -95,7 +95,7 @@ export const BoardSwitcher: FC<BoardSwitcherProps> = ({ settings, updateSettings
       id: crypto.randomUUID(),
       name: `Board ${boards.length + 1}`,
       color: BOARD_COLORS[boards.length % BOARD_COLORS.length],
-      pipeline: DEFAULT_PIPELINE.map(p => ({ ...p })),
+      pipeline: DEFAULT_BOARD_PIPELINE.map(p => ({ ...p })),
       createdAt: new Date().toISOString(),
     }
     updateSettings({
