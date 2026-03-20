@@ -186,6 +186,43 @@ function stoneTexture() {
   return texture
 }
 
+/** Brick — masonry pattern with mortar lines */
+function brickTexture() {
+  const size = 16
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+
+  for (let x = 0; x < size; x++) {
+    for (let y = 0; y < size; y++) {
+      const n = Math.sin(x * 127.1 + y * 311.7 + 99) * 43758.5453
+      const rand = n - Math.floor(n)
+
+      const row = Math.floor(y / 4)
+      const offset = (row % 2) * 4
+      const isMortarH = y % 4 === 0
+      const isMortarV = (x + offset) % 8 === 0
+
+      if (isMortarH || isMortarV) {
+        const v = 155 + Math.round(rand * 10)
+        ctx.fillStyle = `rgb(${v},${v},${v - 2})`
+      } else {
+        const brickSeed = Math.sin((Math.floor((x + offset) / 8)) * 31 + row * 17) * 43758.5453
+        const brickTone = (brickSeed - Math.floor(brickSeed)) * 15
+        const base = 115 + Math.round(brickTone) + Math.round(rand * 8)
+        ctx.fillStyle = `rgb(${base},${base},${base + 3})`
+      }
+      ctx.fillRect(x, y, 1, 1)
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  return texture
+}
+
 /** Wood plank — brown with grain lines */
 function woodTexture(dark: boolean = false) {
   const size = 16
@@ -254,6 +291,102 @@ function woolTexture(hexColor: string) {
   return generateTexture(r, g, b, 12, Math.round(c.r * 100))
 }
 
+/** Bars — vertical dark lines with transparent gaps for windows */
+function barsTexture() {
+  const size = 16
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+
+  ctx.clearRect(0, 0, size, size) // start transparent
+
+  for (let x = 0; x < size; x++) {
+    for (let y = 0; y < size; y++) {
+      const isBar = x % 4 === 0 || x % 4 === 1
+      const isFrame = y === 0 || y === size - 1
+      if (isBar || isFrame) {
+        const n = Math.sin(x * 127.1 + y * 311.7 + 888) * 43758.5453
+        const rand = n - Math.floor(n)
+        const v = 50 + Math.round(rand * 20)
+        ctx.fillStyle = `rgb(${v}, ${v}, ${v + 5})`
+        ctx.fillRect(x, y, 1, 1)
+      }
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  return texture
+}
+
+/** Lantern — warm glowing yellow with bright spots */
+function lanternTexture() {
+  const size = 16
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+
+  for (let x = 0; x < size; x++) {
+    for (let y = 0; y < size; y++) {
+      const n = Math.sin(x * 127.1 + y * 311.7 + 444) * 43758.5453
+      const rand = n - Math.floor(n)
+      const bright = rand > 0.7
+      const r = bright ? 245 : 220 + Math.round(rand * 20)
+      const g = bright ? 210 : 185 + Math.round(rand * 20)
+      const b = bright ? 100 : 70 + Math.round(rand * 20)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(x, y, 1, 1)
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  return texture
+}
+
+/** Crate — brown planks with cross pattern */
+function crateTexture() {
+  const size = 16
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+
+  for (let x = 0; x < size; x++) {
+    for (let y = 0; y < size; y++) {
+      const n = Math.sin(x * 127.1 + y * 311.7 + 555) * 43758.5453
+      const rand = n - Math.floor(n)
+
+      // Border frame
+      const isBorder = x === 0 || x === 15 || y === 0 || y === 15
+      // Cross planks
+      const isCross = Math.abs(x - y) <= 1 || Math.abs(x - (15 - y)) <= 1
+      // Horizontal plank lines
+      const isPlank = y % 4 === 0
+
+      if (isBorder) {
+        ctx.fillStyle = `rgb(${85 + Math.round(rand * 10)}, ${60 + Math.round(rand * 8)}, ${35 + Math.round(rand * 6)})`
+      } else if (isCross) {
+        ctx.fillStyle = `rgb(${110 + Math.round(rand * 12)}, ${80 + Math.round(rand * 10)}, ${45 + Math.round(rand * 8)})`
+      } else if (isPlank) {
+        ctx.fillStyle = `rgb(${130 + Math.round(rand * 10)}, ${95 + Math.round(rand * 8)}, ${55 + Math.round(rand * 6)})`
+      } else {
+        ctx.fillStyle = `rgb(${145 + Math.round(rand * 15)}, ${110 + Math.round(rand * 12)}, ${65 + Math.round(rand * 10)})`
+      }
+      ctx.fillRect(x, y, 1, 1)
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestFilter
+  return texture
+}
+
 // ─── Texture Cache ───
 
 const textureCache = new Map<string, THREE.CanvasTexture>()
@@ -311,6 +444,22 @@ export function getBlockTextures(type: string, color?: string): {
     }
     case 'leaf': {
       const tex = cached('leaf-tex', leafTexture)
+      return { top: tex, side: tex, bottom: tex }
+    }
+    case 'brick': {
+      const tex = cached('brick-tex', brickTexture)
+      return { top: tex, side: tex, bottom: tex }
+    }
+    case 'lantern': {
+      const tex = cached('lantern-tex', lanternTexture)
+      return { top: tex, side: tex, bottom: tex }
+    }
+    case 'crate': {
+      const tex = cached('crate-tex', crateTexture)
+      return { top: tex, side: tex, bottom: tex }
+    }
+    case 'bars': {
+      const tex = cached('bars-tex', barsTexture)
       return { top: tex, side: tex, bottom: tex }
     }
     case 'water': {

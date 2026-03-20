@@ -10,7 +10,7 @@ export const DevScene: FC = () => (
     <OrbitControls
       target={[30, 2, 0]}
       minDistance={5}
-      maxDistance={60}
+      maxDistance={120}
       enableDamping
       dampingFactor={0.1}
     />

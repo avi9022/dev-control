@@ -4,6 +4,9 @@ import { Block, type BlockType } from './blocks'
 import { Tree } from './Tree'
 import { TaskCube } from './TaskCube'
 import { SignPost } from './SignPost'
+import { Lantern } from './Lantern'
+import { ZoneBuilding } from './ZoneBuilding'
+import { Tower } from './buildings/Tower'
 import { Flower } from './Flower'
 import { TallGrass } from './TallGrass'
 import { Boulder } from './Boulder'
@@ -14,6 +17,7 @@ const BLOCK_TYPES: { type: BlockType; label: string; color?: string }[] = [
   { type: 'darkgrass', label: 'Dark Grass' },
   { type: 'dirt', label: 'Dirt' },
   { type: 'stone', label: 'Stone' },
+  { type: 'brick', label: 'Brick' },
   { type: 'wood', label: 'Wood' },
   { type: 'darkwood', label: 'Dark Wood' },
   { type: 'cobble', label: 'Cobble' },
@@ -23,6 +27,8 @@ const BLOCK_TYPES: { type: BlockType; label: string; color?: string }[] = [
   { type: 'wool', label: 'Wool (blue)', color: '#6B7FD7' },
   { type: 'leaf', label: 'Leaf' },
   { type: 'water', label: 'Water' },
+  { type: 'bars', label: 'Bars' },
+  { type: 'crate', label: 'Crate' },
 ]
 
 function Label({ position, text }: { position: [number, number, number]; text: string }) {
@@ -67,8 +73,8 @@ export const DevShowcase: FC = () => {
   return (
     <group>
       {/* Ground */}
-      <mesh position={[40, 0, 20]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[140, 70]} />
+      <mesh position={[40, 0, 25]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[140, 90]} />
         <meshStandardMaterial color="#3a7530" />
       </mesh>
 
@@ -155,10 +161,19 @@ export const DevShowcase: FC = () => {
 
       {/* Sign Post */}
       <SignPost position={[12, row3Z - 4]} label="Sign Post" color="#9BB89E" />
+      <Lantern position={[18, 2, row3Z]} />
+      <Label position={[18, -0.3, row3Z]} text="Lantern" />
 
       {/* Mountain Sample */}
       <MountainSample position={[30, 0.5, row3Z]} />
       <Label position={[30, -0.3, row3Z]} text="Mountain" />
+
+      {/* ── Row 4: Buildings ── */}
+      <SectionLabel position={[-2, 3.5, row3Z + 14]} text="Buildings" />
+      <ZoneBuilding position={[0, row3Z + 14]} color="#6B7FD7" />
+      <Label position={[0, -0.3, row3Z + 14]} text="Cottage" />
+      <Tower position={[16, row3Z + 14]} color="#D4A843" />
+      <Label position={[16, -0.3, row3Z + 14]} text="Tower" />
     </group>
   )
 }
