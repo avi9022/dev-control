@@ -1,6 +1,5 @@
 import type { FC } from 'react'
 import { Text } from '@react-three/drei'
-import { Block } from './blocks'
 
 interface SignPostProps {
   position: [number, number]
@@ -10,27 +9,32 @@ interface SignPostProps {
 
 export const SignPost: FC<SignPostProps> = ({ position, label, color }) => {
   const [x, z] = position
-  const postX = x
-  const postZ = z + 4
+  // Place sign to the right side of the building
+  const signX = x + 4
+  const signZ = z
 
   return (
-    <group>
-      {/* Post — 3 wood blocks tall */}
-      <Block type="wood" position={[postX, 1.5, postZ]} />
-      <Block type="wood" position={[postX, 2.5, postZ]} />
-      <Block type="wood" position={[postX, 3.5, postZ]} />
-      {/* Sign board — sand block */}
-      <Block type="sand" position={[postX, 4.5, postZ]} />
+    <group position={[signX, 0.5, signZ]}>
+      {/* Post */}
+      <mesh position={[0, 1.5, 0]}>
+        <boxGeometry args={[0.3, 3, 0.3]} />
+        <meshStandardMaterial color="#8B7355" />
+      </mesh>
+      {/* Sign board */}
+      <mesh position={[0, 2.8, 0.2]}>
+        <boxGeometry args={[4, 1.2, 0.15]} />
+        <meshStandardMaterial color="#C4A97D" />
+      </mesh>
       {/* Label */}
       <Text
-        position={[postX, 4.5, postZ + 0.55]}
-        fontSize={0.45}
+        position={[0, 2.8, 0.35]}
+        fontSize={0.5}
         color={color}
         anchorX="center"
         anchorY="middle"
         outlineWidth={0.03}
         outlineColor="#2C2825"
-        maxWidth={3}
+        maxWidth={3.5}
       >
         {label}
       </Text>

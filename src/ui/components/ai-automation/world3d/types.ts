@@ -13,4 +13,4 @@ export interface Task3D {
 }
 
 export const TERRAIN_SIZE = 200
-export const FOG_COLOR = '#a8c8a0'
+export const SKY_COLOR = '#87CEEB'

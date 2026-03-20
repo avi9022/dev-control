@@ -31,7 +31,7 @@ export const Path: FC<PathProps> = ({ from, to }) => {
         const k = `${bx + w},${bz}`
         if (!seen.has(k)) {
           seen.add(k)
-          result.push({ pos: [bx + w + 0.5, 0.55, bz + 0.5], key: key++ })
+          result.push({ pos: [bx + w + 0.5, 0.02, bz + 0.5], key: key++ })
         }
       }
     }

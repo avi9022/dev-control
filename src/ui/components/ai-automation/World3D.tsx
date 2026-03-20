@@ -1,7 +1,7 @@
 import type { FC } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Scene } from './world3d/Scene'
-import { FOG_COLOR } from './world3d/types'
+import { SKY_COLOR } from './world3d/types'
 import type { Zone, Task3D } from './world3d/types'
 
 export type { Zone, Task3D }
@@ -18,7 +18,7 @@ const DEFAULT_ZONES: Zone[] = [
 ]
 
 export const World3D: FC<World3DProps> = ({ zones = DEFAULT_ZONES, tasks, onTaskClick }) => (
-  <div className="h-full w-full" style={{ background: FOG_COLOR }}>
+  <div className="h-full w-full" style={{ background: SKY_COLOR }}>
     <Canvas
       camera={{
         position: [30, 25, 35],
