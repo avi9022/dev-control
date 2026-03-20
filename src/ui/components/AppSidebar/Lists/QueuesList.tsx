@@ -4,7 +4,6 @@ import { useQueues } from "@/ui/contexts/queues";
 import { useViews } from "@/ui/contexts/views";
 import { useBroker } from "@/ui/contexts/broker";
 import { DeleteQueueButton } from "../../DialogButtons/DeleteQueueButton";
-import { OpenItemViewButton } from "../../OpenItemViewButton";
 import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
 import { TooltipTrigger } from "@radix-ui/react-tooltip";
 import { BrokerEmptyState } from "../../BrokerEmptyState";
@@ -31,31 +30,28 @@ export const QueuesList: FC<QueuesListProps> = ({
       const isCurrent = views.some(({ itemId, type }) => type === 'queue' && itemId === url)
 
       return <div key={url}>
-        <div className={`py-5 px-3 flex w-full justify-between items-center ${isCurrent ? 'bg-accent text-accent-foreground' : ''}`}
+        <div className={`py-2 px-2.5 flex w-full justify-between items-center cursor-pointer ${isCurrent ? 'bg-accent text-accent-foreground' : ''}`}
           onClick={() => {
             onChooseQueue(url)
           }}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <p className="font-bold w-[250px] text-sm truncate overflow-hidden whitespace-nowrap">{url.split('/').pop()}</p>
+              <p className="font-medium text-xs w-[140px] truncate flex-shrink-0">{url.split('/').pop()}</p>
             </TooltipTrigger>
             <TooltipContent>
-              <p className="font-bold">{url.split('/').pop()}</p>
+              <p>{url.split('/').pop()}</p>
             </TooltipContent>
           </Tooltip>
-          <div className="flex gap-2 justify-end flex-1">
-            <OpenItemViewButton onOpenView={() => {
-              onChooseQueue(url, false)
-            }} id={url} type="queue" variant={isCurrent ? 'secondary' : 'outline'} />
+          <div className="flex gap-1 justify-end flex-shrink-0">
             <DeleteQueueButton queueUrl={url} />
           </div>
         </div>
         <Separator />
       </div>
-    }) : <div className="flex flex-col px-5 text-center gap-2 h-[400px] justify-center">
-      <p>No queues to match the search</p>
-    </div> : <div className="flex flex-col px-5 text-center gap-2 h-[400px] justify-center">
-      <p>Looks like you have no queues</p>
+    }) : <div className="flex flex-col px-5 text-center gap-2 h-[200px] justify-center">
+      <p className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>No queues to match the search</p>
+    </div> : <div className="flex flex-col px-5 text-center gap-2 h-[200px] justify-center">
+      <p className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>Looks like you have no queues</p>
     </div>}
   </div>
 }

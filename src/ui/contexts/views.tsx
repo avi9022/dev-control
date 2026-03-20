@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useMemo, type FC, type PropsWithChildren } from 'react'
 
-export type ViewType = 'directory' | 'queue' | 'tool' | 'dynamodb' | 'api-client' | 'docker' | 'mongodb' | 'sql'
+export type ViewType = 'kanban' | 'directory' | 'queue' | 'tool' | 'dynamodb' | 'api-client' | 'docker' | 'mongodb' | 'sql'
 
 interface View {
   type: ViewType,
@@ -31,7 +31,7 @@ export function useViews() {
 
 export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
   const [views, setViews] = useState<View[]>([{
-    type: 'directory',
+    type: 'kanban',
     itemId: null
   }])
   const [currentViewIndex, setCurrentViewIndex] = useState(0)
@@ -46,7 +46,7 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
         } else {
           updated.push({
             itemId: null,
-            type: 'directory'
+            type: 'kanban'
           })
         }
       }
@@ -61,8 +61,11 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
 
   const updateView = useCallback((type: ViewType, itemId: string | null) => {
     setViews((prev) => {
+      // If a pane already has this type, update that one (not the focused pane)
+      const existingIndex = prev.findIndex(v => v.type === type)
+      const targetIndex = existingIndex !== -1 ? existingIndex : currentViewIndex
       return prev.map((view, index) => {
-        if (index === currentViewIndex) {
+        if (index === targetIndex) {
           return { ...view, itemId, type }
         }
         return view

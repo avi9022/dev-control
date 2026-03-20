@@ -879,6 +879,7 @@ interface AIAutomationSettings {
   defaultApprovePhase?: string
   approveSkipConfirm?: boolean
   fileViewMode?: 'list' | 'grid' | 'tree'
+  visibleViews?: string[]
 }
 
 interface AITaskOutput {

@@ -1,14 +1,15 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, CircleX, Plus, Upload, FolderOpen, ChevronRight, Settings2, Trash2, MoreVertical, GripVertical } from "lucide-react"
+import { Plus, Upload, FolderOpen, ChevronRight, Settings2, Trash2, MoreVertical, GripVertical } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type FC, type MouseEvent, type DragEvent } from "react"
 import { createPortal } from "react-dom"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { useApiClient } from "@/ui/contexts/api-client"
 import { cn } from "@/lib/utils"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EnvironmentManager } from '../api-client/EnvironmentManager'
+import { SearchInput } from "../Inputs/SearchInput"
+import { SidebarPanel } from "./SidebarPanel"
 
 const METHOD_COLORS: Record<ApiHttpMethod, string> = {
   GET: 'text-status-green',
@@ -738,332 +739,323 @@ export const ApiClientMenu: FC = () => {
   }
 
   return (
-    <div>
-      {/* Workspace Selector */}
-      <div className="mb-2 px-4">
-        {workspaces.length > 0 ? (
-          <div className="flex items-center gap-1.5">
-            <select
-              value={activeWorkspaceId ?? ''}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setActiveWorkspace(e.target.value)
-                }
-              }}
-              className="flex-1 h-7 rounded border bg-background px-2 text-xs font-medium"
-            >
-              <option value="" disabled>Select workspace</option>
-              {workspaces.map((ws) => (
-                <option key={ws.id} value={ws.id}>{ws.name}</option>
-              ))}
-            </select>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
-                  <MoreVertical className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => {
-                  openInputDialog('Workspace name', (name) => {
-                    createWorkspace(name)
-                  })
-                }}>
-                  <Plus className="h-3.5 w-3.5 mr-2" />
-                  New Workspace
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => {
-                    if (activeWorkspaceId && activeWorkspace) {
-                      openConfirmDialog(`Delete workspace "${activeWorkspace.name}"?`, () => {
-                        deleteWorkspace(activeWorkspaceId)
-                      })
-                    }
-                  }}
-                  disabled={!activeWorkspaceId}
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-2" />
-                  Delete Workspace
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5">
-            <Input
-              placeholder="New workspace name..."
-              value={newWorkspaceName}
-              onChange={(e) => setNewWorkspaceName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateWorkspace()
-              }}
-              className="h-7 text-xs"
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-7 w-7 flex-shrink-0"
-              onClick={handleCreateWorkspace}
-              disabled={!newWorkspaceName.trim()}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {activeWorkspace && (
-        <>
-          {/* Environment Selector */}
-          <div className="flex items-center gap-1.5 mb-2 px-4">
-            {environments.length > 0 ? (
+    <SidebarPanel
+      header={
+        <div className="space-y-2">
+          {/* Workspace Selector */}
+          {workspaces.length > 0 ? (
+            <div className="flex items-center gap-1.5">
               <select
-                value={activeWorkspace.activeEnvironmentId ?? ''}
+                value={activeWorkspaceId ?? ''}
                 onChange={(e) => {
-                  const envId = e.target.value || null
-                  window.electron.apiSetActiveEnvironment(activeWorkspace.id, envId)
+                  if (e.target.value) {
+                    setActiveWorkspace(e.target.value)
+                  }
                 }}
-                className="flex-1 h-7 rounded border bg-background px-2 text-xs"
+                className="flex-1 h-7 rounded border bg-background px-2 text-xs font-medium"
               >
-                <option value="">No environment</option>
-                {environments.map((env) => (
-                  <option key={env.id} value={env.id}>{env.name}</option>
+                <option value="" disabled>Select workspace</option>
+                {workspaces.map((ws) => (
+                  <option key={ws.id} value={ws.id}>{ws.name}</option>
                 ))}
               </select>
-            ) : (
-              <div className="flex-1 h-7 rounded border bg-muted px-2 text-xs flex items-center text-muted-foreground">
-                No environments
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
+                    <MoreVertical className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => {
+                    openInputDialog('Workspace name', (name) => {
+                      createWorkspace(name)
+                    })
+                  }}>
+                    <Plus className="h-3.5 w-3.5 mr-2" />
+                    New Workspace
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => {
+                      if (activeWorkspaceId && activeWorkspace) {
+                        openConfirmDialog(`Delete workspace "${activeWorkspace.name}"?`, () => {
+                          deleteWorkspace(activeWorkspaceId)
+                        })
+                      }
+                    }}
+                    disabled={!activeWorkspaceId}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    Delete Workspace
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Input
+                placeholder="New workspace name..."
+                value={newWorkspaceName}
+                onChange={(e) => setNewWorkspaceName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateWorkspace()
+                }}
+                className="h-7 text-xs"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-7 p-0 flex-shrink-0"
+                onClick={handleCreateWorkspace}
+                disabled={!newWorkspaceName.trim()}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+
+          {activeWorkspace && (
+            <>
+              {/* Environment Selector */}
+              <div className="flex items-center gap-1.5">
+                {environments.length > 0 ? (
+                  <select
+                    value={activeWorkspace.activeEnvironmentId ?? ''}
+                    onChange={(e) => {
+                      const envId = e.target.value || null
+                      window.electron.apiSetActiveEnvironment(activeWorkspace.id, envId)
+                    }}
+                    className="flex-1 h-7 rounded border bg-background px-2 text-xs"
+                  >
+                    <option value="">No environment</option>
+                    {environments.map((env) => (
+                      <option key={env.id} value={env.id}>{env.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="flex-1 h-7 rounded border bg-muted px-2 text-xs flex items-center text-muted-foreground">
+                    No environments
+                  </div>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 p-0 flex-shrink-0"
+                  onClick={() => setEnvManagerOpen(true)}
+                  title="Manage environments"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1.5">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 flex items-center gap-1 text-[11px] px-2">
+                      <Upload className="h-3 w-3" />
+                      Import
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={importPostmanCollection}>Collection</DropdownMenuItem>
+                    <DropdownMenuItem onClick={importPostmanEnvironment}>Environment</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 flex items-center gap-1 text-[11px] px-2"
+                  onClick={handleCreateCollection}
+                >
+                  <Plus className="h-3 w-3" />
+                  Collection
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-7 flex items-center gap-1 text-[11px] px-2"
+                  onClick={createScratchRequest}
+                >
+                  <Plus className="h-3 w-3" />
+                  New
+                </Button>
+              </div>
+
+              {/* Search */}
+              <SearchInput
+                placeholder="Filter..."
+                value={searchTerm}
+                onChange={(ev) => setSearchTerm(ev.target.value)}
+                onClear={() => setSearchTerm('')}
+              />
+            </>
+          )}
+        </div>
+      }
+    >
+      {activeWorkspace && (
+        <>
+          {/* Collections */}
+          <div className="px-1 relative">
+            {collections.length === 0 && (
+              <div className="px-3 py-6 text-xs text-muted-foreground text-center">
+                No collections yet. Import or create one.
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 flex-shrink-0"
-              onClick={() => setEnvManagerOpen(true)}
-              title="Manage environments"
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-1.5 mb-2 px-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 flex items-center gap-1 text-[11px] px-2">
-                  <Upload className="h-3 w-3" />
-                  Import
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={importPostmanCollection}>Collection</DropdownMenuItem>
-                <DropdownMenuItem onClick={importPostmanEnvironment}>Environment</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 flex items-center gap-1 text-[11px] px-2"
-              onClick={handleCreateCollection}
-            >
-              <Plus className="h-3 w-3" />
-              Collection
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="h-7 flex items-center gap-1 text-[11px] px-2"
-              onClick={createScratchRequest}
-            >
-              <Plus className="h-3 w-3" />
-              New
-            </Button>
-          </div>
-
-          {/* Search */}
-          <div className="relative h-7 mb-3 px-4">
-            <Search className="absolute left-6 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Filter..."
-              className="h-7 pl-7 pr-7 text-xs"
-              value={searchTerm}
-              onChange={(ev) => setSearchTerm(ev.target.value)}
-            />
-            {searchTerm && (
-              <Button
-                onClick={() => setSearchTerm('')}
-                variant="ghost"
-                size="icon"
-                className="absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2"
-              >
-                <CircleX className="h-3 w-3" />
-              </Button>
+            {/* Top drop zone - absolute positioned, doesn't affect layout */}
+            {collections.length > 0 && dragData?.type === 'collection' && (
+              <div
+                className="absolute top-0 left-0 right-0 h-4 z-10"
+                onDragOver={(e) => {
+                  if (!dragDataRef.current || dragDataRef.current.type !== 'collection') return
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const firstCollection = collections[0]
+                  if (firstCollection && dragDataRef.current.id !== firstCollection.id) {
+                    const target: DropTarget = { type: 'collection', id: firstCollection.id, collectionId: firstCollection.id, position: 'before' }
+                    dropTargetRef.current = target
+                    setDropTarget(target)
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleDrop()
+                }}
+              />
             )}
-          </div>
 
-          {/* Collections */}
-          <ScrollArea className="h-[calc(100vh-80px-40px-80px-35px-20px-140px)]">
-            <div className="px-1 relative">
-              {collections.length === 0 && (
-                <div className="px-3 py-6 text-xs text-muted-foreground text-center">
-                  No collections yet. Import or create one.
-                </div>
-              )}
+            {collections.map((collection) => {
+              const isExpanded = expandedCollections[collection.id] ?? false
+              const filteredItems = filterItems(collection.items)
+              const isEditingCollection = editingCollectionNameId === collection.id
+              const isDraggingCollection = dragData?.type === 'collection' && dragData.id === collection.id
+              const isCollectionDropTarget = dropTarget?.type === 'collection' && dropTarget.id === collection.id
+              const isRootDropTarget = dropTarget?.type === 'collection-root' && dropTarget.id === collection.id
 
-              {/* Top drop zone - absolute positioned, doesn't affect layout */}
-              {collections.length > 0 && dragData?.type === 'collection' && (
-                <div
-                  className="absolute top-0 left-0 right-0 h-4 z-10"
-                  onDragOver={(e) => {
-                    if (!dragDataRef.current || dragDataRef.current.type !== 'collection') return
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const firstCollection = collections[0]
-                    if (firstCollection && dragDataRef.current.id !== firstCollection.id) {
-                      const target: DropTarget = { type: 'collection', id: firstCollection.id, collectionId: firstCollection.id, position: 'before' }
-                      dropTargetRef.current = target
-                      setDropTarget(target)
-                    }
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    handleDrop()
-                  }}
-                />
-              )}
+              if (searchTerm && filteredItems.length === 0) return null
 
-              {collections.map((collection) => {
-                const isExpanded = expandedCollections[collection.id] ?? false
-                const filteredItems = filterItems(collection.items)
-                const isEditingCollection = editingCollectionNameId === collection.id
-                const isDraggingCollection = dragData?.type === 'collection' && dragData.id === collection.id
-                const isCollectionDropTarget = dropTarget?.type === 'collection' && dropTarget.id === collection.id
-                const isRootDropTarget = dropTarget?.type === 'collection-root' && dropTarget.id === collection.id
+              const collectionActions: ContextMenuAction[] = [
+                { label: 'Add Request', onClick: () => handleAddRequest(collection.id, null) },
+                { label: 'Add Folder', onClick: () => handleAddFolder(collection.id, null) },
+                { label: 'Edit Authorization', onClick: () => selectRequest(`collection-settings:${collection.id}`), separator: true },
+                { label: 'Rename', onClick: () => handleStartCollectionRename(collection.id, collection.name) },
+                { label: 'Duplicate', onClick: () => createCollection(`Copy of ${collection.name}`) },
+                { label: 'Delete Collection', onClick: () => handleDeleteCollection(collection.id), variant: 'destructive', separator: true },
+              ]
 
-                if (searchTerm && filteredItems.length === 0) return null
+              return (
+                <div key={collection.id} className="mb-0.5 transition-all duration-150">
+                  {/* Drop line before collection */}
+                  {isCollectionDropTarget && dropTarget?.position === 'before' && (
+                    <div className="h-[2px] bg-sky-500 rounded-full mx-2 my-[-1px]" />
+                  )}
 
-                const collectionActions: ContextMenuAction[] = [
-                  { label: 'Add Request', onClick: () => handleAddRequest(collection.id, null) },
-                  { label: 'Add Folder', onClick: () => handleAddFolder(collection.id, null) },
-                  { label: 'Edit Authorization', onClick: () => selectRequest(`collection-settings:${collection.id}`), separator: true },
-                  { label: 'Rename', onClick: () => handleStartCollectionRename(collection.id, collection.name) },
-                  { label: 'Duplicate', onClick: () => createCollection(`Copy of ${collection.name}`) },
-                  { label: 'Delete Collection', onClick: () => handleDeleteCollection(collection.id), variant: 'destructive', separator: true },
-                ]
-
-                return (
-                  <div key={collection.id} className="mb-0.5 transition-all duration-150">
-                    {/* Drop line before collection */}
-                    {isCollectionDropTarget && dropTarget?.position === 'before' && (
-                      <div className="h-[2px] bg-sky-500 rounded-full mx-2 my-[-1px]" />
-                    )}
-
-                    <div
-                      draggable={isDragEnabled && !isEditingCollection}
-                      onDragStart={(e) => {
-                        if (!isDragEnabled || isEditingCollection) {
-                          e.preventDefault()
-                          return
-                        }
-                        e.dataTransfer.effectAllowed = 'move'
-                        e.dataTransfer.setData('text/plain', collection.id)
-                        setTimeout(() => {
-                          handleDragStart({ type: 'collection', id: collection.id })
-                        }, 0)
-                      }}
-                      onDragOver={(e) => handleDragOverCollection(e, collection.id)}
-                      onDrop={(e) => {
+                  <div
+                    draggable={isDragEnabled && !isEditingCollection}
+                    onDragStart={(e) => {
+                      if (!isDragEnabled || isEditingCollection) {
                         e.preventDefault()
-                        e.stopPropagation()
-                        handleDrop()
-                      }}
-                      onDragEnd={handleDragEnd}
-                      onContextMenu={(e) => handleRightClick(e, collectionActions)}
-                      className={cn(
-                        "group w-full flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all duration-150",
-                        "hover:bg-accent",
-                        isDraggingCollection && "opacity-40",
-                        isRootDropTarget && "bg-sky-500/20 ring-1 ring-sky-500/50",
-                      )}
-                    >
-                      {isDragEnabled && !isEditingCollection && (
-                        <GripVertical className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/50 flex-shrink-0 cursor-grab transition-colors" />
-                      )}
-                      {isEditingCollection ? (
-                        <input
-                          autoFocus
-                          value={editingCollectionNameValue}
-                          onChange={(e) => setEditingCollectionNameValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleCommitCollectionRename(collection.id)
-                            if (e.key === 'Escape') handleCancelCollectionRename()
-                          }}
-                          onBlur={() => handleCommitCollectionRename(collection.id)}
-                          className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-xs font-medium outline-none"
-                        />
-                      ) : (
-                        <button
-                          onClick={() => handleToggleCollection(collection.id)}
-                          className="flex items-center gap-1 flex-1 text-left"
-                        >
-                          <ChevronRight className={cn(
-                            "h-3 w-3 text-muted-foreground flex-shrink-0 transition-transform duration-200",
-                            isExpanded && "rotate-90"
-                          )} />
-                          <span className="truncate">{collection.name}</span>
-                          <span className="ml-auto text-[9px] text-muted-foreground">
-                            {collection.items.length}
-                          </span>
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Collection items */}
-                    <CollapsibleContent isOpen={isExpanded || !!searchTerm}>
-                      {(searchTerm ? filteredItems : collection.items).map((item) => (
-                        <CollectionTreeItem
-                          key={item.id}
-                          item={item}
-                          collectionId={collection.id}
-                          expandedFolders={expandedFolders}
-                          selectedRequestId={selectedRequestId}
-                          editingItemId={editingItemId}
-                          editingValue={editingValue}
-                          onEditingValueChange={setEditingValue}
-                          onToggleFolder={handleToggleFolder}
-                          onSelectRequest={selectRequest}
-                          onAddRequest={handleAddRequest}
-                          onAddFolder={handleAddFolder}
-                          onDeleteItem={handleDeleteItem}
-                          onDuplicateItem={handleDuplicateItem}
-                          onStartRename={handleStartRename}
-                          onCommitRename={handleCommitRename}
-                          onCancelRename={handleCancelRename}
-                          onContextMenu={handleRightClick}
-                          depth={1}
-                          isDragEnabled={isDragEnabled}
-                          dragData={dragData}
-                          dropTarget={dropTarget}
-                          onDragStart={handleDragStart}
-                          onDragEnd={handleDragEnd}
-                          onDragOverItem={handleDragOverItem}
-                          onDrop={handleDrop}
-                        />
-                      ))}
-                    </CollapsibleContent>
-
-                    {/* Drop line after collection */}
-                    {isCollectionDropTarget && dropTarget?.position === 'after' && (
-                      <div className="h-[2px] bg-sky-500 rounded-full mx-2 my-[-1px]" />
+                        return
+                      }
+                      e.dataTransfer.effectAllowed = 'move'
+                      e.dataTransfer.setData('text/plain', collection.id)
+                      setTimeout(() => {
+                        handleDragStart({ type: 'collection', id: collection.id })
+                      }, 0)
+                    }}
+                    onDragOver={(e) => handleDragOverCollection(e, collection.id)}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleDrop()
+                    }}
+                    onDragEnd={handleDragEnd}
+                    onContextMenu={(e) => handleRightClick(e, collectionActions)}
+                    className={cn(
+                      "group w-full flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all duration-150",
+                      "hover:bg-accent",
+                      isDraggingCollection && "opacity-40",
+                      isRootDropTarget && "bg-sky-500/20 ring-1 ring-sky-500/50",
+                    )}
+                  >
+                    {isDragEnabled && !isEditingCollection && (
+                      <GripVertical className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/50 flex-shrink-0 cursor-grab transition-colors" />
+                    )}
+                    {isEditingCollection ? (
+                      <input
+                        autoFocus
+                        value={editingCollectionNameValue}
+                        onChange={(e) => setEditingCollectionNameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleCommitCollectionRename(collection.id)
+                          if (e.key === 'Escape') handleCancelCollectionRename()
+                        }}
+                        onBlur={() => handleCommitCollectionRename(collection.id)}
+                        className="flex-1 bg-transparent border border-ring rounded px-1 py-0 text-xs font-medium outline-none"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => handleToggleCollection(collection.id)}
+                        className="flex items-center gap-1 flex-1 text-left"
+                      >
+                        <ChevronRight className={cn(
+                          "h-3 w-3 text-muted-foreground flex-shrink-0 transition-transform duration-200",
+                          isExpanded && "rotate-90"
+                        )} />
+                        <span className="truncate">{collection.name}</span>
+                        <span className="ml-auto text-[9px] text-muted-foreground">
+                          {collection.items.length}
+                        </span>
+                      </button>
                     )}
                   </div>
-                )
-              })}
-            </div>
-          </ScrollArea>
+
+                  {/* Collection items */}
+                  <CollapsibleContent isOpen={isExpanded || !!searchTerm}>
+                    {(searchTerm ? filteredItems : collection.items).map((item) => (
+                      <CollectionTreeItem
+                        key={item.id}
+                        item={item}
+                        collectionId={collection.id}
+                        expandedFolders={expandedFolders}
+                        selectedRequestId={selectedRequestId}
+                        editingItemId={editingItemId}
+                        editingValue={editingValue}
+                        onEditingValueChange={setEditingValue}
+                        onToggleFolder={handleToggleFolder}
+                        onSelectRequest={selectRequest}
+                        onAddRequest={handleAddRequest}
+                        onAddFolder={handleAddFolder}
+                        onDeleteItem={handleDeleteItem}
+                        onDuplicateItem={handleDuplicateItem}
+                        onStartRename={handleStartRename}
+                        onCommitRename={handleCommitRename}
+                        onCancelRename={handleCancelRename}
+                        onContextMenu={handleRightClick}
+                        depth={1}
+                        isDragEnabled={isDragEnabled}
+                        dragData={dragData}
+                        dropTarget={dropTarget}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDragOverItem={handleDragOverItem}
+                        onDrop={handleDrop}
+                      />
+                    ))}
+                  </CollapsibleContent>
+
+                  {/* Drop line after collection */}
+                  {isCollectionDropTarget && dropTarget?.position === 'after' && (
+                    <div className="h-[2px] bg-sky-500 rounded-full mx-2 my-[-1px]" />
+                  )}
+                </div>
+              )
+            })}
+          </div>
 
           {/* History */}
           <div className="border-t">
@@ -1079,7 +1071,7 @@ export const ApiClientMenu: FC = () => {
               <span className="ml-auto text-[9px] text-muted-foreground">{history.length}</span>
             </button>
             {historyExpanded && (
-              <ScrollArea className="max-h-[180px]">
+              <div className="max-h-[180px] overflow-y-auto">
                 <div className="px-1 pb-1">
                   {history.length === 0 && (
                     <div className="px-2 py-3 text-[11px] text-muted-foreground text-center">
@@ -1099,7 +1091,7 @@ export const ApiClientMenu: FC = () => {
                     </button>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
             )}
           </div>
         </>
@@ -1146,6 +1138,6 @@ export const ApiClientMenu: FC = () => {
 
       {/* Context Menu */}
       {rightClickMenu && <RightClickMenu menu={rightClickMenu} onClose={closeRightClickMenu} />}
-    </div>
+    </SidebarPanel>
   )
 }

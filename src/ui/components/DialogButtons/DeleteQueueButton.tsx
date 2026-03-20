@@ -25,8 +25,8 @@ export const DeleteQueueButton: FC<DeleteQueueButtonProps> = ({ queueUrl }) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant='destructive' type="button" onClick={(ev) => ev.stopPropagation()}>
-          <Trash color="white" />
+        <Button variant='destructive' type="button" className="size-6 p-0" onClick={(ev) => ev.stopPropagation()}>
+          <Trash className="size-2.5" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

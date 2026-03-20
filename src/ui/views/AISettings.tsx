@@ -7,22 +7,96 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ArrowLeft, Plus, Trash2, Folder, Wand2, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Folder, Wand2, Loader2, Sun, Moon } from 'lucide-react'
 import { PipelineDiagram } from '@/ui/components/ai-automation/PipelineDiagram'
+import { NAV_ITEMS, DEFAULT_VISIBLE_VIEWS } from '@/ui/components/AppNavbar'
 
-export const AISettings: FC = () => {
+interface AISettingsProps {
+  defaultTab?: string
+}
+
+export const AISettings: FC<AISettingsProps> = ({ defaultTab }) => {
   const { settings, updateSettings } = useAIAutomation()
 
   if (!settings) return <div className="flex items-center justify-center py-8" style={{ color: 'var(--ai-text-tertiary)' }}>Loading settings...</div>
 
   return (
-    <Tabs defaultValue="pipeline" className="flex-1 flex flex-col min-h-0">
+    <Tabs defaultValue={defaultTab || "pipeline"} className="flex-1 flex flex-col min-h-0">
       <TabsList className="w-fit">
+          <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge Docs</TabsTrigger>
           <TabsTrigger value="rules">Global Rules</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="appearance" className="flex-1 min-h-0 overflow-auto p-4">
+          <div className="flex gap-8">
+            {/* Left: Sidebar Views */}
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ai-text-primary)' }}>Sidebar Views</h3>
+              <p className="text-xs mb-3" style={{ color: 'var(--ai-text-tertiary)' }}>Choose which views appear in the sidebar.</p>
+              <div className="space-y-1">
+                {NAV_ITEMS.map(({ value, label, icon: Icon }) => {
+                  const visibleViews = settings.visibleViews || DEFAULT_VISIBLE_VIEWS
+                  const isChecked = visibleViews.includes(value)
+                  return (
+                    <label
+                      key={value}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors hover:bg-[var(--ai-surface-2)]"
+                    >
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          const current = settings.visibleViews || DEFAULT_VISIBLE_VIEWS
+                          const updated = checked
+                            ? [...current, value]
+                            : current.filter(v => v !== value)
+                          if (updated.length > 0) {
+                            updateSettings({ visibleViews: updated })
+                          }
+                        }}
+                      />
+                      <Icon className="size-4" style={{ color: 'var(--ai-text-secondary)' }} />
+                      <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>{label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Right: Theme */}
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ai-text-primary)' }}>Theme</h3>
+              <p className="text-xs mb-3" style={{ color: 'var(--ai-text-tertiary)' }}>Switch between dark and light mode.</p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => updateSettings({ theme: (settings.theme || 'dark') === 'dark' ? 'light' : 'dark' })}
+                  className="relative w-12 h-7 rounded-full transition-colors"
+                  style={{
+                    background: (settings.theme || 'dark') === 'light' ? 'var(--ai-accent)' : 'var(--ai-surface-3)',
+                  }}
+                >
+                  <span
+                    className="absolute top-0.5 w-6 h-6 rounded-full flex items-center justify-center transition-all"
+                    style={{
+                      left: (settings.theme || 'dark') === 'light' ? '22px' : '2px',
+                      background: 'var(--ai-surface-1)',
+                    }}
+                  >
+                    {(settings.theme || 'dark') === 'light'
+                      ? <Sun className="size-3.5" style={{ color: 'var(--ai-accent)' }} />
+                      : <Moon className="size-3.5" style={{ color: 'var(--ai-text-secondary)' }} />
+                    }
+                  </span>
+                </button>
+                <span className="text-sm capitalize" style={{ color: 'var(--ai-text-secondary)' }}>
+                  {settings.theme || 'dark'} mode
+                </span>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
 
         <TabsContent value="pipeline" className="flex-1 min-h-0 overflow-hidden !p-0">
           <PipelineDiagram

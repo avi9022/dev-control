@@ -1,8 +1,37 @@
 import type { FC } from 'react'
-import { LayoutGrid, Wrench } from 'lucide-react'
+import { LayoutGrid, Server, ListOrdered, Database, Globe, Container, Leaf, GitBranch, Wrench, DatabaseZap, Plus } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { useViews, type ViewType } from '@/ui/contexts/views'
+import { useAIAutomation } from '@/ui/contexts/ai-automation'
 
-export type AppView = 'kanban' | 'devcontrol'
+export const DEFAULT_VISIBLE_VIEWS = ['kanban', 'directory']
+
+export const NAV_ITEMS: { value: ViewType; label: string; icon: FC<{ className?: string }> }[] = [
+  { value: 'kanban', label: 'Kanban', icon: LayoutGrid },
+  { value: 'directory', label: 'Services', icon: Server },
+  { value: 'queue', label: 'Queues', icon: ListOrdered },
+  { value: 'dynamodb', label: 'DynamoDB', icon: Database },
+  { value: 'api-client', label: 'API Client', icon: Globe },
+  { value: 'docker', label: 'Docker', icon: Container },
+  { value: 'mongodb', label: 'MongoDB', icon: Leaf },
+  { value: 'sql', label: 'SQL Developer', icon: DatabaseZap },
+  { value: 'tool', label: 'Tools', icon: Wrench },
+]
+
+// Tabs that need the DevControl sidebar
+export const SIDEBAR_VIEWS = new Set<ViewType>(['directory', 'queue', 'dynamodb', 'api-client', 'docker', 'mongodb', 'sql', 'tool'])
+
+// Map from ViewType to the sidebar tab value used by AppSidebar
+export const VIEW_TO_SIDEBAR_TAB: Partial<Record<ViewType, string>> = {
+  'directory': 'services',
+  'queue': 'queues',
+  'dynamodb': 'dynamodb',
+  'api-client': 'api-client',
+  'docker': 'docker',
+  'mongodb': 'mongodb',
+  'sql': 'sql',
+  'tool': 'tools',
+}
 
 interface NavItemProps {
   icon: FC<{ className?: string }>
@@ -43,28 +72,44 @@ const NavItem: FC<NavItemProps> = ({ icon: Icon, label, isActive, onClick }) => 
 )
 
 interface AppNavbarProps {
-  activeView: AppView
-  onViewChange: (view: AppView) => void
+  onOpenLayoutSettings?: () => void
 }
 
-export const AppNavbar: FC<AppNavbarProps> = ({ activeView, onViewChange }) => (
-  <nav
-    className="fixed left-0 top-0 w-12 h-screen flex flex-col items-center pt-3 gap-1 z-50"
-    style={{
-      background: 'var(--ai-surface-0)',
-    }}
-  >
-    <NavItem
-      icon={LayoutGrid}
-      label="Kanban"
-      isActive={activeView === 'kanban'}
-      onClick={() => onViewChange('kanban')}
-    />
-    <NavItem
-      icon={Wrench}
-      label="DevControl"
-      isActive={activeView === 'devcontrol'}
-      onClick={() => onViewChange('devcontrol')}
-    />
-  </nav>
-)
+export const AppNavbar: FC<AppNavbarProps> = ({ onOpenLayoutSettings }) => {
+  const { views, currentViewIndex, updateView } = useViews()
+  const { settings } = useAIAutomation()
+  const currentView = views[currentViewIndex]
+  const visibleViews = settings?.visibleViews || DEFAULT_VISIBLE_VIEWS
+  const filteredItems = NAV_ITEMS.filter(item => visibleViews.includes(item.value))
+
+  return (
+    <nav
+      className="fixed left-0 top-0 w-12 h-screen flex flex-col items-center pt-3 gap-1 z-50"
+      style={{
+        background: 'var(--ai-surface-0)',
+        borderRight: '1px solid var(--ai-border-subtle)',
+      }}
+    >
+      {filteredItems.map(({ value, label, icon }) => (
+        <NavItem
+          key={value}
+          icon={icon}
+          label={label}
+          isActive={currentView?.type === value}
+          onClick={() => updateView(value, null)}
+        />
+      ))}
+
+      <div className="flex-1" />
+
+      <div className="mb-3">
+        <NavItem
+          icon={Plus}
+          label="Customize sidebar"
+          isActive={false}
+          onClick={() => onOpenLayoutSettings?.()}
+        />
+      </div>
+    </nav>
+  )
+}

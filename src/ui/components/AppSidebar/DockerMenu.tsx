@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Search, CircleX, RefreshCw, Box, Circle } from "lucide-react"
+import { RefreshCw, Box, Circle } from "lucide-react"
 import { useState, type FC } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { useDocker } from "@/ui/contexts/docker"
 import { cn } from "@/lib/utils"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { SearchInput } from "../Inputs/SearchInput"
+import { SidebarPanel } from "./SidebarPanel"
 
 const STATE_DOT_COLORS: Record<string, string> = {
   running: 'bg-status-green',
@@ -58,110 +58,103 @@ export const DockerMenu: FC = () => {
   }
 
   return (
-    <div>
-      <div className="mb-4 px-5">
-        <Select value={activeContext} onValueChange={switchContext}>
-          <SelectTrigger className="w-full bg-muted border-none text-foreground h-8">
-            {activeContext === '__all__' ? 'All' : activeContext}
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All</SelectItem>
-            {contexts.filter((ctx) => ctx.name !== '__all__').map((ctx) => (
-              <SelectItem key={ctx.name} value={ctx.name}>
-                {ctx.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <SidebarPanel
+      header={
+        <div className="space-y-2">
+          <Select value={activeContext} onValueChange={switchContext}>
+            <SelectTrigger className="w-full bg-muted border-none text-foreground h-8">
+              {activeContext === '__all__' ? 'All' : activeContext}
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All</SelectItem>
+              {contexts.filter((ctx) => ctx.name !== '__all__').map((ctx) => (
+                <SelectItem key={ctx.name} value={ctx.name}>
+                  {ctx.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-      {dashboardStats && (
-        <div className="grid grid-cols-2 gap-2 px-5 mb-4 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Circle className="h-2 w-2 fill-status-green text-status-green" />
-            {dashboardStats.containersRunning} running
-          </div>
-          <div className="flex items-center gap-1">
-            <Circle className="h-2 w-2 fill-gray-500 text-gray-500" />
-            {dashboardStats.containersStopped} stopped
-          </div>
-          <div className="flex items-center gap-1">
-            <Box className="h-3 w-3" />
-            {dashboardStats.imagesTotal} images
-          </div>
-          <div className="flex items-center gap-1">
-            <Box className="h-3 w-3" />
-            {dashboardStats.volumesTotal} volumes
-          </div>
-        </div>
-      )}
-
-      <div className="relative h-[35px] mb-4 px-5">
-        <Search className="absolute left-8 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search containers..."
-          className="pl-9"
-          value={searchTerm}
-          onChange={(ev) => setSearchTerm(ev.target.value)}
-        />
-        <Button
-          onClick={() => setSearchTerm('')}
-          className="absolute right-8 top-1/2 h-4 w-4 -translate-y-1/2 bg-transparent hover:bg-transparent text-muted-foreground"
-        >
-          <CircleX />
-        </Button>
-      </div>
-
-      <ScrollArea className="h-[calc(100vh-80px-40px-80px-35px-20px-140px)]">
-        <div className="px-2">
-          {loading && (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-              Loading containers...
-            </div>
-          )}
-
-          {!loading && filteredContainers.length === 0 && (
-            <div className="px-3 py-8 text-sm text-muted-foreground text-center">
-              {searchTerm ? 'No containers match your search' : 'No containers found'}
-            </div>
-          )}
-
-          {!loading && filteredContainers.map((container) => (
-            <button
-              key={container.id}
-              onClick={() => selectContainer(container.id)}
-              className={cn(
-                "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent text-left",
-                selectedContainerId === container.id && "bg-accent"
-              )}
-            >
-              <div className={cn("w-2 h-2 rounded-full flex-shrink-0", getStateDotColor(container.state))} />
-              <div className="flex flex-col min-w-0 flex-1">
-                <span className="truncate">{container.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{container.image}</span>
-                {container.dockerContext && (
-                  <span className="truncate text-xs text-blue-400">{container.dockerContext}</span>
-                )}
+          {dashboardStats && (
+            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Circle className="h-2 w-2 fill-status-green text-status-green" />
+                {dashboardStats.containersRunning} running
               </div>
-            </button>
-          ))}
-        </div>
-      </ScrollArea>
+              <div className="flex items-center gap-1">
+                <Circle className="h-2 w-2 fill-gray-500 text-gray-500" />
+                {dashboardStats.containersStopped} stopped
+              </div>
+              <div className="flex items-center gap-1">
+                <Box className="h-3 w-3" />
+                {dashboardStats.imagesTotal} images
+              </div>
+              <div className="flex items-center gap-1">
+                <Box className="h-3 w-3" />
+                {dashboardStats.volumesTotal} volumes
+              </div>
+            </div>
+          )}
 
-      <div className="flex justify-end items-center px-4 gap-3 h-[50px]">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={refreshContainers}
-          disabled={loading}
-        >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-        </Button>
-        <span className="text-xs text-muted-foreground">
-          {containers.length} container{containers.length !== 1 ? 's' : ''}
-        </span>
+          <SearchInput
+            placeholder="Search containers..."
+            value={searchTerm}
+            onChange={(ev) => setSearchTerm(ev.target.value)}
+            onClear={() => setSearchTerm('')}
+          />
+        </div>
+      }
+      footer={
+        <div className="flex items-center justify-between w-full">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refreshContainers}
+            disabled={loading}
+            className="size-7 p-0"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {containers.length} container{containers.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      }
+    >
+      <div className="px-2">
+        {loading && (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+            Loading containers...
+          </div>
+        )}
+
+        {!loading && filteredContainers.length === 0 && (
+          <div className="px-3 py-8 text-sm text-muted-foreground text-center">
+            {searchTerm ? 'No containers match your search' : 'No containers found'}
+          </div>
+        )}
+
+        {!loading && filteredContainers.map((container) => (
+          <button
+            key={container.id}
+            onClick={() => selectContainer(container.id)}
+            className={cn(
+              "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent text-left",
+              selectedContainerId === container.id && "bg-accent"
+            )}
+          >
+            <div className={cn("w-2 h-2 rounded-full flex-shrink-0", getStateDotColor(container.state))} />
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="truncate">{container.name}</span>
+              <span className="truncate text-xs text-muted-foreground">{container.image}</span>
+              {container.dockerContext && (
+                <span className="truncate text-xs text-blue-400">{container.dockerContext}</span>
+              )}
+            </div>
+          </button>
+        ))}
       </div>
-    </div>
+    </SidebarPanel>
   )
 }

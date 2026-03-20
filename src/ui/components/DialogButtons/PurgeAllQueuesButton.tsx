@@ -35,9 +35,9 @@ export const PurgeAllQueuesButton: FC = () => {
         <Button
           variant="destructive"
           disabled={!isConnected || queues.length === 0}
-          className="flex-shrink-0"
+          className="size-7 p-0 flex-shrink-0"
         >
-          <Eraser className="h-4 w-4" />
+          <Eraser className="size-3" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

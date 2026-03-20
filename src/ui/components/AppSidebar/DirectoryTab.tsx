@@ -2,7 +2,6 @@ import type { FC } from "react";
 import { useDirectories } from "@/ui/contexts/directories";
 import { useViews } from "@/ui/contexts/views";
 import { DirectoryDropdownMenu } from "./DirectoryDropdownMenu";
-import { OpenItemViewButton } from "../OpenItemViewButton";
 import { ServiceRow } from "@/ui/components/ServiceRow";
 
 interface DirectoryTabProps {
@@ -26,12 +25,7 @@ export const DirectoryTab: FC<DirectoryTabProps> = ({
       isSelected={isDirectoryPanelOpen}
       onRun={() => runService(id)}
       onStop={() => stopService(id)}
-      actions={
-        <>
-          <OpenItemViewButton id={id} type="directory" variant={isDirectoryPanelOpen ? 'secondary' : 'outline'} />
-          <DirectoryDropdownMenu id={id} />
-        </>
-      }
+      actions={<DirectoryDropdownMenu id={id} />}
     />
   )
 }
