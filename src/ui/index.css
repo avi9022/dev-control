@@ -330,3 +330,8 @@
   background: var(--ai-accent-subtle);
   transform: scale(1.15);
 }
+
+@keyframes sql-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}

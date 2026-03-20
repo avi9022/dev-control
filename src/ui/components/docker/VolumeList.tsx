@@ -12,7 +12,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Plus, Trash2, RefreshCw, Search, Eraser } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Plus, Trash2, RefreshCw, Search, Eraser, FolderOpen, Container, Circle, Database, HardDrive } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
 function CreateVolumeDialog({ onCreate }: { onCreate: (name: string) => Promise<void> }) {
   const [open, setOpen] = useState(false)
@@ -104,6 +111,61 @@ function PruneVolumesDialog({ onPrune }: { onPrune: () => Promise<void> }) {
   )
 }
 
+function UsageIndicator({ usedBy }: { usedBy: DockerVolumeUsage[] }) {
+  if (usedBy.length === 0) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Circle className="h-2.5 w-2.5 fill-muted-foreground/30" />
+              <span className="text-xs">Unused</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>This volume is not used by any container</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
+
+  const runningCount = usedBy.filter((u) => u.running).length
+  const stoppedCount = usedBy.length - runningCount
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1.5">
+            {runningCount > 0 ? (
+              <Circle className="h-2.5 w-2.5 fill-green-500 text-green-500" />
+            ) : (
+              <Circle className="h-2.5 w-2.5 fill-yellow-500 text-yellow-500" />
+            )}
+            <div className="flex items-center gap-1">
+              <Container className="h-3 w-3" />
+              <span className="text-xs">{usedBy.length}</span>
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <div className="space-y-1">
+            <p className="font-medium">Used by {usedBy.length} container{usedBy.length > 1 ? 's' : ''}</p>
+            {usedBy.map((u) => (
+              <div key={u.containerId} className="flex items-center gap-1.5 text-xs">
+                <Circle className={`h-2 w-2 ${u.running ? 'fill-green-500' : 'fill-yellow-500'}`} />
+                <span>{u.containerName}</span>
+                <span className="text-muted-foreground">({u.running ? 'running' : 'stopped'})</span>
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 export const VolumeList: FC = () => {
   const { volumes, createVolume, removeVolume, pruneVolumes, refreshVolumes } = useDocker()
   const [search, setSearch] = useState('')
@@ -131,6 +193,20 @@ export const VolumeList: FC = () => {
     }
   }
 
+  const openInFinder = (path: string) => {
+    window.electron.openInFinder(path)
+  }
+
+  // Check if mountpoint is a valid host path that can be opened in Finder
+  // Docker volume paths like /var/lib/docker/volumes/... are inside the Docker VM on macOS
+  // and cannot be opened directly from Finder
+  const isHostPath = (mountpoint: string) => {
+    if (!mountpoint || !mountpoint.startsWith('/')) return false
+    // Docker VM paths on macOS that can't be opened in Finder
+    if (mountpoint.startsWith('/var/lib/docker/')) return false
+    return true
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 p-4 pb-2">
@@ -155,40 +231,86 @@ export const VolumeList: FC = () => {
           <p className="text-sm text-muted-foreground py-8 text-center">No volumes found</p>
         ) : (
           <div className="space-y-1">
-            <div className="grid grid-cols-[1fr_80px_1fr_70px_80px_40px] gap-2 px-3 py-1.5 text-xs text-muted-foreground font-medium">
+            <div className="grid grid-cols-[32px_1fr_100px_80px_1fr_80px] gap-2 px-3 py-1.5 text-xs text-muted-foreground font-medium">
+              <span />
               <span>Name</span>
-              <span>Driver</span>
+              <span>Used By</span>
+              <span>Type</span>
               <span>Mountpoint</span>
-              <span>Scope</span>
-              <span>Context</span>
               <span />
             </div>
-            {filtered.map((volume) => (
-              <div
-                key={volume.name}
-                className="grid grid-cols-[1fr_80px_1fr_70px_80px_40px] gap-2 items-center px-3 py-2 rounded-md hover:bg-accent/50 border"
-              >
-                <span className="text-sm font-medium truncate" title={volume.name}>
-                  {volume.name}
-                </span>
-                <span className="text-xs text-muted-foreground">{volume.driver}</span>
-                <span className="text-xs text-muted-foreground font-mono truncate" title={volume.mountpoint}>
-                  {volume.mountpoint}
-                </span>
-                <span className="text-xs text-muted-foreground">{volume.scope}</span>
-                <span className="text-xs text-blue-400 truncate">{volume.dockerContext || ''}</span>
-                <Button
-                  variant={confirmName === volume.name ? 'destructive' : 'ghost'}
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => handleRemove(volume)}
-                  onBlur={() => setConfirmName(null)}
-                  disabled={removingName === volume.name}
+            {filtered.map((volume) => {
+              const isBind = volume.type === 'bind'
+              const isDockerVolume = volume.type === 'volume'
+
+              return (
+                <div
+                  key={`${volume.type}-${volume.mountpoint}`}
+                  className="grid grid-cols-[32px_1fr_100px_80px_1fr_80px] gap-2 items-center px-3 py-2 rounded-md hover:bg-accent/50 border"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className={`p-1.5 rounded ${
+                          isBind ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'
+                        }`}>
+                          {isBind ? <HardDrive className="h-4 w-4" /> : <Database className="h-4 w-4" />}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isBind ? 'Bind mount - stored on host filesystem' : 'Docker volume - managed by Docker'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <span className="text-sm font-medium truncate" title={isBind ? volume.mountpoint : volume.name}>
+                    {volume.name}
+                  </span>
+                  <UsageIndicator usedBy={volume.usedBy} />
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
+                    isBind ? 'border-green-500/50 text-green-500' : 'border-blue-500/50 text-blue-500'
+                  }`}>
+                    {isBind ? 'bind' : 'volume'}
+                  </Badge>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="text-xs text-muted-foreground font-mono truncate" title={volume.mountpoint}>
+                      {volume.mountpoint}
+                    </span>
+                    {isHostPath(volume.mountpoint) && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => openInFinder(volume.mountpoint)}
+                            >
+                              <FolderOpen className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Open in Finder</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 justify-end">
+                    {isDockerVolume && (
+                      <Button
+                        variant={confirmName === volume.name ? 'destructive' : 'ghost'}
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleRemove(volume)}
+                        onBlur={() => setConfirmName(null)}
+                        disabled={removingName === volume.name || volume.usedBy.length > 0}
+                        title={volume.usedBy.length > 0 ? 'Cannot delete: volume is in use' : 'Delete volume'}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </ScrollArea>

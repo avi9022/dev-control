@@ -18,6 +18,7 @@ import { BrokerProvider } from './contexts/broker'
 import { ApiClientProvider } from './contexts/api-client'
 import { DockerProvider } from './contexts/docker'
 import { MongoDBProvider } from './contexts/mongodb'
+import { SQLProvider } from './contexts/sql'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AIAutomationProvider } from './contexts/ai-automation'
 import { AIKanban } from './views/AIKanban'
@@ -93,6 +94,7 @@ function App() {
                                 <ApiClientProvider>
                                   <DockerProvider>
                                     <MongoDBProvider>
+                                      <SQLProvider>
                                       <AppSidebar />
                                       <main className="flex-1 min-w-0 h-screen overflow-hidden flex flex-col">
                                         <div className='h-[40px] flex-shrink-0 flex justify-between items-center'>
@@ -115,6 +117,7 @@ function App() {
                                           <MainContent />
                                         </div>
                                       </main>
+                                      </SQLProvider>
                                     </MongoDBProvider>
                                   </DockerProvider>
                                 </ApiClientProvider>

@@ -7,10 +7,11 @@ import { DynamoDBView } from "../views/DynamoDB"
 import { ApiClientView } from "../views/ApiClient"
 import { DockerView } from "../views/Docker"
 import { MongoDBView } from "../views/MongoDB"
+import { SQLView } from "../views/SQL"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-const OVERFLOW_VIEWS = new Set(['dynamodb', 'tool', 'api-client', 'docker', 'mongodb'])
+const OVERFLOW_VIEWS = new Set(['dynamodb', 'tool', 'api-client', 'docker', 'mongodb', 'sql'])
 
 export const MainContent: FC = () => {
   const { views, setCurrentViewIndex, currentViewIndex, closeView } = useViews()
@@ -27,6 +28,8 @@ export const MainContent: FC = () => {
         return <DockerView key={index} itemId={itemId} />
       case 'mongodb':
         return <MongoDBView key={index} itemId={itemId} />
+      case 'sql':
+        return <SQLView key={index} itemId={itemId} />
       case 'directory':
         return <Service key={index} id={itemId} />
       case 'queue':

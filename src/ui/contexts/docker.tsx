@@ -21,6 +21,7 @@ interface DockerContextValue {
   refreshImages: () => Promise<void>
   refreshVolumes: () => Promise<void>
   refreshNetworks: () => Promise<void>
+  refreshComposeProjects: () => Promise<void>
   refreshDashboard: () => Promise<void>
   selectContainer: (id: string | null) => void
   startContainer: (id: string, dockerContext?: string) => Promise<void>
@@ -30,7 +31,7 @@ interface DockerContextValue {
   unpauseContainer: (id: string, dockerContext?: string) => Promise<void>
   removeContainer: (id: string, dockerContext?: string) => Promise<void>
   execInContainer: (id: string, command: string) => Promise<string>
-  getContainerLogs: (id: string, options?: DockerLogOptions) => Promise<string>
+  getContainerLogs: (id: string, options?: DockerLogOptions, dockerContext?: string) => Promise<string>
   pullImage: (name: string) => Promise<void>
   removeImage: (id: string, dockerContext?: string) => Promise<void>
   pruneImages: () => Promise<void>
@@ -65,6 +66,7 @@ export const DockerContext = createContext<DockerContextValue>({
   refreshImages: async () => {},
   refreshVolumes: async () => {},
   refreshNetworks: async () => {},
+  refreshComposeProjects: async () => {},
   refreshDashboard: async () => {},
   selectContainer: () => {},
   startContainer: async () => {},
@@ -165,6 +167,15 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
     }
   }, [])
 
+  const refreshComposeProjects = useCallback(async () => {
+    try {
+      const result = await window.electron.dockerGetComposeProjects()
+      setComposeProjects(result)
+    } catch {
+      setComposeProjects([])
+    }
+  }, [])
+
   const refreshDashboard = useCallback(async () => {
     try {
       const result = await window.electron.dockerGetDashboardStats()
@@ -182,8 +193,9 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
     await refreshImages()
     await refreshVolumes()
     await refreshNetworks()
+    await refreshComposeProjects()
     await refreshDashboard()
-  }, [loadContexts, refreshContainers, refreshImages, refreshVolumes, refreshNetworks, refreshDashboard])
+  }, [loadContexts, refreshContainers, refreshImages, refreshVolumes, refreshNetworks, refreshComposeProjects, refreshDashboard])
 
   const selectContainer = useCallback((id: string | null) => {
     setSelectedContainerId(id)
@@ -221,11 +233,12 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [refreshContainers])
 
   const execInContainer = useCallback(async (id: string, command: string) => {
-    return await window.electron.dockerExecInContainer(id, command)
+    const commandArray = command.split(' ').filter(Boolean)
+    return await window.electron.dockerExecInContainer(id, commandArray)
   }, [])
 
-  const getContainerLogs = useCallback(async (id: string, options?: DockerLogOptions) => {
-    return await window.electron.dockerGetContainerLogs(id, options)
+  const getContainerLogs = useCallback(async (id: string, options?: DockerLogOptions, dockerContext?: string) => {
+    return await window.electron.dockerGetContainerLogs(id, options, dockerContext)
   }, [])
 
   const pullImage = useCallback(async (name: string) => {
@@ -271,17 +284,20 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
   const composeUp = useCallback(async (projectPath: string) => {
     await window.electron.dockerComposeUp(projectPath)
     await refreshContainers()
-  }, [refreshContainers])
+    await refreshComposeProjects()
+  }, [refreshContainers, refreshComposeProjects])
 
   const composeDown = useCallback(async (projectPath: string) => {
     await window.electron.dockerComposeDown(projectPath)
     await refreshContainers()
-  }, [refreshContainers])
+    await refreshComposeProjects()
+  }, [refreshContainers, refreshComposeProjects])
 
   const composeRestart = useCallback(async (projectPath: string) => {
     await window.electron.dockerComposeRestart(projectPath)
     await refreshContainers()
-  }, [refreshContainers])
+    await refreshComposeProjects()
+  }, [refreshContainers, refreshComposeProjects])
 
   const systemPrune = useCallback(async (includeVolumes: boolean) => {
     await window.electron.dockerSystemPrune(includeVolumes)
@@ -319,6 +335,7 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
             refreshImages(),
             refreshVolumes(),
             refreshNetworks(),
+            refreshComposeProjects(),
             refreshDashboard(),
           ])
         }
@@ -327,7 +344,7 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
       }
     }
     initialize()
-  }, [loadContexts, refreshContainers, refreshImages, refreshVolumes, refreshNetworks, refreshDashboard])
+  }, [loadContexts, refreshContainers, refreshImages, refreshVolumes, refreshNetworks, refreshComposeProjects, refreshDashboard])
 
   return (
     <DockerContext.Provider
@@ -351,6 +368,7 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
         refreshImages,
         refreshVolumes,
         refreshNetworks,
+        refreshComposeProjects,
         refreshDashboard,
         selectContainer,
         startContainer,

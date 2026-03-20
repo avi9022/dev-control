@@ -2,7 +2,12 @@ import { dockerCli } from './docker-cli.js'
 import { store } from '../storage/store.js'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 import type { BrowserWindow } from 'electron'
-import type { ChildProcess } from 'child_process'
+import { spawn, type ChildProcess } from 'child_process'
+import { app, dialog } from 'electron'
+import * as path from 'path'
+import * as fs from 'fs/promises'
+import * as crypto from 'crypto'
+import * as pty from 'node-pty'
 
 const CONTAINER_ID_PATTERN = /^[a-zA-Z0-9]+$/
 const SAFE_NAME_PATTERN = /^[a-zA-Z0-9._:/@-]+$/
@@ -87,6 +92,8 @@ function parsePortMappings(portsStr: string): DockerPortMapping[] {
 }
 
 function parseMounts(mountsStr: string): DockerMount[] {
+  // This is a basic parser for the truncated Mounts column from `docker ps`
+  // For proper mount info, use docker inspect via getContainerMounts()
   if (!mountsStr || mountsStr.trim() === '') return []
 
   return mountsStr.split(',').reduce<DockerMount[]>((acc, segment) => {
@@ -96,7 +103,7 @@ function parseMounts(mountsStr: string): DockerMount[] {
     return [
       ...acc,
       {
-        type: 'volume',
+        type: 'volume',  // Default - actual type is determined by docker inspect
         source: trimmed,
         destination: '',
         readOnly: false,
@@ -111,6 +118,7 @@ class DockerManager {
   private defaultContext: string = 'default'
   private pollingInterval: ReturnType<typeof setInterval> | null = null
   private activeLogStreams: Map<string, ChildProcess> = new Map()
+  private execSessions: Map<string, { ptyProcess: pty.IPty; containerId: string; shell: string }> = new Map()
 
   constructor() {
     const defaultContext = store.get('dockerSettings')?.defaultContext
@@ -139,7 +147,7 @@ class DockerManager {
       DockerEndpoint: string
       Current: boolean
       ContextType: string
-    }>(['context', 'ls', '--format', '{{json .}}'], { context: this.defaultContext })
+    }>(['context', 'ls', '--format', '{{json .}}'])
 
     return raw.map(ctx => ({
       name: ctx.Name,
@@ -254,22 +262,24 @@ class DockerManager {
     return this.applyClientFilters(containers, filters)
   }
 
-  async getContainer(id: string): Promise<DockerContainer> {
+  async getContainer(id: string, dockerContext?: string): Promise<DockerContainer> {
     const safeId = validateContainerId(id)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
     const output = await dockerCli.execSafe(
       ['inspect', '--format', '{{json .}}', safeId],
-      this.getCliOptions()
+      opts
     )
     const raw = JSON.parse(output)
 
     const labels = raw.Config?.Labels ?? {}
     const ports = this.parseInspectPorts(raw.NetworkSettings?.Ports ?? {})
     const mounts: DockerMount[] = (raw.Mounts ?? []).map(
-      (m: { Type: string; Source: string; Destination: string; RW: boolean }) => ({
+      (m: { Type: string; Name?: string; Source: string; Destination: string; RW: boolean }) => ({
         type: m.Type as DockerMount['type'],
         source: m.Source,
         destination: m.Destination,
         readOnly: !m.RW,
+        volumeName: m.Type === 'volume' ? m.Name : undefined,
       })
     )
     const networks = Object.keys(raw.NetworkSettings?.Networks ?? {})
@@ -329,16 +339,462 @@ class DockerManager {
     await dockerCli.execSafe(args, opts)
   }
 
-  async execInContainer(id: string, command: string[]): Promise<string> {
+  async execInContainer(id: string, command: string[], dockerContext?: string): Promise<string> {
     const safeId = validateContainerId(id)
-    return dockerCli.execSafe(['exec', safeId, ...command], this.getCliOptions())
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
+    return dockerCli.execSafe(['exec', safeId, ...command], opts)
   }
 
-  async inspectContainer(id: string): Promise<Record<string, unknown>> {
+  // ─── Interactive Exec Session ───
+
+  startInteractiveExec(containerId: string, shell: string, dockerContext?: string): DockerExecSession {
+    const safeId = validateContainerId(containerId)
+    const sessionId = crypto.randomUUID()
+    const context = dockerContext ?? this.getCliOptions().context
+
+    // Use node-pty for proper PTY support with real terminal behavior
+    const ptyProcess = pty.spawn('docker', ['--context', context, 'exec', '-it', safeId, shell], {
+      name: 'xterm-256color',
+      cols: 80,
+      rows: 24,
+      cwd: process.env.HOME,
+      env: { ...process.env, TERM: 'xterm-256color' },
+    })
+
+    ptyProcess.onData((data: string) => {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        ipcWebContentsSend('subscribeDockerExecOutput', this.mainWindow.webContents, {
+          sessionId,
+          data,
+        })
+      }
+    })
+
+    ptyProcess.onExit(({ exitCode }) => {
+      this.execSessions.delete(sessionId)
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        ipcWebContentsSend('subscribeDockerExecClosed', this.mainWindow.webContents, {
+          sessionId,
+          exitCode,
+        })
+      }
+    })
+
+    this.execSessions.set(sessionId, { ptyProcess, containerId: safeId, shell })
+
+    return {
+      sessionId,
+      containerId: safeId,
+      shell,
+      createdAt: Date.now(),
+    }
+  }
+
+  writeToExecSession(sessionId: string, data: string): void {
+    const session = this.execSessions.get(sessionId)
+    if (session?.ptyProcess) {
+      session.ptyProcess.write(data)
+    }
+  }
+
+  resizeExecSession(sessionId: string, cols: number, rows: number): void {
+    const session = this.execSessions.get(sessionId)
+    if (session?.ptyProcess) {
+      session.ptyProcess.resize(cols, rows)
+    }
+  }
+
+  closeExecSession(sessionId: string): void {
+    const session = this.execSessions.get(sessionId)
+    if (session) {
+      session.ptyProcess.kill()
+      this.execSessions.delete(sessionId)
+    }
+  }
+
+  // ─── File Manager Operations ───
+
+  async listDirectory(containerId: string, dirPath: string, dockerContext?: string): Promise<DockerFileEntry[]> {
+    const safeId = validateContainerId(containerId)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
+
+    try {
+      // Try GNU ls first, fallback to BusyBox ls
+      // GNU ls: --time-style=full-iso
+      // BusyBox ls: --full-time
+      let output: string
+      let isBusyBox = false
+
+      try {
+        const lsCmd = `ls -la --time-style=full-iso "${dirPath}"`
+        output = await dockerCli.execSafe(
+          ['exec', '-u', 'root', safeId, 'sh', '-c', lsCmd],
+          opts
+        )
+      } catch {
+        // Fallback to BusyBox-compatible command
+        const lsCmd = `ls -la --full-time "${dirPath}"`
+        output = await dockerCli.execSafe(
+          ['exec', '-u', 'root', safeId, 'sh', '-c', lsCmd],
+          opts
+        )
+        isBusyBox = true
+      }
+
+      return this.parseLsOutput(output, dirPath, isBusyBox)
+    } catch (error) {
+      throw new Error(`Failed to list directory: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private parseLsOutput(output: string, basePath: string, isBusyBox: boolean = false): DockerFileEntry[] {
+    const lines = output.split('\n').filter((line) => line.trim())
+    const entries: DockerFileEntry[] = []
+
+    for (const line of lines) {
+      // Skip total line and empty lines
+      if (line.startsWith('total ') || !line.trim()) continue
+
+      let match: RegExpMatchArray | null = null
+      let permissions: string
+      let owner: string
+      let group: string
+      let sizeStr: string
+      let date: string
+      let time: string
+      let nameWithLink: string
+
+      if (isBusyBox) {
+        // BusyBox ls --full-time format: -rw-r--r--    1 root     root          1234 2024-01-15 10:30:45 filename
+        match = line.match(
+          /^([drwxlst-]{10})\s+\d+\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s+(.+)$/
+        )
+        if (!match) continue
+        ;[, permissions, owner, group, sizeStr, date, time, nameWithLink] = match
+      } else {
+        // GNU ls --time-style=full-iso format: -rw-r--r-- 1 root root 1234 2024-01-15 10:30:45.123 +0000 filename
+        match = line.match(
+          /^([drwxlst-]{10})\s+\d+\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([+-]\d{4})\s+(.+)$/
+        )
+        if (!match) continue
+        ;[, permissions, owner, group, sizeStr, date, time, , nameWithLink] = match
+      }
+
+      const size = parseInt(sizeStr, 10)
+
+      // Handle symlinks: name -> target
+      let name = nameWithLink
+      let linkTarget: string | undefined
+      const symlinkMatch = nameWithLink.match(/^(.+?)\s+->\s+(.+)$/)
+      if (symlinkMatch) {
+        name = symlinkMatch[1]
+        linkTarget = symlinkMatch[2]
+      }
+
+      // Skip . and ..
+      if (name === '.' || name === '..') continue
+
+      const type: 'file' | 'directory' | 'symlink' =
+        permissions.startsWith('d') ? 'directory' :
+        permissions.startsWith('l') ? 'symlink' : 'file'
+
+      const entryPath = basePath.endsWith('/') ? `${basePath}${name}` : `${basePath}/${name}`
+
+      entries.push({
+        name,
+        path: entryPath,
+        type,
+        size,
+        permissions: permissions.slice(1), // Remove first char (d/l/-)
+        owner,
+        group,
+        modifiedAt: `${date}T${time}`,
+        linkTarget,
+      })
+    }
+
+    // Sort: directories first, then alphabetically
+    return entries.sort((a, b) => {
+      if (a.type === 'directory' && b.type !== 'directory') return -1
+      if (a.type !== 'directory' && b.type === 'directory') return 1
+      return a.name.localeCompare(b.name)
+    })
+  }
+
+  async readFile(containerId: string, filePath: string, maxSize: number = 1024 * 1024, dockerContext?: string): Promise<DockerFileContent> {
+    const safeId = validateContainerId(containerId)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
+
+    // Get file size - try GNU stat first, fallback to wc -c for BusyBox
+    let size: number
+    try {
+      const statCmd = `stat -c '%s' "${filePath}"`
+      const statOutput = await dockerCli.execSafe(
+        ['exec', '-u', 'root', safeId, 'sh', '-c', statCmd],
+        opts
+      )
+      size = parseInt(statOutput.trim(), 10)
+    } catch {
+      // Fallback for BusyBox: use wc -c
+      const wcCmd = `wc -c < "${filePath}"`
+      const wcOutput = await dockerCli.execSafe(
+        ['exec', '-u', 'root', safeId, 'sh', '-c', wcCmd],
+        opts
+      )
+      size = parseInt(wcOutput.trim(), 10)
+    }
+
+    const mimeType = this.detectMimeType(filePath)
+    const isImage = mimeType.startsWith('image/')
+    const isBinary = isImage || this.isBinaryMimeType(mimeType)
+
+    let content: string
+    let truncated = false
+    let encoding: 'utf8' | 'base64' = 'utf8'
+
+    if (isBinary) {
+      // For images/binary, use base64 encoding
+      if (size > maxSize * 5) {
+        throw new Error(`File too large: ${size} bytes (max ${maxSize * 5} for binary)`)
+      }
+      const base64Cmd = `base64 "${filePath}"`
+      const base64Output = await dockerCli.execSafe(
+        ['exec', '-u', 'root', safeId, 'sh', '-c', base64Cmd],
+        { ...opts, timeout: 30000 }
+      )
+      content = base64Output.replace(/\s/g, '')
+      encoding = 'base64'
+    } else {
+      // For text files
+      if (size > maxSize) {
+        const headCmd = `head -c ${maxSize} "${filePath}"`
+        const headOutput = await dockerCli.execSafe(
+          ['exec', '-u', 'root', safeId, 'sh', '-c', headCmd],
+          opts
+        )
+        content = headOutput
+        truncated = true
+      } else {
+        const catCmd = `cat "${filePath}"`
+        content = await dockerCli.execSafe(
+          ['exec', '-u', 'root', safeId, 'sh', '-c', catCmd],
+          opts
+        )
+      }
+    }
+
+    return { content, truncated, mimeType, size, encoding }
+  }
+
+  private detectMimeType(filePath: string): string {
+    const ext = path.extname(filePath).toLowerCase()
+    const mimeTypes: Record<string, string> = {
+      '.js': 'text/javascript',
+      '.ts': 'text/typescript',
+      '.tsx': 'text/typescript',
+      '.jsx': 'text/javascript',
+      '.json': 'application/json',
+      '.yaml': 'text/yaml',
+      '.yml': 'text/yaml',
+      '.xml': 'text/xml',
+      '.html': 'text/html',
+      '.css': 'text/css',
+      '.md': 'text/markdown',
+      '.txt': 'text/plain',
+      '.log': 'text/plain',
+      '.sh': 'text/x-sh',
+      '.bash': 'text/x-sh',
+      '.py': 'text/x-python',
+      '.go': 'text/x-go',
+      '.rs': 'text/x-rust',
+      '.java': 'text/x-java',
+      '.c': 'text/x-c',
+      '.cpp': 'text/x-c++',
+      '.h': 'text/x-c',
+      '.env': 'text/plain',
+      '.toml': 'text/toml',
+      '.ini': 'text/ini',
+      '.conf': 'text/plain',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.svg': 'image/svg+xml',
+      '.webp': 'image/webp',
+      '.ico': 'image/x-icon',
+      '.bmp': 'image/bmp',
+    }
+    return mimeTypes[ext] || 'application/octet-stream'
+  }
+
+  private isBinaryMimeType(mimeType: string): boolean {
+    return (
+      mimeType.startsWith('image/') ||
+      mimeType.startsWith('audio/') ||
+      mimeType.startsWith('video/') ||
+      mimeType === 'application/octet-stream'
+    )
+  }
+
+  async downloadFile(containerId: string, remotePath: string, isDirectory: boolean = false, dockerContext?: string): Promise<string> {
+    const safeId = validateContainerId(containerId)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
+    const fileName = path.basename(remotePath)
+
+    if (isDirectory) {
+      // For directories, show folder picker
+      const result = await dialog.showOpenDialog({
+        title: 'Select destination folder',
+        properties: ['openDirectory', 'createDirectory'],
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return ''
+      }
+
+      const destPath = path.join(result.filePaths[0], fileName)
+      // docker cp supports directories natively
+      await dockerCli.execSafe(
+        ['cp', `${safeId}:${remotePath}`, destPath],
+        { ...opts, timeout: 120000 } // 2 min timeout for large dirs
+      )
+      return destPath
+    }
+
+    // For files, use save dialog
+    const result = await dialog.showSaveDialog({
+      defaultPath: fileName,
+      title: 'Save file from container',
+    })
+
+    if (!result.filePath) {
+      return ''
+    }
+
+    // Copy directly to destination
+    await dockerCli.execSafe(
+      ['cp', `${safeId}:${remotePath}`, result.filePath],
+      opts
+    )
+
+    return result.filePath
+  }
+
+  async uploadFile(containerId: string, localPath: string, remotePath: string, dockerContext?: string): Promise<void> {
+    const safeId = validateContainerId(containerId)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
+    // docker cp supports both files and directories
+    await dockerCli.execSafe(
+      ['cp', localPath, `${safeId}:${remotePath}`],
+      { ...opts, timeout: 120000 } // 2 min timeout for large uploads
+    )
+  }
+
+  async uploadFiles(containerId: string, localPaths: string[], remotePath: string, dockerContext?: string): Promise<number> {
+    let uploaded = 0
+    for (const localPath of localPaths) {
+      const fileName = path.basename(localPath)
+      const targetPath = remotePath.endsWith('/') ? `${remotePath}${fileName}` : `${remotePath}/${fileName}`
+      await this.uploadFile(containerId, localPath, targetPath, dockerContext)
+      uploaded++
+    }
+    return uploaded
+  }
+
+  async uploadFileDialog(containerId: string, remotePath: string, dockerContext?: string): Promise<number> {
+    const result = await dialog.showOpenDialog({
+      title: 'Select files or folders to upload',
+      properties: ['openFile', 'openDirectory', 'multiSelections'],
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return 0
+    }
+
+    return this.uploadFiles(containerId, result.filePaths, remotePath, dockerContext)
+  }
+
+  async createDirectory(containerId: string, dirPath: string, dockerContext?: string): Promise<void> {
+    const safeId = validateContainerId(containerId)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
+    // Use -u root and sh -c with quoted path for Unicode support
+    const mkdirCmd = `mkdir -p "${dirPath}"`
+    await dockerCli.execSafe(
+      ['exec', '-u', 'root', safeId, 'sh', '-c', mkdirCmd],
+      opts
+    )
+  }
+
+  async deletePath(containerId: string, targetPath: string, recursive: boolean = false, dockerContext?: string): Promise<void> {
+    const safeId = validateContainerId(containerId)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
+    // Use -u root to handle permission issues, and sh -c with quoted path for Unicode support
+    const rmCmd = recursive ? `rm -rf "${targetPath}"` : `rm "${targetPath}"`
+    await dockerCli.execSafe(
+      ['exec', '-u', 'root', safeId, 'sh', '-c', rmCmd],
+      opts
+    )
+  }
+
+  async renamePath(containerId: string, oldPath: string, newPath: string, dockerContext?: string): Promise<void> {
+    const safeId = validateContainerId(containerId)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
+    // Use -u root and sh -c with quoted paths for Unicode support
+    const mvCmd = `mv "${oldPath}" "${newPath}"`
+    await dockerCli.execSafe(
+      ['exec', '-u', 'root', safeId, 'sh', '-c', mvCmd],
+      opts
+    )
+  }
+
+  async startDrag(containerId: string, remotePath: string, dockerContext?: string): Promise<void> {
+    if (!this.mainWindow) return
+
+    const safeId = validateContainerId(containerId)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
+    const fileName = path.basename(remotePath)
+    const tempDir = path.join(app.getPath('temp'), `docker-drag-${Date.now()}`)
+    const tempPath = path.join(tempDir, fileName)
+
+    // Create temp directory
+    await fs.mkdir(tempDir, { recursive: true })
+
+    // Copy from container to temp (supports both files and directories)
+    await dockerCli.execSafe(
+      ['cp', `${safeId}:${remotePath}`, tempPath],
+      { ...opts, timeout: 120000 }
+    )
+
+    // Create a simple 1x1 transparent PNG as drag icon (base64)
+    const iconPath = path.join(tempDir, 'drag-icon.png')
+    const transparentPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64'
+    )
+    await fs.writeFile(iconPath, transparentPng)
+
+    // Start native drag operation
+    this.mainWindow.webContents.startDrag({
+      file: tempPath,
+      icon: iconPath,
+    })
+
+    // Clean up temp after a delay (give time for drop to complete)
+    setTimeout(async () => {
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true })
+      } catch {
+        // Ignore cleanup errors
+      }
+    }, 60000) // 1 minute delay
+  }
+
+  async inspectContainer(id: string, dockerContext?: string): Promise<Record<string, unknown>> {
     const safeId = validateContainerId(id)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
     const output = await dockerCli.execSafe(
       ['inspect', safeId],
-      this.getCliOptions()
+      opts
     )
     const parsed = JSON.parse(output)
     return Array.isArray(parsed) ? parsed[0] : parsed
@@ -478,10 +934,18 @@ class DockerManager {
         }
       })
     )
-    return results.flat()
+    // Deduplicate volumes by mountpoint (multiple contexts can share same daemon)
+    const seen = new Set<string>()
+    return results.flat().filter((vol) => {
+      const key = vol.mountpoint  // Use mountpoint as unique key
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   }
 
   private async getVolumesForContext(contextName: string): Promise<DockerVolume[]> {
+    // Get Docker volumes
     const raw = await dockerCli.execJson<{
       Name: string
       Driver: string
@@ -491,15 +955,98 @@ class DockerManager {
       CreatedAt: string
     }>(['volume', 'ls', '--format', '{{json .}}'], { context: contextName })
 
-    return raw.map(vol => ({
+    // Get all container IDs (including stopped)
+    const containerIds = await dockerCli.execJson<{ ID: string }>(
+      ['ps', '-a', '--format', '{{json .}}', '--no-trunc'],
+      { context: contextName }
+    ).then(cs => cs.map(c => c.ID))
+
+    // Build maps for volume usage and bind mounts
+    const volumeUsageMap = new Map<string, DockerVolumeUsage[]>()
+    const bindMounts = new Map<string, { mountpoint: string; usedBy: DockerVolumeUsage[] }>()
+
+    // Get detailed mount info via docker inspect for all containers
+    if (containerIds.length > 0) {
+      try {
+        const inspectOutput = await dockerCli.execSafe(
+          ['inspect', ...containerIds],
+          { context: contextName }
+        )
+        const inspected = JSON.parse(inspectOutput) as Array<{
+          Id: string
+          Name: string
+          State: { Status: string }
+          Mounts: Array<{
+            Type: string
+            Name?: string
+            Source: string
+            Destination: string
+          }>
+        }>
+
+        for (const c of inspected) {
+          const containerId = c.Id.substring(0, 12)
+          const containerName = (c.Name || '').replace(/^\//, '')
+          const running = c.State?.Status === 'running'
+
+          for (const mount of c.Mounts || []) {
+            const usage: DockerVolumeUsage = {
+              containerId,
+              containerName,
+              running,
+            }
+
+            if (mount.Type === 'volume' && mount.Name) {
+              // Docker volume
+              const existing = volumeUsageMap.get(mount.Name) || []
+              volumeUsageMap.set(mount.Name, [...existing, usage])
+            } else if (mount.Type === 'bind' && mount.Source) {
+              // Bind mount - use source path as key
+              const existing = bindMounts.get(mount.Source)
+              if (existing) {
+                bindMounts.set(mount.Source, {
+                  ...existing,
+                  usedBy: [...existing.usedBy, usage],
+                })
+              } else {
+                bindMounts.set(mount.Source, {
+                  mountpoint: mount.Source,
+                  usedBy: [usage],
+                })
+              }
+            }
+          }
+        }
+      } catch {
+        // If inspect fails, continue without usage info
+      }
+    }
+
+    // Docker volumes
+    const dockerVolumes: DockerVolume[] = raw.map(vol => ({
       name: vol.Name,
       driver: vol.Driver,
       mountpoint: vol.Mountpoint,
       labels: this.parseLabels(vol.Labels),
       scope: vol.Scope as 'local' | 'global',
       createdAt: vol.CreatedAt || '',
-      usedBy: [],
+      usedBy: volumeUsageMap.get(vol.Name) || [],
+      type: 'volume' as const,
     }))
+
+    // Bind mounts (only those used by containers)
+    const bindMountVolumes: DockerVolume[] = Array.from(bindMounts.entries()).map(([source, data]) => ({
+      name: source.split('/').pop() || source,  // Use folder name as display name
+      driver: 'bind',
+      mountpoint: data.mountpoint,
+      labels: {},
+      scope: 'local' as const,
+      createdAt: '',
+      usedBy: data.usedBy,
+      type: 'bind' as const,
+    }))
+
+    return [...dockerVolumes, ...bindMountVolumes]
   }
 
   async createVolume(name: string, labels?: Record<string, string>): Promise<DockerVolume> {
@@ -528,7 +1075,8 @@ class DockerManager {
       labels: vol.Labels ?? {},
       scope: vol.Scope as 'local' | 'global',
       createdAt: vol.CreatedAt || '',
-      usedBy: [],
+      usedBy: [] as DockerVolumeUsage[],
+      type: 'volume' as const,
     }
   }
 
@@ -644,8 +1192,9 @@ class DockerManager {
 
   // ─── Stats Operations ───
 
-  async getContainerStats(id: string): Promise<DockerContainerStats> {
+  async getContainerStats(id: string, dockerContext?: string): Promise<DockerContainerStats> {
     const safeId = validateContainerId(id)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
     const raw = await dockerCli.execJson<{
       CPUPerc: string
       MemUsage: string
@@ -655,7 +1204,7 @@ class DockerManager {
       PIDs: string
     }>(
       ['stats', '--no-stream', '--format', '{{json .}}', safeId],
-      this.getCliOptions()
+      opts
     )
 
     if (raw.length === 0) {
@@ -834,8 +1383,9 @@ class DockerManager {
 
   // ─── Log Operations ───
 
-  async getContainerLogs(id: string, options: DockerLogOptions): Promise<string[]> {
+  async getContainerLogs(id: string, options: DockerLogOptions, dockerContext?: string): Promise<string[]> {
     const safeId = validateContainerId(id)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
     const args = ['logs']
 
     if (options.tail !== undefined) {
@@ -850,15 +1400,16 @@ class DockerManager {
 
     args.push(safeId)
 
-    const output = await dockerCli.execSafe(args, this.getCliOptions())
+    const output = await dockerCli.execSafe(args, opts)
     if (!output) return []
 
     return output.split('\n').filter(line => line.length > 0)
   }
 
-  streamContainerLogs(id: string, options: DockerLogOptions): void {
+  streamContainerLogs(id: string, options: DockerLogOptions, dockerContext?: string): void {
     const safeId = validateContainerId(id)
     this.stopLogStream(id)
+    const opts = dockerContext ? { context: dockerContext } : this.getCliOptions()
 
     const args = ['logs', '--follow']
 
@@ -885,7 +1436,7 @@ class DockerManager {
           )
         }
       },
-      this.getCliOptions()
+      opts
     )
 
     this.activeLogStreams.set(id, child)
