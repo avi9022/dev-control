@@ -7,7 +7,7 @@ import { QueuesProvider } from './contexts/queues'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { PanelLeftOpen, PanelRightOpen, Bot } from 'lucide-react'
+import { PanelLeftOpen, PanelRightOpen } from 'lucide-react'
 import { ViewsProvider } from './contexts/views'
 import { MainContent } from './components/MainContent'
 import { SplitScreenChoice } from './components/SplitScreenChoice'
@@ -21,12 +21,13 @@ import { MongoDBProvider } from './contexts/mongodb'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AIAutomationProvider } from './contexts/ai-automation'
 import { AIKanban } from './views/AIKanban'
+import { AppNavbar, type AppView } from './components/AppNavbar'
 
 
 function App() {
-  const [open, setOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [updateSettings, setUpdateSettings] = useState<UpdateNotificationSettings>()
-  const [aiMode, setAiMode] = useState(false)
+  const [activeView, setActiveView] = useState<AppView>('kanban')
 
   useEffect(() => {
     const unsubscribe = window.electron.subscribeUpdateNotificationSettings((settings) => {
@@ -38,84 +39,99 @@ function App() {
     }
   }, [])
 
+  // Apply theme on app load so all views get themed
+  useEffect(() => {
+    window.electron.aiGetSettings?.().then((s: AIAutomationSettings) => {
+      if (s?.theme === 'light') {
+        document.documentElement.classList.add('light')
+      } else {
+        document.documentElement.classList.remove('light')
+      }
+    })
+
+    const unsubscribe = window.electron.subscribeAISettings?.((s: AIAutomationSettings) => {
+      if (s?.theme === 'light') {
+        document.documentElement.classList.add('light')
+      } else {
+        document.documentElement.classList.remove('light')
+      }
+    })
+
+    return () => unsubscribe?.()
+  }, [])
+
   return (
     <ErrorBoundary>
       <AIAutomationProvider>
-        <div>
-          {aiMode ? (
-            <DirectoriesProvider>
-              <LoggerProvider>
-                <TooltipProvider>
-                  <div className="h-screen flex flex-col bg-background text-foreground">
+        <TooltipProvider>
+          <div className="h-screen bg-background text-foreground pl-12">
+            <AppNavbar activeView={activeView} onViewChange={setActiveView} />
+
+            {activeView === 'kanban' ? (
+              <div className="h-full flex flex-col">
+                <DirectoriesProvider>
+                  <LoggerProvider>
                     <AIKanban />
-                  </div>
-                </TooltipProvider>
-              </LoggerProvider>
-            </DirectoriesProvider>
-          ) : (
-            <ViewsProvider>
-              <ToolsProvider>
-              <SidebarProvider open={open} onOpenChange={setOpen} style={{
-                // @ts-expect-error not sure why
-                "--sidebar-width": "400px",
-                "--sidebar-width-mobile": "20rem",
-              }}
-              >
-                <WorkflowsProvider>
-                  <DirectoriesProvider>
-                    <LoggerProvider>
-                      <BrokerProvider>
-                        <QueuesProvider>
-                          <DynamoDBProvider>
-                            <ApiClientProvider>
-                              <DockerProvider>
-                                <MongoDBProvider>
-                                  <TooltipProvider>
-                                    <AppSidebar />
-                                    <main className="flex-1 min-w-0 h-screen overflow-hidden flex flex-col">
-                                      <div className='h-[40px] flex-shrink-0 flex justify-between items-center'>
-                                        <Button className='bg-transparent hover:bg-neutral-500 text-white' onClick={() => setOpen(!open)}>
-                                          {open ?
-                                            <div className='flex gap-1 items-center'>
-                                              <PanelRightOpen />
-                                              <p className='text-sm'>Close sidebar</p>
-                                            </div> :
-                                            <div className='flex gap-1 items-center'>
-                                              <PanelLeftOpen />
-                                              <p className='text-sm'>Open sidebar</p>
-                                            </div>}
-                                        </Button>
-                                        <div className='pr-5'>
-                                          <SplitScreenChoice />
+                  </LoggerProvider>
+                </DirectoriesProvider>
+              </div>
+            ) : (
+              <div className="h-full overflow-hidden [&_[data-slot=sidebar-wrapper]]:min-h-0 [&_[data-slot=sidebar-wrapper]]:h-full [&_[data-slot=sidebar-container]]:!sticky [&_[data-slot=sidebar-container]]:!left-auto [&_[data-slot=sidebar-gap]]:!hidden">
+              <ViewsProvider>
+                <ToolsProvider>
+                  <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen} style={{
+                    // @ts-expect-error not sure why
+                    "--sidebar-width": "400px",
+                    "--sidebar-width-mobile": "20rem",
+                  }}>
+                    <WorkflowsProvider>
+                      <DirectoriesProvider>
+                        <LoggerProvider>
+                          <BrokerProvider>
+                            <QueuesProvider>
+                              <DynamoDBProvider>
+                                <ApiClientProvider>
+                                  <DockerProvider>
+                                    <MongoDBProvider>
+                                      <AppSidebar />
+                                      <main className="flex-1 min-w-0 h-screen overflow-hidden flex flex-col">
+                                        <div className='h-[40px] flex-shrink-0 flex justify-between items-center'>
+                                          <Button className='bg-transparent hover:bg-accent text-foreground' onClick={() => setSidebarOpen(!sidebarOpen)}>
+                                            {sidebarOpen ?
+                                              <div className='flex gap-1 items-center'>
+                                                <PanelRightOpen />
+                                                <p className='text-sm'>Close sidebar</p>
+                                              </div> :
+                                              <div className='flex gap-1 items-center'>
+                                                <PanelLeftOpen />
+                                                <p className='text-sm'>Open sidebar</p>
+                                              </div>}
+                                          </Button>
+                                          <div className='pr-5'>
+                                            <SplitScreenChoice />
+                                          </div>
                                         </div>
-                                      </div>
-                                      <div className='flex-1 min-h-0 overflow-hidden'>
-                                        <MainContent />
-                                      </div>
-                                    </main>
-                                  </TooltipProvider>
-                                </MongoDBProvider>
-                              </DockerProvider>
-                            </ApiClientProvider>
-                          </DynamoDBProvider>
-                        </QueuesProvider>
-                      </BrokerProvider>
-                      <Toaster />
-                    </LoggerProvider>
-                  </DirectoriesProvider>
-                </WorkflowsProvider>
-              </SidebarProvider>
-              </ToolsProvider>
-            </ViewsProvider>
-          )}
-          <Button
-            className="fixed bottom-4 right-4 z-50 rounded-full h-10 w-10 p-0 bg-neutral-800 hover:bg-neutral-700 text-white"
-            onClick={() => setAiMode(!aiMode)}
-            title={aiMode ? 'Switch to DevControl' : 'Switch to AI Kanban'}
-          >
-            <Bot className="h-5 w-5" />
-          </Button>
-        </div>
+                                        <div className='flex-1 min-h-0 overflow-hidden'>
+                                          <MainContent />
+                                        </div>
+                                      </main>
+                                    </MongoDBProvider>
+                                  </DockerProvider>
+                                </ApiClientProvider>
+                              </DynamoDBProvider>
+                            </QueuesProvider>
+                          </BrokerProvider>
+                          <Toaster />
+                        </LoggerProvider>
+                      </DirectoriesProvider>
+                    </WorkflowsProvider>
+                  </SidebarProvider>
+                </ToolsProvider>
+              </ViewsProvider>
+            </div>
+            )}
+          </div>
+        </TooltipProvider>
       </AIAutomationProvider>
     </ErrorBoundary>
   )
