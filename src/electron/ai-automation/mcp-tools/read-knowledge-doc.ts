@@ -1,6 +1,5 @@
 import { getSettings } from '../task-manager.js'
 import { type McpToolDefinition, textResult, errorResult } from './types.js'
-import { readFileSync } from 'fs'
 
 export const readKnowledgeDocTool: McpToolDefinition = {
   name: 'read_knowledge_doc',
@@ -22,11 +21,6 @@ export const readKnowledgeDocTool: McpToolDefinition = {
 
     if (!doc) return errorResult(`Knowledge doc "${docId}" not found`)
 
-    try {
-      const content = readFileSync(doc.filePath, 'utf-8')
-      return textResult(`# ${doc.title}\n\n${content}`)
-    } catch {
-      return errorResult(`Failed to read knowledge doc at ${doc.filePath}`)
-    }
+    return textResult(`# ${doc.title}\n\n${doc.content}`)
   },
 }

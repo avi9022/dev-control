@@ -17,7 +17,7 @@ export const listKnowledgeDocsTool: McpToolDefinition = {
       return textResult('No knowledge documents available.')
     }
 
-    const list = docs.map(doc => `- [${doc.id}] ${doc.title}${doc.description ? ` — ${doc.description}` : ''}`).join('\n')
+    const list = docs.map(doc => `- [${doc.id}] ${doc.title}${doc.sourcePath ? ` (source: ${doc.sourcePath})` : ''}`).join('\n')
     return textResult(`Available knowledge documents:\n${list}`)
   },
 }
