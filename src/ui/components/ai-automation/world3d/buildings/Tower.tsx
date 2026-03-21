@@ -13,6 +13,18 @@ export const TOWER_META: BuildingMetadata = {
     { x: 4, z: -1, type: 'hammer' },   // near campfire
     { x: 0, z: 7, type: 'read' },      // outside gate
   ],
+  entryPoint: { x: 0, z: 8 },          // front gate
+  internalPaths: new Map([
+    // spot 0 (workstation -4,2) → spot 1 (campfire 4,-1): walk around back
+    ['0-1', [[-6, 2], [-6, -4], [6, -4], [6, -1], [4, -1]]],
+    ['1-0', [[6, -1], [6, -4], [-6, -4], [-6, 2], [-4, 2]]],
+    // spot 0 (workstation) → spot 2 (gate 0,7): walk around left to front
+    ['0-2', [[-6, 2], [-6, 6], [0, 7]]],
+    ['2-0', [[-6, 6], [-6, 2], [-4, 2]]],
+    // spot 1 (campfire) → spot 2 (gate): walk around right to front
+    ['1-2', [[6, -1], [6, 6], [0, 7]]],
+    ['2-1', [[6, 6], [6, -1], [4, -1]]],
+  ]),
 }
 
 interface TowerProps {
@@ -25,16 +37,9 @@ export const Tower: FC<TowerProps> = ({ position, color }) => {
   const blocks: { type: BlockType; x: number; y: number; z: number; color?: string }[] = []
 
   const b = (type: BlockType, bx: number, by: number, bz: number, c?: string) => {
-    blocks.push({ type, x: x + bx, y: 1 + by, z: z + bz, color: c })
+    blocks.push({ type, x: x + bx, y: by, z: z + bz, color: c })
   }
 
-  // ── Base platform ──
-  for (let fx = -5; fx <= 5; fx++)
-    for (let fz = -4; fz <= 6; fz++) {
-      if (Math.abs(fx) === 5 && (fz < -3 || fz > 5)) continue
-      if (Math.abs(fx) === 5 && Math.abs(fz) > 3 && fz < 0) continue
-      b('cobble', fx, 0, fz)
-    }
 
   // ── Perimeter fence ──
   for (let fx = -5; fx <= 5; fx++) {
@@ -138,11 +143,11 @@ export const Tower: FC<TowerProps> = ({ position, color }) => {
   return (
     <group>
       {meshes.map((mesh, i) => <primitive key={i} object={mesh} />)}
-      <Lantern position={[x - 2, 3.85, z + 6]} />
-      <Lantern position={[x + 2, 3.85, z + 6]} />
-      <Lantern position={[x + 3.5, 2.35, z + 1]} />
-      <Lantern position={[x - 4, 3.85, z - 3]} />
-      <Lantern position={[x + 4, 3.85, z - 3]} />
+      <Lantern position={[x - 2, 2.85, z + 6]} />
+      <Lantern position={[x + 2, 2.85, z + 6]} />
+      <Lantern position={[x + 3.5, 1.35, z + 1]} />
+      <Lantern position={[x - 4, 2.85, z - 3]} />
+      <Lantern position={[x + 4, 2.85, z - 3]} />
     </group>
   )
 }

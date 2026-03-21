@@ -8,6 +8,9 @@ export interface WorkSpot {
 type: WorkType
 }
 
+/** Predefined path between two work spots — key is "fromIndex-toIndex" */
+export type InternalPaths = Map<string, [number, number][]>
+
 export interface BuildingMetadata {
   /** Total space this building occupies (radius from center) — used for spacing between buildings */
   radius: number
@@ -17,4 +20,8 @@ export interface BuildingMetadata {
   gatherSpread: number
   /** Spots where characters work inside/around the building */
   workSpots: WorkSpot[]
+  /** Entry point where the road connects — characters walk here before going to spots */
+  entryPoint: { x: number; z: number }
+  /** Predefined paths between work spots to avoid walking through the building */
+  internalPaths: InternalPaths
 }

@@ -14,6 +14,18 @@ export const COTTAGE_META: BuildingMetadata = {
     { x: 2, z: 6, type: 'craft' },    // front yard near gate
     { x: -4, z: -1, type: 'read' },   // side of house
   ],
+  entryPoint: { x: 0, z: 7 },         // front gate
+  internalPaths: new Map([
+    // spot 0 (porch -2,4) → spot 1 (yard 2,6): walk out front of porch then right
+    ['0-1', [[-2, 6], [2, 6]]],
+    ['1-0', [[2, 6], [-2, 6], [-2, 4]]],
+    // spot 0 (porch -2,4) → spot 2 (side -4,-1): out front, around left
+    ['0-2', [[-2, 6], [-5, 6], [-5, -1]]],
+    ['2-0', [[-5, -1], [-5, 6], [-2, 6], [-2, 4]]],
+    // spot 1 (yard 2,6) → spot 2 (side -4,-1): around right side, then back
+    ['1-2', [[5, 6], [5, -1], [5, -4], [-5, -4], [-5, -1]]],
+    ['2-1', [[-5, -1], [-5, -4], [5, -4], [5, -1], [5, 6], [2, 6]]],
+  ]),
 }
 
 interface CottageProps {
@@ -26,18 +38,13 @@ export const Cottage: FC<CottageProps> = ({ position, color }) => {
   const blocks: { type: BlockType; x: number; y: number; z: number; color?: string }[] = []
 
   const b = (type: BlockType, bx: number, by: number, bz: number, c?: string) => {
-    blocks.push({ type, x: x + bx, y: 1 + by, z: z + bz, color: c })
+    blocks.push({ type, x: x + bx, y: by, z: z + bz, color: c })
   }
 
-  // ── Base platform ──
-  for (let fx = -5; fx <= 5; fx++)
-    for (let fz = -4; fz <= 6; fz++)
-      b('cobble', fx, 0, fz)
-
-  // ── House floor ──
+  // ── House floor — inside the walls, one block above ground ──
   for (let fx = -3; fx <= 3; fx++)
     for (let fz = -3; fz <= 1; fz++)
-      b('wood', fx, 0, fz)
+      b('wood', fx, 1, fz)
 
   // ── Walls ──
   for (let h = 1; h <= 4; h++) {
@@ -81,11 +88,11 @@ export const Cottage: FC<CottageProps> = ({ position, color }) => {
   // ── Porch ──
   b('wood', -3, 1, 3); b('wood', -3, 2, 3); b('wood', -3, 3, 3)
   b('wood', 3, 1, 3); b('wood', 3, 2, 3); b('wood', 3, 3, 3)
-  for (let fx = -3; fx <= 3; fx++) { b('wood', fx, 0, 2); b('wood', fx, 0, 3) }
+  for (let fx = -3; fx <= 3; fx++) { b('wood', fx, 1, 2); b('wood', fx, 1, 3) }
   for (let rx = -4; rx <= 4; rx++) { b('darkwood', rx, 4, 2); b('darkwood', rx, 4, 3) }
 
   // ── Steps ──
-  b('stone', -1, 0, 4); b('stone', 0, 0, 4); b('stone', 1, 0, 4)
+  b('stone', -1, 1, 4); b('stone', 0, 1, 4); b('stone', 1, 1, 4)
 
   // ── Bench ──
   b('wood', -2, 1, 3); b('wood', -1, 1, 3)
@@ -108,15 +115,15 @@ export const Cottage: FC<CottageProps> = ({ position, color }) => {
     <group>
       {meshes.map((mesh, i) => <primitive key={i} object={mesh} />)}
       {/* Non-block elements */}
-      <Lantern position={[x - 2, 2.85, z + 2]} />
-      <Lantern position={[x + 1, 2.85, z + 2]} />
-      <Flower position={[x - 1, 1.5, z - 4]} color="#e84040" />
-      <Flower position={[x + 0, 1.5, z - 4]} color="#e8d840" />
-      <Flower position={[x + 1, 1.5, z - 4]} color="#e84040" />
-      <Flower position={[x - 4, 1.5, z + 0]} color="#d040d0" />
-      <Flower position={[x - 4, 1.5, z + 0.5]} color="#e8e8e8" />
-      <Flower position={[x + 4, 1.5, z + 0]} color="#e8d840" />
-      <Flower position={[x + 4, 1.5, z + 0.5]} color="#d040d0" />
+      <Lantern position={[x - 2, 1.85, z + 2]} />
+      <Lantern position={[x + 1, 1.85, z + 2]} />
+      <Flower position={[x - 1, 1, z - 4]} color="#e84040" />
+      <Flower position={[x + 0, 1, z - 4]} color="#e8d840" />
+      <Flower position={[x + 1, 1, z - 4]} color="#e84040" />
+      <Flower position={[x - 4, 1, z + 0]} color="#d040d0" />
+      <Flower position={[x - 4, 1, z + 0.5]} color="#e8e8e8" />
+      <Flower position={[x + 4, 1, z + 0]} color="#e8d840" />
+      <Flower position={[x + 4, 1, z + 0.5]} color="#d040d0" />
       <Flower position={[x - 3, 0.5, z + 4.5]} color="#e84040" />
       <Flower position={[x - 2, 0.5, z + 5]} color="#e8d840" />
       <Flower position={[x + 2, 0.5, z + 4.5]} color="#e8e8e8" />

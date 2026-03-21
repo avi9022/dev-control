@@ -5,13 +5,9 @@ import { Tree } from './Tree'
 import { TaskCube } from './TaskCube'
 import { SignPost } from './SignPost'
 import { Lantern } from './Lantern'
-import { Cottage } from './buildings/Cottage'
-import { Tower } from './buildings/Tower'
-import { Workshop } from './buildings/Workshop'
 import { Flower } from './Flower'
-import { COTTAGE_META } from './buildings/Cottage'
-import { TOWER_META } from './buildings/Tower'
-import { WORKSHOP_META } from './buildings/Workshop'
+import { Zones } from './Zones'
+import type { Zone, Task3D } from './types'
 import { TallGrass } from './TallGrass'
 import { Boulder } from './Boulder'
 import { MountainSample } from './MountainSample'
@@ -67,8 +63,6 @@ function SectionLabel({ position, text }: { position: [number, number, number]; 
   )
 }
 
-const WORK_CYCLE_MS = 5000
-
 export const DevShowcase: FC = () => {
   const spacing = 3
   const rowZ = 0
@@ -76,25 +70,34 @@ export const DevShowcase: FC = () => {
   const row3Z = 24
   let cursor = 0
 
-  const [workTick, setWorkTick] = useState(0)
-  useEffect(() => {
-    const interval = setInterval(() => setWorkTick(t => t + 1), WORK_CYCLE_MS)
-    return () => clearInterval(interval)
-  }, [])
+  // Mock zones and tasks for the buildings demo
+  const mockZones: Zone[] = [
+    { id: 'planning', label: 'Planning', color: '#6B7FD7' },
+    { id: 'working', label: 'Working', color: '#D4A843' },
+    { id: 'review', label: 'Review', color: '#4DA870' },
+  ]
 
-  const cottageSpot = COTTAGE_META.workSpots[workTick % COTTAGE_META.workSpots.length]
-  const towerSpot = TOWER_META.workSpots[workTick % TOWER_META.workSpots.length]
-  const workshopSpot = WORKSHOP_META.workSpots[workTick % WORKSHOP_META.workSpots.length]
+  const mockTasks: Task3D[] = [
+    { id: 'task-1', title: 'Reader', phase: 'planning', isRunning: true, needsAttention: false },
+    { id: 'task-2', title: 'Smith', phase: 'working', isRunning: true, needsAttention: false },
+    { id: 'task-3', title: 'Crafter', phase: 'review', isRunning: true, needsAttention: false },
+    { id: 'task-4', title: 'Stuck Task', phase: 'planning', isRunning: false, needsAttention: true },
+  ]
 
   // Walking character — alternates between two positions
-  const walkerX = workTick % 2 === 0 ? -5 : 15
+  const [walkTick, setWalkTick] = useState(0)
+  useEffect(() => {
+    const interval = setInterval(() => setWalkTick(t => t + 1), 5000)
+    return () => clearInterval(interval)
+  }, [])
+  const walkerX = walkTick % 2 === 0 ? -5 : 15
   const walkerZ = row3Z + 6
 
   return (
     <group>
       {/* Ground */}
-      <mesh position={[40, 0, 25]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[140, 90]} />
+      <mesh position={[40, 0, 60]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[200, 200]} />
         <meshStandardMaterial color="#3a7530" />
       </mesh>
 
@@ -199,22 +202,11 @@ export const DevShowcase: FC = () => {
       <MountainSample position={[30, 0.5, row3Z]} />
       <Label position={[30, -0.3, row3Z]} text="Mountain" />
 
-      {/* ── Row 4: Buildings ── */}
-      <SectionLabel position={[-2, 3.5, row3Z + 14]} text="Buildings" />
-      <Cottage position={[0, row3Z + 14]} color="#6B7FD7" />
-      <Label position={[0, -0.3, row3Z + 14]} text="Cottage" />
-      {/* Worker at cottage — cycles between spots */}
-      <TaskCube position={[0 + cottageSpot.x, 2.1, row3Z + 14 + cottageSpot.z]} title="Reader" isRunning={true} needsAttention={false} workType={cottageSpot.type} faceAngle={Math.atan2(-cottageSpot.x, -cottageSpot.z)} />
-
-      <Tower position={[16, row3Z + 14]} color="#D4A843" />
-      <Label position={[16, -0.3, row3Z + 14]} text="Tower" />
-      {/* Worker at tower — cycles between spots */}
-      <TaskCube position={[16 + towerSpot.x, 2.1, row3Z + 14 + towerSpot.z]} title="Smith" isRunning={true} needsAttention={false} workType={towerSpot.type} faceAngle={Math.atan2(-towerSpot.x, -towerSpot.z)} />
-
-      <Workshop position={[36, row3Z + 14]} color="#4DA870" />
-      <Label position={[36, -0.3, row3Z + 14]} text="Workshop" />
-      {/* Worker at workshop — cycles between spots */}
-      <TaskCube position={[36 + workshopSpot.x, 2.1, row3Z + 14 + workshopSpot.z]} title="Crafter" isRunning={true} needsAttention={false} workType={workshopSpot.type} faceAngle={Math.atan2(-workshopSpot.x, -workshopSpot.z)} />
+      {/* ── Row 4: Buildings with real Zones logic ── */}
+      <SectionLabel position={[-2, 3.5, row3Z + 14]} text="Buildings (live)" />
+      <group position={[0, 0, row3Z + 60]}>
+        <Zones zones={mockZones} tasks={mockTasks} />
+      </group>
     </group>
   )
 }

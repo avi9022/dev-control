@@ -59,6 +59,13 @@ A Minecraft-style 3D voxel world that visualizes AI tasks and agents. Built incr
 - [ ] **F42.29**: Transition animation — smooth camera fly-in when entering 3D view
 - [ ] **F42.30**: Sound effects — optional ambient sounds, click sounds
 
+## Known Bugs
+
+- [ ] **B-3D-1**: Characters walk through buildings when switching phases — road network routes don't fully avoid building footprints
+- [ ] **B-3D-2**: Internal work spot paths not refined enough — some paths still clip corners of buildings
+- [ ] **B-3D-3**: Some work spots are positioned inside building blocks — need to verify all spots are outside walls
+- [ ] **B-3D-4**: Multiple characters at the same work spot overlap — need to offset characters when sharing a spot or assign different spots per character
+
 ---
 
 ## Architecture

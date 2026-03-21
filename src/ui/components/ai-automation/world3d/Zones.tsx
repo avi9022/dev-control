@@ -1,7 +1,8 @@
-import { useMemo, useState, useEffect, type FC } from 'react'
+import { useMemo, useState, useEffect, useRef, type FC } from 'react'
 import type { Zone, Task3D } from './types'
 import type { WorkType } from './buildings/types'
 import { getZonePositions, hash } from './utils'
+import { buildRoadNetwork, getRoute, type RoadNetwork } from './roadNetwork'
 import { Cottage, COTTAGE_META } from './buildings/Cottage'
 import { Tower, TOWER_META } from './buildings/Tower'
 import { Workshop, WORKSHOP_META } from './buildings/Workshop'
@@ -40,10 +41,10 @@ function getTaskPosition(
   const row = Math.floor(taskIndex / cols)
   const x = zx + meta.gatherPoint.x - (cols - 1) * meta.gatherSpread / 2 + col * meta.gatherSpread
   const z = zz + meta.gatherPoint.z + row * meta.gatherSpread * 1.3
-  return [x, 2.1, z]
+  return [x, 1.5, z]
 }
 
-const WORK_CYCLE_MS = 5000 // switch work spots every 5 seconds
+const WORK_CYCLE_MS = 10000 // switch work spots every 10 seconds
 
 export const Zones: FC<ZonesProps> = ({ zones, tasks = [], onTaskClick }) => {
   // Tick counter — increments every WORK_CYCLE_MS to cycle work spots
@@ -64,6 +65,12 @@ export const Zones: FC<ZonesProps> = ({ zones, tasks = [], onTaskClick }) => {
 
   const positions = useMemo(() => getZonePositions(zones.length, radii), [zones.length, radii])
 
+  // Build road network
+  const roadNetwork = useMemo(() => {
+    const metas = buildingTypes.map(b => b.meta)
+    return buildRoadNetwork(positions, metas)
+  }, [positions, buildingTypes])
+
   // Map zone id → position + metadata
   const zoneData = useMemo(() => {
     const map = new Map<string, { pos: [number, number]; meta: BuildingMetadata }>()
@@ -71,7 +78,10 @@ export const Zones: FC<ZonesProps> = ({ zones, tasks = [], onTaskClick }) => {
     return map
   }, [zones, positions, buildingTypes])
 
-  // Calculate each task's target position + work type
+  // Track previous building index per task for routing
+  const prevBuildingMap = useRef(new Map<string, { buildingIndex: number; spot: [number, number]; spotIndex?: number }>())
+
+  // Calculate each task's target position + work type + route
   const taskData = useMemo(() => {
     const zoneCounts = new Map<string, number>()
     const zoneIndices = new Map<string, number>()
@@ -81,33 +91,71 @@ export const Zones: FC<ZonesProps> = ({ zones, tasks = [], onTaskClick }) => {
       zoneCounts.set(task.phase, count + 1)
     }
 
-    const result = new Map<string, { position: [number, number, number]; workType?: WorkType; faceAngle?: number }>()
+    const result = new Map<string, { position: [number, number, number]; workType?: WorkType; faceAngle?: number; route?: [number, number][] }>()
+
+    // Find building index for a zone id
+    const zoneBuildingIndex = new Map<string, number>()
+    zones.forEach((zone, i) => zoneBuildingIndex.set(zone.id, i))
+
     for (const task of tasks) {
       const data = zoneData.get(task.phase)
       if (!data) continue
+      const buildingIndex = zoneBuildingIndex.get(task.phase) ?? -1
 
       if (task.isRunning && data.meta.workSpots.length > 0) {
         const taskSeed = Math.abs(task.id.charCodeAt(0) + task.id.charCodeAt(task.id.length - 1))
         const spotIndex = (workTick + taskSeed) % data.meta.workSpots.length
         const spot = data.meta.workSpots[spotIndex]
-        // Face from spot toward building center
         const faceAngle = Math.atan2(-spot.x, -spot.z)
+        const worldSpot: [number, number] = [data.pos[0] + spot.x, data.pos[1] + spot.z]
+
+        // Compute route from previous position
+        let route: [number, number][] | undefined
+        const prev = prevBuildingMap.current.get(task.id)
+        if (prev && prev.buildingIndex !== buildingIndex && prev.buildingIndex >= 0) {
+          route = getRoute(roadNetwork, prev.buildingIndex, buildingIndex, prev.spot, worldSpot)
+        } else if (prev && prev.buildingIndex === buildingIndex && prev.spotIndex !== undefined) {
+          // Same building — use internal paths
+          const pathKey = `${prev.spotIndex}-${spotIndex}`
+          const internalWaypoints = data.meta.internalPaths.get(pathKey)
+          if (internalWaypoints) {
+            const worldWaypoints: [number, number][] = internalWaypoints.map(
+              ([wx, wz]) => [data.pos[0] + wx, data.pos[1] + wz]
+            )
+            route = [prev.spot, ...worldWaypoints, worldSpot]
+          } else {
+            route = [prev.spot, worldSpot]
+          }
+        }
+
+        // Update tracking
+        prevBuildingMap.current.set(task.id, { buildingIndex, spot: worldSpot, spotIndex })
+
         result.set(task.id, {
-          position: [data.pos[0] + spot.x, 2.1, data.pos[1] + spot.z],
+          position: [worldSpot[0], 1.5, worldSpot[1]],
           workType: spot.type,
           faceAngle,
+          route,
         })
       } else {
-        // Idle/attention tasks at gather point
         const idx = zoneIndices.get(task.id) || 0
         const total = zoneCounts.get(task.phase) || 1
-        result.set(task.id, {
-          position: getTaskPosition(idx, total, data.pos, data.meta),
-        })
+        const pos = getTaskPosition(idx, total, data.pos, data.meta)
+        const worldSpot: [number, number] = [pos[0], pos[2]]
+
+        // Compute route if moving between buildings
+        let route: [number, number][] | undefined
+        const prev = prevBuildingMap.current.get(task.id)
+        if (prev && prev.buildingIndex !== buildingIndex && prev.buildingIndex >= 0) {
+          route = getRoute(roadNetwork, prev.buildingIndex, buildingIndex, prev.spot, worldSpot)
+        }
+
+        prevBuildingMap.current.set(task.id, { buildingIndex, spot: worldSpot })
+        result.set(task.id, { position: pos, route })
       }
     }
     return result
-  }, [tasks, zoneData, workTick])
+  }, [tasks, zoneData, workTick, zones, roadNetwork])
 
   return (
     <group>
@@ -143,6 +191,7 @@ export const Zones: FC<ZonesProps> = ({ zones, tasks = [], onTaskClick }) => {
             needsAttention={task.needsAttention}
             workType={data.workType}
             faceAngle={data.faceAngle}
+            route={data.route}
             onClick={() => onTaskClick?.(task.id)}
           />
         )

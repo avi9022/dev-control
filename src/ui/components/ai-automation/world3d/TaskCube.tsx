@@ -13,6 +13,8 @@ interface TaskCubeProps {
   workType?: WorkType
   /** Direction the character faces when working (radians on Y axis) */
   faceAngle?: number
+  /** Multi-waypoint route — if provided, character walks through all waypoints */
+  route?: [number, number][]
   onClick?: () => void
 }
 
@@ -128,7 +130,7 @@ function Accessory({ type, shirtColor, accentColor }: { type: string; shirtColor
   }
 }
 
-export const TaskCube: FC<TaskCubeProps> = ({ position, title, isRunning, needsAttention, workType, faceAngle, onClick }) => {
+export const TaskCube: FC<TaskCubeProps> = ({ position, title, isRunning, needsAttention, workType, faceAngle, route, onClick }) => {
   const groupRef = useRef<THREE.Group>(null)
   const upperBodyRef = useRef<THREE.Group>(null)
   const headRef = useRef<THREE.Group>(null)
@@ -149,6 +151,20 @@ export const TaskCube: FC<TaskCubeProps> = ({ position, title, isRunning, needsA
   const initialized = useRef(false)
   const currentRotY = useRef(0)
   const targetRotY = useRef(0)
+  const waypointQueue = useRef<[number, number][]>([])
+
+  const startNextLeg = () => {
+    if (waypointQueue.current.length === 0) return
+    const [nx, nz] = waypointQueue.current.shift()!
+    if (groupRef.current) {
+      startPos.current.set(groupRef.current.position.x, position[1], groupRef.current.position.z)
+    }
+    endPos.current.set(nx, position[1], nz)
+    const dist = startPos.current.distanceTo(endPos.current)
+    walkDuration.current = Math.max(dist / WALK_SPEED, 0.3)
+    walkTime.current = 0
+    progress.current = 0
+  }
 
   useEffect(() => {
     const newEnd = new THREE.Vector3(...position)
@@ -159,21 +175,35 @@ export const TaskCube: FC<TaskCubeProps> = ({ position, title, isRunning, needsA
       return
     }
     if (newEnd.distanceTo(endPos.current) > 0.5) {
-      if (groupRef.current) {
-        startPos.current.set(groupRef.current.position.x, position[1], groupRef.current.position.z)
+      if (route && route.length > 1) {
+        // Multi-waypoint route — queue all legs
+        waypointQueue.current = route.slice(1) // skip first (current position)
+        startNextLeg()
+      } else {
+        // Direct walk
+        waypointQueue.current = []
+        if (groupRef.current) {
+          startPos.current.set(groupRef.current.position.x, position[1], groupRef.current.position.z)
+        }
+        const dist = startPos.current.distanceTo(newEnd)
+        walkDuration.current = Math.max(dist / WALK_SPEED, 0.3)
+        walkTime.current = 0
+        endPos.current.copy(newEnd)
+        progress.current = 0
       }
-      const dist = startPos.current.distanceTo(newEnd)
-      walkDuration.current = Math.max(dist / WALK_SPEED, 0.5)
-      walkTime.current = 0
-      endPos.current.copy(newEnd)
-      progress.current = 0
     }
-  }, [position])
+  }, [position, route])
 
   useFrame((_, delta) => {
     if (!groupRef.current) return
 
-    const isWalking = progress.current < 1
+    let isWalking = progress.current < 1
+
+    // Check if current leg finished and more waypoints remain
+    if (!isWalking && waypointQueue.current.length > 0) {
+      startNextLeg()
+      isWalking = true
+    }
 
     if (isWalking) {
       progress.current = Math.min(progress.current + delta / walkDuration.current, 1)
