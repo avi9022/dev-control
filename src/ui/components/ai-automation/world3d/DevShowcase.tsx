@@ -1,4 +1,4 @@
-import type { FC } from 'react'
+import { useState, useEffect, type FC } from 'react'
 import { Text } from '@react-three/drei'
 import { Block, type BlockType } from './blocks'
 import { Tree } from './Tree'
@@ -9,6 +9,9 @@ import { Cottage } from './buildings/Cottage'
 import { Tower } from './buildings/Tower'
 import { Workshop } from './buildings/Workshop'
 import { Flower } from './Flower'
+import { COTTAGE_META } from './buildings/Cottage'
+import { TOWER_META } from './buildings/Tower'
+import { WORKSHOP_META } from './buildings/Workshop'
 import { TallGrass } from './TallGrass'
 import { Boulder } from './Boulder'
 import { MountainSample } from './MountainSample'
@@ -64,12 +67,28 @@ function SectionLabel({ position, text }: { position: [number, number, number]; 
   )
 }
 
+const WORK_CYCLE_MS = 5000
+
 export const DevShowcase: FC = () => {
   const spacing = 3
   const rowZ = 0
   const row2Z = 12
   const row3Z = 24
   let cursor = 0
+
+  const [workTick, setWorkTick] = useState(0)
+  useEffect(() => {
+    const interval = setInterval(() => setWorkTick(t => t + 1), WORK_CYCLE_MS)
+    return () => clearInterval(interval)
+  }, [])
+
+  const cottageSpot = COTTAGE_META.workSpots[workTick % COTTAGE_META.workSpots.length]
+  const towerSpot = TOWER_META.workSpots[workTick % TOWER_META.workSpots.length]
+  const workshopSpot = WORKSHOP_META.workSpots[workTick % WORKSHOP_META.workSpots.length]
+
+  // Walking character — alternates between two positions
+  const walkerX = workTick % 2 === 0 ? -5 : 15
+  const walkerZ = row3Z + 6
 
   return (
     <group>
@@ -145,20 +164,31 @@ export const DevShowcase: FC = () => {
       {/* ── Row 3: Characters, Sign, Mountain ── */}
       <SectionLabel position={[-2, 3.5, row3Z]} text="Entities" />
 
-      {/* Characters */}
+      {/* Characters — outfits, states, work types */}
       {(() => {
         cursor = 0
-        const chars = [
-          { label: 'Idle', running: false, attention: false },
-          { label: 'Running', running: true, attention: false },
-          { label: 'Attention', running: false, attention: true },
+        const chars: { title: string; running: boolean; attention: boolean; workType?: 'hammer' | 'read' | 'craft' }[] = [
+          { title: 'Alice', running: false, attention: false },
+          { title: 'Bob', running: false, attention: false },
+          { title: 'Charlie', running: false, attention: false },
+          { title: 'Diana', running: false, attention: false },
+          { title: 'Eve', running: false, attention: false },
+          { title: 'Hammering', running: true, attention: false, workType: 'hammer' },
+          { title: 'Reading', running: true, attention: false, workType: 'read' },
+          { title: 'Crafting', running: true, attention: false, workType: 'craft' },
+          { title: 'Needs Help', running: false, attention: true },
+          { title: 'Active Alert', running: true, attention: true },
         ]
         return chars.map((c, i) => (
-          <group key={c.label}>
-            <TaskCube position={[cursor + i * spacing, 1.1, row3Z]} title={c.label} isRunning={c.running} needsAttention={c.attention} />
+          <group key={c.title}>
+            <TaskCube position={[cursor + i * 2.5, 1.1, row3Z]} title={c.title} isRunning={c.running} needsAttention={c.attention} workType={c.workType} />
           </group>
         ))
       })()}
+
+      {/* Walking character */}
+      <TaskCube position={[walkerX, 1.1, walkerZ]} title="Walker" isRunning={false} needsAttention={false} />
+      <Label position={[5, -0.3, walkerZ]} text="Walking Demo" />
 
       {/* Sign Post */}
       <SignPost position={[12, row3Z - 4]} label="Sign Post" color="#9BB89E" />
@@ -173,10 +203,18 @@ export const DevShowcase: FC = () => {
       <SectionLabel position={[-2, 3.5, row3Z + 14]} text="Buildings" />
       <Cottage position={[0, row3Z + 14]} color="#6B7FD7" />
       <Label position={[0, -0.3, row3Z + 14]} text="Cottage" />
+      {/* Worker at cottage — cycles between spots */}
+      <TaskCube position={[0 + cottageSpot.x, 2.1, row3Z + 14 + cottageSpot.z]} title="Reader" isRunning={true} needsAttention={false} workType={cottageSpot.type} faceAngle={Math.atan2(-cottageSpot.x, -cottageSpot.z)} />
+
       <Tower position={[16, row3Z + 14]} color="#D4A843" />
       <Label position={[16, -0.3, row3Z + 14]} text="Tower" />
+      {/* Worker at tower — cycles between spots */}
+      <TaskCube position={[16 + towerSpot.x, 2.1, row3Z + 14 + towerSpot.z]} title="Smith" isRunning={true} needsAttention={false} workType={towerSpot.type} faceAngle={Math.atan2(-towerSpot.x, -towerSpot.z)} />
+
       <Workshop position={[36, row3Z + 14]} color="#4DA870" />
       <Label position={[36, -0.3, row3Z + 14]} text="Workshop" />
+      {/* Worker at workshop — cycles between spots */}
+      <TaskCube position={[36 + workshopSpot.x, 2.1, row3Z + 14 + workshopSpot.z]} title="Crafter" isRunning={true} needsAttention={false} workType={workshopSpot.type} faceAngle={Math.atan2(-workshopSpot.x, -workshopSpot.z)} />
     </group>
   )
 }

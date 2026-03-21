@@ -14,7 +14,7 @@ export const SignPost: FC<SignPostProps> = ({ position, label, color }) => {
   const signZ = z
 
   return (
-    <group position={[signX, 0.5, signZ]}>
+    <group position={[signX, 1, signZ]}>
       {/* Post */}
       <mesh position={[0, 1.5, 0]}>
         <boxGeometry args={[0.3, 3, 0.3]} />

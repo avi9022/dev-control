@@ -8,6 +8,11 @@ export const TOWER_META: BuildingMetadata = {
   radius: 24,
   gatherPoint: { x: 0, z: 12 },
   gatherSpread: 1.5,
+  workSpots: [
+    { x: -4, z: 2, type: 'craft' },    // workstation
+    { x: 4, z: -1, type: 'hammer' },   // near campfire
+    { x: 0, z: 7, type: 'read' },      // outside gate
+  ],
 }
 
 interface TowerProps {
@@ -20,7 +25,7 @@ export const Tower: FC<TowerProps> = ({ position, color }) => {
   const blocks: { type: BlockType; x: number; y: number; z: number; color?: string }[] = []
 
   const b = (type: BlockType, bx: number, by: number, bz: number, c?: string) => {
-    blocks.push({ type, x: x + bx, y: 0.5 + by, z: z + bz, color: c })
+    blocks.push({ type, x: x + bx, y: 1 + by, z: z + bz, color: c })
   }
 
   // ── Base platform ──
@@ -133,11 +138,11 @@ export const Tower: FC<TowerProps> = ({ position, color }) => {
   return (
     <group>
       {meshes.map((mesh, i) => <primitive key={i} object={mesh} />)}
-      <Lantern position={[x - 2, 3.35, z + 6]} />
-      <Lantern position={[x + 2, 3.35, z + 6]} />
-      <Lantern position={[x + 3.5, 1.85, z + 1]} />
-      <Lantern position={[x - 4, 3.35, z - 3]} />
-      <Lantern position={[x + 4, 3.35, z - 3]} />
+      <Lantern position={[x - 2, 3.85, z + 6]} />
+      <Lantern position={[x + 2, 3.85, z + 6]} />
+      <Lantern position={[x + 3.5, 2.35, z + 1]} />
+      <Lantern position={[x - 4, 3.85, z - 3]} />
+      <Lantern position={[x + 4, 3.85, z - 3]} />
     </group>
   )
 }

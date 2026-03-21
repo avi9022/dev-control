@@ -8,6 +8,11 @@ export const WORKSHOP_META: BuildingMetadata = {
   radius: 26,
   gatherPoint: { x: 0, z: 12 },
   gatherSpread: 1.5,
+  workSpots: [
+    { x: 0, z: 6, type: 'craft' },     // work table under awning
+    { x: 6, z: 0, type: 'hammer' },    // next to anvil
+    { x: -6, z: 1, type: 'hammer' },   // next to furnace
+  ],
 }
 
 interface WorkshopProps {
@@ -20,7 +25,7 @@ export const Workshop: FC<WorkshopProps> = ({ position, color }) => {
   const blocks: { type: BlockType; x: number; y: number; z: number; color?: string }[] = []
 
   const b = (type: BlockType, bx: number, by: number, bz: number, c?: string) => {
-    blocks.push({ type, x: x + bx, y: 0.5 + by, z: z + bz, color: c })
+    blocks.push({ type, x: x + bx, y: 1 + by, z: z + bz, color: c })
   }
 
   // ── Base platform ──
@@ -122,8 +127,8 @@ export const Workshop: FC<WorkshopProps> = ({ position, color }) => {
   return (
     <group>
       {meshes.map((mesh, i) => <primitive key={i} object={mesh} />)}
-      <Lantern position={[x - 4, 3.35, z + 5]} />
-      <Lantern position={[x + 4, 3.35, z + 5]} />
+      <Lantern position={[x - 4, 3.85, z + 5]} />
+      <Lantern position={[x + 4, 3.85, z + 5]} />
     </group>
   )
 }

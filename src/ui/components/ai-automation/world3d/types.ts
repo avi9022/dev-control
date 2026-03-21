@@ -12,5 +12,7 @@ export interface Task3D {
   needsAttention: boolean
 }
 
+export type { WorkType, WorkSpot } from './buildings/types'
+
 export const TERRAIN_SIZE = 200
 export const SKY_COLOR = '#87CEEB'

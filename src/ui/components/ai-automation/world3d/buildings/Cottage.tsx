@@ -9,6 +9,11 @@ export const COTTAGE_META: BuildingMetadata = {
   radius: 22,
   gatherPoint: { x: 0, z: 10 },
   gatherSpread: 1.5,
+  workSpots: [
+    { x: -2, z: 4, type: 'read' },    // bench on porch
+    { x: 2, z: 6, type: 'craft' },    // front yard near gate
+    { x: -4, z: -1, type: 'read' },   // side of house
+  ],
 }
 
 interface CottageProps {
@@ -21,7 +26,7 @@ export const Cottage: FC<CottageProps> = ({ position, color }) => {
   const blocks: { type: BlockType; x: number; y: number; z: number; color?: string }[] = []
 
   const b = (type: BlockType, bx: number, by: number, bz: number, c?: string) => {
-    blocks.push({ type, x: x + bx, y: 0.5 + by, z: z + bz, color: c })
+    blocks.push({ type, x: x + bx, y: 1 + by, z: z + bz, color: c })
   }
 
   // ── Base platform ──
@@ -103,8 +108,8 @@ export const Cottage: FC<CottageProps> = ({ position, color }) => {
     <group>
       {meshes.map((mesh, i) => <primitive key={i} object={mesh} />)}
       {/* Non-block elements */}
-      <Lantern position={[x - 2, 2.35, z + 2]} />
-      <Lantern position={[x + 1, 2.35, z + 2]} />
+      <Lantern position={[x - 2, 2.85, z + 2]} />
+      <Lantern position={[x + 1, 2.85, z + 2]} />
       <Flower position={[x - 1, 1.5, z - 4]} color="#e84040" />
       <Flower position={[x + 0, 1.5, z - 4]} color="#e8d840" />
       <Flower position={[x + 1, 1.5, z - 4]} color="#e84040" />
