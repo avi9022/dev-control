@@ -351,6 +351,7 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiGetTaskFiles: (taskId: string) => ipcInvoke('aiGetTaskFiles', taskId),
   aiReadTaskFile: (taskId: string, filename: string) => ipcInvoke('aiReadTaskFile', taskId, filename),
   aiSendPlannerMessage: (conversation: { role: string; content: string }[], cwd: string) => ipcInvoke('aiSendPlannerMessage', conversation, cwd),
+  aiSavePlannerConversation: (messages: { role: string; content: string }[], debugEvents: unknown[]) => ipcInvoke('aiSavePlannerConversation', messages, debugEvents),
   aiGetSettings: () => ipcInvoke('aiGetSettings'),
   aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => ipcInvoke('aiUpdateSettings', updates),
   aiGenerateKnowledgeDoc: (projectPath: string) => ipcInvoke('aiGenerateKnowledgeDoc', projectPath),

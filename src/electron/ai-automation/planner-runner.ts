@@ -60,6 +60,7 @@ export async function sendPlannerMessage(
 
     const args = [
       '--print',
+      '--verbose',
       '--output-format', 'stream-json',
       '--system-prompt', PLANNER_SYSTEM_PROMPT,
       '-p', fullPrompt,

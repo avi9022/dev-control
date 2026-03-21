@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type FC } from 'react'
-import { Send, Loader2, Wand2, Bug } from 'lucide-react'
+import { Send, Loader2, Wand2, Bug, ChevronRight, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
@@ -18,24 +18,91 @@ interface PlannerChatProps {
   onOpenChange: (open: boolean) => void
 }
 
+function DebugEventRow({ event, defaultExpanded }: { event: DebugEvent; defaultExpanded: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
+
+  useEffect(() => {
+    setExpanded(defaultExpanded)
+  }, [defaultExpanded])
+
+  const getLabel = (): { label: string; color: string; summary: string } => {
+    const e = event as Record<string, unknown>
+    switch (event.type) {
+      case 'system':
+        return { label: 'system', color: 'var(--ai-text-tertiary)', summary: String(e.subtype || '') }
+      case 'assistant': {
+        const content = (e.message as Record<string, unknown>)?.content as { type: string; text?: string; name?: string }[] | undefined
+        const textBlock = content?.find(b => b.type === 'text')
+        const toolBlock = content?.find(b => b.type === 'tool_use')
+        if (toolBlock) return { label: 'tool_call', color: 'var(--ai-warning)', summary: String(toolBlock.name || '') }
+        return { label: 'response', color: 'var(--ai-accent)', summary: textBlock?.text?.slice(0, 80) || '' }
+      }
+      case 'user':
+        return { label: 'user', color: 'var(--ai-purple)', summary: '' }
+      case 'result':
+        return { label: 'result', color: 'var(--ai-success)', summary: '' }
+      case 'rate_limit_event':
+        return { label: 'rate_limit', color: 'var(--ai-pink)', summary: '' }
+      default:
+        return { label: event.type, color: 'var(--ai-text-tertiary)', summary: '' }
+    }
+  }
+
+  const { label, color, summary } = getLabel()
+
+  return (
+    <div className="text-[10px] font-mono" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
+      <div
+        className="flex items-center gap-1 px-2 py-1.5 cursor-pointer hover:bg-[var(--ai-surface-2)]"
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded
+          ? <ChevronDown className="h-2.5 w-2.5 flex-shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+          : <ChevronRight className="h-2.5 w-2.5 flex-shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+        }
+        <span style={{ color }}>[{label}]</span>
+        {summary && (
+          <span className="truncate" style={{ color: 'var(--ai-text-secondary)' }}>{summary}</span>
+        )}
+      </div>
+      {expanded && (
+        <pre
+          className="px-3 py-2 text-[9px] overflow-x-auto whitespace-pre-wrap break-all"
+          style={{ color: 'var(--ai-text-secondary)', background: 'var(--ai-surface-2)', maxHeight: 300, overflowY: 'auto' }}
+        >
+          {JSON.stringify(event, null, 2)}
+        </pre>
+      )}
+    </div>
+  )
+}
+
 export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [streamingContent, setStreamingContent] = useState('')
   const [showDebug, setShowDebug] = useState(false)
   const [debugEvents, setDebugEvents] = useState<DebugEvent[]>([])
+  const [allExpanded, setAllExpanded] = useState(false)
+  const [preserveEvents, setPreserveEvents] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const debugEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent])
+  }, [messages])
 
   useEffect(() => {
     debugEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [debugEvents])
+
+  // Save conversation when closing
+  useEffect(() => {
+    if (!open && messages.length > 1) {
+      window.electron.aiSavePlannerConversation(messages, debugEvents)
+    }
+  }, [open])
 
   useEffect(() => {
     if (open) {
@@ -47,13 +114,10 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   }, [open])
 
   useEffect(() => {
-    const unsubChunk = window.electron.subscribeAIPlannerChunk(() => {
-      // Chunks are handled via debug events now for text extraction
-    })
     const unsubDebug = window.electron.subscribeAIPlannerDebug((event: unknown) => {
       setDebugEvents(prev => [...prev, event as DebugEvent])
     })
-    return () => { unsubChunk(); unsubDebug() }
+    return () => { unsubDebug() }
   }, [])
 
   const sendMessage = async (content: string) => {
@@ -62,8 +126,7 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     setMessages(newConversation)
     setInput('')
     setIsLoading(true)
-    setStreamingContent('')
-    setDebugEvents([])
+    if (!preserveEvents) setDebugEvents([])
 
     try {
       const response = await window.electron.aiSendPlannerMessage(
@@ -75,7 +138,6 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
       setMessages([...newConversation, { role: 'assistant', content: `Error: ${err}` }])
     } finally {
       setIsLoading(false)
-      setStreamingContent('')
     }
   }
 
@@ -85,29 +147,10 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     sendMessage(input.trim())
   }
 
-  const getEventLabel = (event: DebugEvent): { label: string; color: string; detail?: string } => {
-    switch (event.type) {
-      case 'assistant':
-        return { label: 'Response', color: 'var(--ai-accent)', detail: 'Assistant message received' }
-      case 'content_block_start':
-        return { label: 'Block', color: 'var(--ai-text-tertiary)', detail: (event.content_block as { type?: string })?.type || '' }
-      case 'content_block_delta':
-        return { label: 'Delta', color: 'var(--ai-text-tertiary)' }
-      case 'tool_use': {
-        const name = (event as { name?: string }).name || 'unknown'
-        return { label: 'Tool Call', color: 'var(--ai-warning)', detail: name }
-      }
-      case 'tool_result':
-        return { label: 'Tool Result', color: 'var(--ai-success)' }
-      default:
-        return { label: event.type, color: 'var(--ai-text-tertiary)' }
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="!max-w-[900px] h-[80vh] flex flex-col p-0"
+        className="!max-w-[1000px] h-[80vh] flex flex-col p-0"
         style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border)' }}
       >
         <DialogHeader className="px-5 pt-4 pb-3 flex-shrink-0 flex flex-row items-center justify-between" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
@@ -131,7 +174,6 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
         <div className="flex-1 min-h-0 flex">
           {/* Chat panel */}
           <div className={`flex-1 flex flex-col min-w-0 ${showDebug ? 'border-r' : ''}`} style={{ borderColor: 'var(--ai-border-subtle)' }}>
-            {/* Messages */}
             <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
               {messages.filter(m => !(m.role === 'user' && m.content === 'Hi, I want to plan some tasks.')).map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -164,7 +206,6 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
             <form
               onSubmit={handleSubmit}
               className="flex-shrink-0 px-5 py-3 flex gap-2"
@@ -177,10 +218,7 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
                 placeholder="Describe what you want to plan..."
                 disabled={isLoading}
                 className="flex-1 bg-transparent border rounded-lg px-3 py-2 text-sm outline-none"
-                style={{
-                  borderColor: 'var(--ai-border)',
-                  color: 'var(--ai-text-primary)',
-                }}
+                style={{ borderColor: 'var(--ai-border)', color: 'var(--ai-text-primary)' }}
               />
               <Button
                 type="submit"
@@ -196,38 +234,35 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
 
           {/* Debug panel */}
           {showDebug && (
-            <div className="w-[350px] flex-shrink-0 flex flex-col min-h-0">
-              <div className="px-3 py-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
+            <div className="w-[400px] flex-shrink-0 flex flex-col min-h-0">
+              <div className="px-3 py-2 flex-shrink-0 flex items-center justify-between" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
                 <span className="text-[11px] font-mono" style={{ color: 'var(--ai-text-tertiary)' }}>
-                  Agent Events ({debugEvents.length})
+                  Events ({debugEvents.length})
                 </span>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={preserveEvents}
+                      onChange={e => setPreserveEvents(e.target.checked)}
+                      className="w-3 h-3"
+                    />
+                    <span className="text-[10px]" style={{ color: 'var(--ai-text-tertiary)' }}>Preserve</span>
+                  </label>
+                  <button
+                    onClick={() => setAllExpanded(!allExpanded)}
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors hover:bg-[var(--ai-surface-2)]"
+                    style={{ color: 'var(--ai-text-tertiary)' }}
+                  >
+                    <ChevronsUpDown className="h-2.5 w-2.5" />
+                    {allExpanded ? 'Collapse' : 'Expand'}
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1">
-                {debugEvents.map((event, i) => {
-                  const { label, color, detail } = getEventLabel(event)
-                  return (
-                    <div
-                      key={i}
-                      className="text-[10px] font-mono px-2 py-1.5 rounded cursor-pointer hover:bg-[var(--ai-surface-2)]"
-                      onClick={() => {
-                        console.log('Debug event:', event)
-                      }}
-                    >
-                      <span style={{ color }}>[{label}]</span>
-                      {detail && <span style={{ color: 'var(--ai-text-secondary)' }}> {detail}</span>}
-                      {event.type === 'tool_use' && (event as Record<string, unknown>).input && (
-                        <div className="mt-1 pl-2 text-[9px] truncate" style={{ color: 'var(--ai-text-tertiary)' }}>
-                          {JSON.stringify((event as Record<string, unknown>).input).slice(0, 100)}
-                        </div>
-                      )}
-                      {event.type === 'tool_result' && (
-                        <div className="mt-1 pl-2 text-[9px] truncate" style={{ color: 'var(--ai-text-tertiary)' }}>
-                          {JSON.stringify((event as Record<string, unknown>).content || (event as Record<string, unknown>).output).slice(0, 100)}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                {debugEvents.map((event, i) => (
+                  <DebugEventRow key={i} event={event} defaultExpanded={allExpanded} />
+                ))}
                 <div ref={debugEndRef} />
               </div>
             </div>

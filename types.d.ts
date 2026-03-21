@@ -2596,6 +2596,7 @@ interface Window {
     aiCleanupTaskServices: (taskId: string) => Promise<void>
     aiRemoveWorktree: (taskId: string) => Promise<void>
     aiSendPlannerMessage: (conversation: { role: string; content: string }[], cwd: string) => Promise<string>
+    aiSavePlannerConversation: (messages: { role: string; content: string }[], debugEvents: unknown[]) => Promise<string>
     subscribeAIPlannerChunk: (callback: (chunk: string) => void) => () => void
     subscribeAIPlannerDebug: (callback: (event: unknown) => void) => () => void
     aiGetSettings: () => Promise<AIAutomationSettings>
