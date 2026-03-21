@@ -375,6 +375,10 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('aiPlannerChunk', (chunk) => {
       callback(chunk);
     }),
+  subscribeAIPlannerDebug: (callback: (event: unknown) => void) =>
+    ipcOn('aiPlannerDebug', (event) => {
+      callback(event);
+    }),
   subscribeAINotifications: (callback: (data: AINotification[]) => void) =>
     ipcOn('aiNotifications', (data) => {
       callback(data);

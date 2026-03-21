@@ -2263,6 +2263,10 @@ type EventPayloadMapping = {
     return: string;
     args: [string];
   }
+  aiPlannerDebug: {
+    return: unknown;
+    args: [unknown];
+  }
   aiNotifications: {
     return: AINotification[];
     args: [AINotification[]];
@@ -2593,6 +2597,7 @@ interface Window {
     aiRemoveWorktree: (taskId: string) => Promise<void>
     aiSendPlannerMessage: (conversation: { role: string; content: string }[], cwd: string) => Promise<string>
     subscribeAIPlannerChunk: (callback: (chunk: string) => void) => () => void
+    subscribeAIPlannerDebug: (callback: (event: unknown) => void) => () => void
     aiGetSettings: () => Promise<AIAutomationSettings>
     aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => Promise<void>
     aiGenerateKnowledgeDoc: (projectPath: string) => Promise<AIKnowledgeDoc>

@@ -60,7 +60,7 @@ export async function sendPlannerMessage(
 
     const args = [
       '--print',
-      '--output-format', 'text',
+      '--output-format', 'stream-json',
       '--system-prompt', PLANNER_SYSTEM_PROMPT,
       '-p', fullPrompt,
     ]
@@ -68,6 +68,7 @@ export async function sendPlannerMessage(
     const mcpConfig = getMcpConfigPath()
     if (mcpConfig) {
       args.push('--mcp-config', mcpConfig)
+      args.push('--allowedTools', 'mcp__devcontrol__create_task,mcp__devcontrol__create_board,mcp__devcontrol__list_knowledge_docs,mcp__devcontrol__read_knowledge_doc,mcp__devcontrol__list_projects,mcp__devcontrol__list_comments,mcp__devcontrol__resolve_comment')
     }
 
     const claudePath = getClaudePath()
@@ -77,14 +78,52 @@ export async function sendPlannerMessage(
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 
-    let output = ''
+    let assistantText = ''
     let error = ''
+    let buffer = ''
 
     child.stdout.on('data', (data: Buffer) => {
-      const chunk = data.toString()
-      output += chunk
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        ipcWebContentsSend('aiPlannerChunk', mainWindow.webContents, chunk)
+      buffer += data.toString()
+      // Process complete JSON lines
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || '' // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const event = JSON.parse(line)
+
+          // Send all events to debug panel
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            ipcWebContentsSend('aiPlannerDebug', mainWindow.webContents, event)
+          }
+
+          // Extract assistant text for the chat
+          if (event.type === 'assistant' && event.message?.content) {
+            for (const block of event.message.content) {
+              if (block.type === 'text') {
+                assistantText = block.text
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  ipcWebContentsSend('aiPlannerChunk', mainWindow.webContents, block.text)
+                }
+              }
+            }
+          }
+
+          // Content block delta — streaming text
+          if (event.type === 'content_block_delta' && event.delta?.text) {
+            assistantText += event.delta.text
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              ipcWebContentsSend('aiPlannerChunk', mainWindow.webContents, event.delta.text)
+            }
+          }
+        } catch {
+          // Not JSON — treat as raw text
+          assistantText += line
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            ipcWebContentsSend('aiPlannerChunk', mainWindow.webContents, line)
+          }
+        }
       }
     })
 
@@ -93,8 +132,8 @@ export async function sendPlannerMessage(
     })
 
     child.on('close', (code) => {
-      if (code === 0 || output.length > 0) {
-        resolve(output.trim())
+      if (code === 0 || assistantText.length > 0) {
+        resolve(assistantText.trim())
       } else {
         reject(new Error(`Planner failed (code ${code}): ${error}`))
       }
