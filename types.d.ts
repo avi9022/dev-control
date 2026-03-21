@@ -2231,6 +2231,10 @@ type EventPayloadMapping = {
     return: { prompt: string; events: string };
     args: [string]; // contextHistoryPath (absolute)
   }
+  aiSendPlannerMessage: {
+    return: string;
+    args: [{ role: string; content: string }[], string];
+  }
   aiGetSettings: {
     return: AIAutomationSettings;
     args: [];
@@ -2254,6 +2258,10 @@ type EventPayloadMapping = {
   aiAgentStats: {
     return: AIAgentStats;
     args: [AIAgentStats];
+  }
+  aiPlannerChunk: {
+    return: string;
+    args: [string];
   }
   aiNotifications: {
     return: AINotification[];
@@ -2583,6 +2591,8 @@ interface Window {
     aiCreateTaskServices: (taskId: string) => Promise<DirectorySettings[]>
     aiCleanupTaskServices: (taskId: string) => Promise<void>
     aiRemoveWorktree: (taskId: string) => Promise<void>
+    aiSendPlannerMessage: (conversation: { role: string; content: string }[], cwd: string) => Promise<string>
+    subscribeAIPlannerChunk: (callback: (chunk: string) => void) => () => void
     aiGetSettings: () => Promise<AIAutomationSettings>
     aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => Promise<void>
     aiGenerateKnowledgeDoc: (projectPath: string) => Promise<AIKnowledgeDoc>

@@ -60,6 +60,7 @@ import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, delet
 import { generateKnowledgeDoc } from './ai-automation/knowledge-generator.js'
 import { getBranchInfo, renameBranch, editCommitMessage, editMultipleCommitMessages, squashCommits } from './ai-automation/git-operations.js'
 import { setNotificationMainWindow, getNotifications, markAllRead } from './ai-automation/notification-manager.js'
+import { sendPlannerMessage, setPlannerMainWindow } from './ai-automation/planner-runner.js'
 import { randomUUID } from 'crypto'
 import { getDatabases, createDatabase, dropDatabase } from './mongodb/database-operations.js'
 import { getCollections, createCollection as mongoCreateCol, dropCollection, renameCollection, getCollectionStats } from './mongodb/collection-operations.js'
@@ -254,6 +255,7 @@ app.on("ready", async () => {
   setTaskManagerMainWindow(mainWindow)
   setAgentMainWindow(mainWindow)
   setNotificationMainWindow(mainWindow)
+  setPlannerMainWindow(mainWindow)
   setShellMainWindow(mainWindow)
 
   // Start MCP server for agent tools
@@ -1031,6 +1033,10 @@ app.on("ready", async () => {
 
   ipcMainHandle('aiReadTaskFile', async (_event, taskId, filename) => {
     return readTaskDirFile(taskId, filename)
+  })
+
+  ipcMainHandle('aiSendPlannerMessage', async (_event, conversation: { role: string; content: string }[], cwd: string) => {
+    return sendPlannerMessage(conversation as { role: 'user' | 'assistant'; content: string }[], cwd)
   })
 
   ipcMainHandle('aiGetSettings', async () => {

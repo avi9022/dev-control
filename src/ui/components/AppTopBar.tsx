@@ -1,11 +1,12 @@
 import { useState, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { Button } from '@/components/ui/button'
-import { Plus, Settings, Zap, Sun, Moon, Cuboid } from 'lucide-react'
+import { Plus, Settings, Zap, Sun, Moon, Cuboid, Wand2 } from 'lucide-react'
 import { NotificationBell } from '@/ui/components/ai-automation/NotificationBell'
 import { SplitScreenChoice } from '@/ui/components/SplitScreenChoice'
 import { BoardSwitcher } from '@/ui/components/ai-automation/BoardSwitcher'
 import { NewTaskDialog } from '@/ui/components/ai-automation/NewTaskDialog'
+import { PlannerChat } from '@/ui/components/ai-automation/PlannerChat'
 import { AISettings } from '@/ui/views/AISettings'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
@@ -22,6 +23,7 @@ export const AppTopBar: FC<AppTopBarProps> = ({ onNavigateToTask, settingsOpen, 
   const { tasks, settings, updateSettings } = useAIAutomation()
   const [newTaskOpen, setNewTaskOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showPlanner, setShowPlanner] = useState(false)
   const isSettingsOpen = settingsOpen ?? showSettings
   const setIsSettingsOpen = onSettingsOpenChange ?? setShowSettings
 
@@ -98,6 +100,15 @@ export const AppTopBar: FC<AppTopBarProps> = ({ onNavigateToTask, settingsOpen, 
           </Button>
           <Button
             size="sm"
+            onClick={() => setShowPlanner(true)}
+            variant="outline"
+            className="border-[var(--ai-border)] bg-transparent hover:bg-[var(--ai-surface-2)] text-[var(--ai-text-secondary)] hover:text-[var(--ai-text-primary)]"
+          >
+            <Wand2 className="h-3.5 w-3.5 mr-1" />
+            Plan
+          </Button>
+          <Button
+            size="sm"
             onClick={() => setNewTaskOpen(true)}
             className="font-semibold"
             style={{ background: 'var(--ai-accent)', color: isLight ? '#FFFFFF' : 'var(--ai-surface-0)' }}
@@ -109,6 +120,7 @@ export const AppTopBar: FC<AppTopBarProps> = ({ onNavigateToTask, settingsOpen, 
       </div>
 
       <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} />
+      <PlannerChat open={showPlanner} onOpenChange={setShowPlanner} />
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <DialogContent className="!max-w-[95vw] h-[85vh] flex flex-col" style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
           <DialogHeader>

@@ -350,6 +350,7 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiRemoveWorktree: (taskId: string) => ipcInvoke('aiRemoveWorktree', taskId),
   aiGetTaskFiles: (taskId: string) => ipcInvoke('aiGetTaskFiles', taskId),
   aiReadTaskFile: (taskId: string, filename: string) => ipcInvoke('aiReadTaskFile', taskId, filename),
+  aiSendPlannerMessage: (conversation: { role: string; content: string }[], cwd: string) => ipcInvoke('aiSendPlannerMessage', conversation, cwd),
   aiGetSettings: () => ipcInvoke('aiGetSettings'),
   aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => ipcInvoke('aiUpdateSettings', updates),
   aiGenerateKnowledgeDoc: (projectPath: string) => ipcInvoke('aiGenerateKnowledgeDoc', projectPath),
@@ -369,6 +370,10 @@ electron.contextBridge.exposeInMainWorld("electron", {
   subscribeAIAgentStats: (callback: (data: AIAgentStats) => void) =>
     ipcOn('aiAgentStats', (data) => {
       callback(data);
+    }),
+  subscribeAIPlannerChunk: (callback: (chunk: string) => void) =>
+    ipcOn('aiPlannerChunk', (chunk) => {
+      callback(chunk);
     }),
   subscribeAINotifications: (callback: (data: AINotification[]) => void) =>
     ipcOn('aiNotifications', (data) => {
