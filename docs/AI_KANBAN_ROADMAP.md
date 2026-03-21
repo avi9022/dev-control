@@ -46,6 +46,7 @@
 - [ ] **F42**: 3D Task Visualization — fun alternative view that renders tasks as characters in a Minecraft-style voxel world, where agents visually perform their work (planning agent reads blueprints, worker agent builds structures, reviewer agent inspects buildings), with task progress reflected as construction progress and phase transitions as movement between zones (sub-roadmap: `docs/F42_3D_VISUALIZATION_ROADMAP.md`)
 - [ ] **F43**: Code Quality & Linting Rules — establish and enforce project-wide coding standards with ESLint rules, run a full codebase quality assessment, fix inconsistencies (naming, patterns, dead code, error handling), and document conventions in CLAUDE.md
 - [ ] **F44**: Codebase Audit & Refactor — comprehensive review of the entire codebase for code quality, performance, accessibility, and maintainability; identify tech debt, refactor large files, extract shared utilities, and ensure consistent patterns across all modules
+- [ ] **F45**: MCP Agent Permissions — granular permission system for MCP tools per agent/phase, controlling which tools each agent can access (e.g., read-only for reviewers, no shell for planners), with a UI to configure permissions per pipeline phase and audit logs of tool usage
 
 ## Backlog (needs investigation)
 
