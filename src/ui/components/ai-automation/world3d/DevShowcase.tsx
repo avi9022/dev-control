@@ -5,8 +5,9 @@ import { Tree } from './Tree'
 import { TaskCube } from './TaskCube'
 import { SignPost } from './SignPost'
 import { Lantern } from './Lantern'
-import { ZoneBuilding } from './ZoneBuilding'
+import { Cottage } from './buildings/Cottage'
 import { Tower } from './buildings/Tower'
+import { Workshop } from './buildings/Workshop'
 import { Flower } from './Flower'
 import { TallGrass } from './TallGrass'
 import { Boulder } from './Boulder'
@@ -170,10 +171,12 @@ export const DevShowcase: FC = () => {
 
       {/* ── Row 4: Buildings ── */}
       <SectionLabel position={[-2, 3.5, row3Z + 14]} text="Buildings" />
-      <ZoneBuilding position={[0, row3Z + 14]} color="#6B7FD7" />
+      <Cottage position={[0, row3Z + 14]} color="#6B7FD7" />
       <Label position={[0, -0.3, row3Z + 14]} text="Cottage" />
       <Tower position={[16, row3Z + 14]} color="#D4A843" />
       <Label position={[16, -0.3, row3Z + 14]} text="Tower" />
+      <Workshop position={[36, row3Z + 14]} color="#4DA870" />
+      <Label position={[36, -0.3, row3Z + 14]} text="Workshop" />
     </group>
   )
 }

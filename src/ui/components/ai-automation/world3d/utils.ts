@@ -7,26 +7,29 @@ export function hash(x: number, z: number) {
 /**
  * Place zones with guaranteed minimum spacing but irregular, village-like scatter.
  * Uses deterministic pseudo-random placement with collision avoidance.
+ * @param radii - per-zone radius for spacing (uses max of both radii for each pair)
  */
-export function getZonePositions(count: number): [number, number][] {
+export function getZonePositions(count: number, radii?: number[]): [number, number][] {
   if (count <= 1) return [[0, 0]]
 
-  const minDist = 15
+  const defaultRadius = 15
   const positions: [number, number][] = []
 
   for (let i = 0; i < count; i++) {
+    const myRadius = radii?.[i] ?? defaultRadius
     let placed = false
-    // Try angles radiating outward from center, using deterministic offsets
+
     for (let attempt = 0; attempt < 200; attempt++) {
-      // Spiral outward with irregular angles
       const angle = hash(i * 31, attempt * 17) * Math.PI * 2
       const baseRadius = 8 + attempt * 0.6 + hash(i, attempt) * 5
       const x = Math.round(Math.cos(angle) * baseRadius)
       const z = Math.round(Math.sin(angle) * baseRadius)
 
-      // Check distance from all existing positions
       let tooClose = false
-      for (const [px, pz] of positions) {
+      for (let j = 0; j < positions.length; j++) {
+        const otherRadius = radii?.[j] ?? defaultRadius
+        const minDist = (myRadius + otherRadius) / 2 + 2
+        const [px, pz] = positions[j]
         const dist = Math.sqrt((x - px) ** 2 + (z - pz) ** 2)
         if (dist < minDist) {
           tooClose = true
@@ -41,9 +44,8 @@ export function getZonePositions(count: number): [number, number][] {
       }
     }
 
-    // Fallback — shouldn't happen but just in case
     if (!placed) {
-      positions.push([i * minDist, 0])
+      positions.push([i * defaultRadius, 0])
     }
   }
 

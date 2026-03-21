@@ -7,7 +7,7 @@ interface TreesProps {
   buildingPositions: [number, number][]
 }
 
-const TREE_COUNT = 15
+const TREE_COUNT = 10
 const MIN_DIST_FROM_BUILDING = 10
 const SCATTER_RADIUS = 60
 

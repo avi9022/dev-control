@@ -25,7 +25,7 @@ export const World3D: FC<World3DProps> = ({ zones = DEFAULT_ZONES, tasks, onTask
     <div className="h-full w-full relative" style={{ background: SKY_COLOR }}>
       <Canvas
         camera={{
-          position: devMode ? [30, 10, 20] : [30, 25, 35],
+          position: devMode ? [15, 12, 30] : [30, 25, 35],
           fov: 50,
           near: 0.1,
           far: 300,

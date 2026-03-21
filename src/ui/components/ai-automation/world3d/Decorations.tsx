@@ -8,9 +8,9 @@ interface DecorationsProps {
   buildingPositions: [number, number][]
 }
 
-const FLOWER_COUNT = 30
-const GRASS_COUNT = 50
-const BOULDER_COUNT = 12
+const FLOWER_COUNT = 15
+const GRASS_COUNT = 25
+const BOULDER_COUNT = 6
 const MIN_DIST_FROM_BUILDING = 8
 
 function isTooCloseToBuilding(x: number, z: number, buildings: [number, number][], minDist: number): boolean {

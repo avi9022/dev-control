@@ -7,7 +7,7 @@ import * as THREE from 'three'
  */
 function generateTexture(
   baseR: number, baseG: number, baseB: number,
-  variation: number = 15,
+  variation: number = 6,
   seed: number = 0,
 ): THREE.CanvasTexture {
   const size = 16
@@ -18,13 +18,15 @@ function generateTexture(
 
   for (let x = 0; x < size; x++) {
     for (let y = 0; y < size; y++) {
-      // Deterministic pseudo-random per pixel
+      // Deterministic pseudo-random — only some pixels vary
       const n = Math.sin((x + seed * 17) * 127.1 + (y + seed * 31) * 311.7) * 43758.5453
       const rand = (n - Math.floor(n)) * 2 - 1 // -1 to 1
+      // Only apply variation to ~40% of pixels for a cleaner look
+      const apply = Math.abs(rand) > 0.6 ? rand : 0
 
-      const r = Math.max(0, Math.min(255, baseR + Math.round(rand * variation)))
-      const g = Math.max(0, Math.min(255, baseG + Math.round(rand * variation)))
-      const b = Math.max(0, Math.min(255, baseB + Math.round(rand * variation)))
+      const r = Math.max(0, Math.min(255, baseR + Math.round(apply * variation)))
+      const g = Math.max(0, Math.min(255, baseG + Math.round(apply * variation)))
+      const b = Math.max(0, Math.min(255, baseB + Math.round(apply * variation)))
 
       ctx.fillStyle = `rgb(${r},${g},${b})`
       ctx.fillRect(x, y, 1, 1)
@@ -49,10 +51,10 @@ function grassTop() {
     for (let y = 0; y < size; y++) {
       const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
       const rand = n - Math.floor(n)
-      const dark = rand > 0.7
-      const r = dark ? 60 : 75 + Math.round(rand * 20)
-      const g = dark ? 120 : 150 + Math.round(rand * 25)
-      const b = dark ? 35 : 45 + Math.round(rand * 10)
+      const dark = rand > 0.85
+      const r = dark ? 65 : 75 + Math.round(rand * 8)
+      const g = dark ? 130 : 150 + Math.round(rand * 10)
+      const b = dark ? 38 : 45 + Math.round(rand * 5)
       ctx.fillStyle = `rgb(${r},${g},${b})`
       ctx.fillRect(x, y, 1, 1)
     }
@@ -79,15 +81,15 @@ function grassSide() {
 
       if (y < 3 + Math.round(rand * 2)) {
         // Green fringe at top
-        const r = 60 + Math.round(rand * 15)
-        const g = 120 + Math.round(rand * 20)
-        const b = 30 + Math.round(rand * 10)
+        const r = 62 + Math.round(rand * 8)
+        const g = 125 + Math.round(rand * 10)
+        const b = 32 + Math.round(rand * 5)
         ctx.fillStyle = `rgb(${r},${g},${b})`
       } else {
         // Dirt below
-        const r = 110 + Math.round(rand * 20)
-        const g = 85 + Math.round(rand * 15)
-        const b = 55 + Math.round(rand * 12)
+        const r = 115 + Math.round(rand * 8)
+        const g = 88 + Math.round(rand * 6)
+        const b = 58 + Math.round(rand * 5)
         ctx.fillStyle = `rgb(${r},${g},${b})`
       }
       ctx.fillRect(x, y, 1, 1)
@@ -173,9 +175,9 @@ function stoneTexture() {
     for (let y = 0; y < size; y++) {
       const n = Math.sin(x * 127.1 + y * 311.7 + 99) * 43758.5453
       const rand = n - Math.floor(n)
-      const crack = rand > 0.85
-      const base = crack ? 90 : 125 + Math.round(rand * 20)
-      ctx.fillStyle = `rgb(${base},${base},${base + 5})`
+      const crack = rand > 0.92
+      const base = crack ? 105 : 125 + Math.round(rand * 8)
+      ctx.fillStyle = `rgb(${base},${base},${base + 3})`
       ctx.fillRect(x, y, 1, 1)
     }
   }
@@ -240,10 +242,10 @@ function woodTexture(dark: boolean = false) {
       const n = Math.sin(x * 127.1 + y * 311.7 + (dark ? 200 : 150)) * 43758.5453
       const rand = n - Math.floor(n)
       // Horizontal grain lines
-      const grain = (y % 4 === 0) ? -15 : 0
-      const r = baseR + Math.round(rand * 18) + grain
-      const g = baseG + Math.round(rand * 12) + grain
-      const b = baseB + Math.round(rand * 8) + grain
+      const grain = (y % 4 === 0) ? -8 : 0
+      const r = baseR + Math.round(rand * 6) + grain
+      const g = baseG + Math.round(rand * 5) + grain
+      const b = baseB + Math.round(rand * 4) + grain
       ctx.fillStyle = `rgb(${Math.max(0, r)},${Math.max(0, g)},${Math.max(0, b)})`
       ctx.fillRect(x, y, 1, 1)
     }
@@ -267,10 +269,10 @@ function leafTexture() {
     for (let y = 0; y < size; y++) {
       const n = Math.sin(x * 127.1 + y * 311.7 + 77) * 43758.5453
       const rand = n - Math.floor(n)
-      const gap = rand > 0.8
-      const r = gap ? 20 : 35 + Math.round(rand * 20)
-      const g = gap ? 60 : 80 + Math.round(rand * 30)
-      const b = gap ? 12 : 20 + Math.round(rand * 10)
+      const gap = rand > 0.9
+      const r = gap ? 28 : 38 + Math.round(rand * 8)
+      const g = gap ? 68 : 85 + Math.round(rand * 12)
+      const b = gap ? 15 : 22 + Math.round(rand * 5)
       ctx.fillStyle = `rgb(${r},${g},${b})`
       ctx.fillRect(x, y, 1, 1)
     }
@@ -288,7 +290,7 @@ function woolTexture(hexColor: string) {
   const r = Math.round(c.r * 255)
   const g = Math.round(c.g * 255)
   const b = Math.round(c.b * 255)
-  return generateTexture(r, g, b, 12, Math.round(c.r * 100))
+  return generateTexture(r, g, b, 5, Math.round(c.r * 100))
 }
 
 /** Bars — vertical dark lines with transparent gaps for windows */
