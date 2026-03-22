@@ -22,9 +22,10 @@ import { AmendmentsTab } from '@/ui/components/ai-automation/AmendmentsTab'
 interface AITaskDetailProps {
   taskId: string
   onBack: () => void
+  onSelectTask?: (taskId: string) => void
 }
 
-export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
+export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTask }) => {
   const { tasks, stopTask, moveTaskPhase, updateTask, settings, updateSettings } = useAIAutomation()
   const themeClass = ''
   const task = tasks.find(t => t.id === taskId)
@@ -260,6 +261,8 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                 defaultPhase={settings?.defaultAmendmentPhase}
                 defaultGitStrategy={settings?.defaultGitStrategy}
                 defaultBaseBranch={settings?.defaultBaseBranch}
+                taskId={task.id}
+                boardId={task.boardId}
               />
               </div>
             </DialogContent>
@@ -573,6 +576,10 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack }) => {
                 setEditProjects={setEditProjects}
                 editDescRef={editDescRef}
                 settings={settings}
+                allTasks={tasks}
+                onTaskClick={onSelectTask}
+                boardId={task.boardId}
+                excludeTaskIds={new Set([task.id])}
               />
               <ReviewCommentsCard
                 task={task}

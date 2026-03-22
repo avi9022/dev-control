@@ -14,6 +14,53 @@ interface TaskDetailsCardProps {
   setEditProjects: React.Dispatch<React.SetStateAction<AITaskProject[]>>
   editDescRef: React.RefObject<MentionEditorHandle | null>
   settings: AIAutomationSettings | null
+  allTasks?: AITask[]
+  onTaskClick?: (taskId: string) => void
+  boardId?: string
+  excludeTaskIds?: Set<string>
+}
+
+function renderTextWithTaskRefs(
+  text: string,
+  allTasks: AITask[],
+  onTaskClick: (taskId: string) => void
+): React.ReactNode[] {
+  const parts: React.ReactNode[] = []
+  const regex = /#([a-f0-9]{8})\b/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+    const shortId = match[1]
+    const linked = allTasks.find(t => t.id.startsWith(shortId))
+    if (linked) {
+      parts.push(
+        <button
+          key={match.index}
+          onClick={() => onTaskClick(linked.id)}
+          className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded border text-xs mx-0.5 align-baseline cursor-pointer hover:opacity-80 transition-opacity"
+          style={{
+            background: 'var(--ai-warning-subtle, #fef3c7)',
+            borderColor: 'var(--ai-warning, #f59e0b)',
+            color: 'var(--ai-warning, #d97706)',
+          }}
+          title={`${linked.title} · ${linked.currentPhaseName || linked.phase}`}
+        >
+          #{shortId} {linked.title}
+        </button>
+      )
+    } else {
+      parts.push(match[0])
+    }
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+  return parts
 }
 
 const AttachmentsInline: FC<{ taskId: string }> = ({ taskId }) => {
@@ -79,6 +126,10 @@ export const TaskDetailsCard: FC<TaskDetailsCardProps> = ({
   setEditProjects,
   editDescRef,
   settings,
+  allTasks,
+  onTaskClick,
+  boardId,
+  excludeTaskIds,
 }) => {
   const projectLabels = new Set((task.projects || []).map(p => p.label))
 
@@ -119,7 +170,7 @@ export const TaskDetailsCard: FC<TaskDetailsCardProps> = ({
           {editing ? (
             <MentionEditor
               ref={editDescRef}
-              placeholder="Describe what needs to be done... Type @ to tag a project"
+              placeholder="Describe what needs to be done... Type @ to tag a project, # to reference a task"
               minHeight="120px"
               excludeProjectPaths={new Set(editProjects.map(p => p.path))}
               onProjectTagged={(dir) => {
@@ -132,11 +183,21 @@ export const TaskDetailsCard: FC<TaskDetailsCardProps> = ({
                   }])
                 }
               }}
+              boardId={boardId}
+              excludeTaskIds={excludeTaskIds}
             />
           ) : (
             task.description ? (
               <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--ai-text-secondary)' }}>
-                {renderMentions(task.description, projectLabels)}
+                {allTasks && onTaskClick
+                  ? renderMentions(task.description, projectLabels).flatMap((node, i) =>
+                      typeof node === 'string'
+                        ? renderTextWithTaskRefs(node, allTasks, onTaskClick).map((n, j) =>
+                            typeof n === 'string' ? n : <span key={`${i}-${j}`}>{n}</span>
+                          )
+                        : [node]
+                    )
+                  : renderMentions(task.description, projectLabels)}
               </p>
             ) : (
               <p className="text-xs italic" style={{ color: 'var(--ai-text-tertiary)' }}>No description</p>

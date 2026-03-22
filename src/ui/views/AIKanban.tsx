@@ -79,7 +79,7 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
   if (selectedTaskId) {
     return (
       <div className="h-full" style={{ background: 'var(--ai-surface-0)' }}>
-        <AITaskDetail taskId={selectedTaskId} onBack={() => onSelectTask(null)} />
+        <AITaskDetail taskId={selectedTaskId} onBack={() => onSelectTask(null)} onSelectTask={onSelectTask} />
       </div>
     )
   }
