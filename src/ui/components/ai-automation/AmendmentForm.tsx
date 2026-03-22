@@ -14,11 +14,13 @@ interface AmendmentFormProps {
   defaultPhase?: string
   defaultGitStrategy?: AIGitStrategy
   defaultBaseBranch?: string
+  taskId?: string
+  boardId?: string
 }
 
 export const AmendmentForm: FC<AmendmentFormProps> = ({
   pipeline, onSubmit, onCancel, existingProjects = [], existingWorktrees = [],
-  defaultPhase, defaultGitStrategy, defaultBaseBranch
+  defaultPhase, defaultGitStrategy, defaultBaseBranch, taskId, boardId
 }) => {
   const editorRef = useRef<MentionEditorHandle>(null)
   const [targetPhase, setTargetPhase] = useState<string>(defaultPhase || pipeline[0]?.id || '')
@@ -103,11 +105,13 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
         <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>New Requirement</label>
         <MentionEditor
           ref={editorRef}
-          placeholder="Describe the new requirement... Type @ to tag a project"
+          placeholder="Describe the new requirement... Type @ to tag a project, # to reference a task"
           minHeight="80px"
           excludeProjectPaths={allExcludedPaths}
           onProjectTagged={handleProjectTagged}
           onProjectRemoved={handleProjectRemoved}
+          boardId={boardId}
+          excludeTaskIds={new Set(taskId ? [taskId] : [])}
         />
       </div>
 

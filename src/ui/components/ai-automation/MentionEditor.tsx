@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react'
-import { FolderOpen } from 'lucide-react'
+import { FolderOpen, Hash } from 'lucide-react'
 
 const MENTION_ATTR = 'data-mention-id'
+const TASK_MENTION_ATTR = 'data-task-id'
 
 export interface MentionEditorHandle {
   getPlainText: () => string
-  hydrateText: (text: string, labels: Set<string>) => void
+  hydrateText: (text: string, labels: Set<string>, taskMap?: Map<string, string>) => void
   clear: () => void
 }
 
@@ -17,6 +18,10 @@ interface MentionEditorProps {
   onProjectRemoved?: (label: string) => void
   /** Already-tagged project paths to exclude from the dropdown */
   excludeProjectPaths?: Set<string>
+  onTaskTagged?: (taskId: string, title: string) => void
+  onTaskRemoved?: (taskId: string) => void
+  excludeTaskIds?: Set<string>
+  boardId?: string
 }
 
 function getPlainText(el: HTMLElement): string {
@@ -27,6 +32,9 @@ function getPlainText(el: HTMLElement): string {
     } else if (node instanceof HTMLElement) {
       if (node.hasAttribute(MENTION_ATTR)) {
         text += `@${node.textContent || ''}`
+      } else if (node.hasAttribute(TASK_MENTION_ATTR)) {
+        const taskId = node.getAttribute(TASK_MENTION_ATTR) || ''
+        text += `#${taskId.slice(0, 8)}`
       } else if (node.tagName === 'BR') {
         text += '\n'
       } else {
@@ -49,18 +57,42 @@ function createChipElement(label: string): HTMLSpanElement {
   return chip
 }
 
+function createTaskChipElement(taskId: string, title: string): HTMLSpanElement {
+  const chip = document.createElement('span')
+  chip.setAttribute(TASK_MENTION_ATTR, taskId)
+  chip.setAttribute('contenteditable', 'false')
+  chip.className = 'inline-flex items-center gap-0.5 px-1.5 py-0 rounded border text-xs mx-0.5 align-baseline cursor-default select-none'
+  chip.style.background = 'var(--ai-warning-subtle, #fef3c7)'
+  chip.style.borderColor = 'var(--ai-warning, #f59e0b)'
+  chip.style.color = 'var(--ai-warning, #d97706)'
+  chip.textContent = title
+  return chip
+}
+
 export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>(
-  ({ placeholder, className, minHeight = '100px', onProjectTagged, onProjectRemoved, excludeProjectPaths }, ref) => {
+  ({ placeholder, className, minHeight = '100px', onProjectTagged, onProjectRemoved, excludeProjectPaths, onTaskTagged, onTaskRemoved, excludeTaskIds, boardId }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
+    const taskMenuRef = useRef<HTMLDivElement>(null)
     const [directories, setDirectories] = useState<DirectorySettings[]>([])
     const [showMention, setShowMention] = useState(false)
     const [mentionFilter, setMentionFilter] = useState('')
     const [mentionIndex, setMentionIndex] = useState(0)
 
+    const [allTasks, setAllTasks] = useState<AITask[]>([])
+    const [showTaskMention, setShowTaskMention] = useState(false)
+    const [taskMentionFilter, setTaskMentionFilter] = useState('')
+    const [taskMentionIndex, setTaskMentionIndex] = useState(0)
+
     useEffect(() => {
       window.electron.getDirectories().then(setDirectories)
     }, [])
+
+    useEffect(() => {
+      window.electron.aiGetTasks().then(tasks => {
+        setAllTasks(boardId ? tasks.filter(t => t.boardId === boardId) : tasks)
+      })
+    }, [boardId])
 
     useEffect(() => {
       if (!showMention || !menuRef.current) return
@@ -68,39 +100,89 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
       if (activeItem) activeItem.scrollIntoView({ block: 'nearest' })
     }, [mentionIndex, showMention])
 
+    useEffect(() => {
+      if (!showTaskMention || !taskMenuRef.current) return
+      const activeItem = taskMenuRef.current.children[taskMentionIndex] as HTMLElement | undefined
+      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' })
+    }, [taskMentionIndex, showTaskMention])
+
     const filteredDirs = directories.filter(d => {
       const label = d.customLabel || d.name
       return label.toLowerCase().includes(mentionFilter.toLowerCase()) &&
         !(excludeProjectPaths?.has(d.path))
     })
 
+    const filteredTasks = allTasks.filter(t => {
+      if (excludeTaskIds?.has(t.id)) return false
+      const shortId = t.id.slice(0, 8)
+      const query = taskMentionFilter.toLowerCase()
+      return t.title.toLowerCase().includes(query) || shortId.includes(query)
+    })
+
     useImperativeHandle(ref, () => ({
       getPlainText: () => editorRef.current ? getPlainText(editorRef.current) : '',
-      hydrateText: (text: string, labels: Set<string>) => {
+      hydrateText: (text: string, labels: Set<string>, taskMap?: Map<string, string>) => {
         const el = editorRef.current
         if (!el) return
         while (el.firstChild) el.removeChild(el.firstChild)
-        if (labels.size === 0) {
-          el.appendChild(document.createTextNode(text))
-          return
-        }
-        const sorted = [...labels].sort((a, b) => b.length - a.length)
+
+        const sortedLabels = [...labels].sort((a, b) => b.length - a.length)
         let remaining = text
+
         while (remaining.length > 0) {
+          // Find next @ or # trigger
           const atIdx = remaining.indexOf('@')
-          if (atIdx === -1) {
+          const hashIdx = remaining.indexOf('#')
+
+          // Determine which comes first
+          let nextIdx = -1
+          let type: '@' | '#' | null = null
+          if (atIdx !== -1 && (hashIdx === -1 || atIdx < hashIdx)) {
+            nextIdx = atIdx; type = '@'
+          } else if (hashIdx !== -1) {
+            nextIdx = hashIdx; type = '#'
+          }
+
+          if (nextIdx === -1 || type === null) {
             el.appendChild(document.createTextNode(remaining))
             break
           }
-          const afterAt = remaining.slice(atIdx + 1)
-          const matched = sorted.find(l => afterAt.startsWith(l))
-          if (matched) {
-            if (atIdx > 0) el.appendChild(document.createTextNode(remaining.slice(0, atIdx)))
-            el.appendChild(createChipElement(matched))
-            remaining = remaining.slice(atIdx + 1 + matched.length)
+
+          if (type === '@') {
+            const afterAt = remaining.slice(nextIdx + 1)
+            const matched = sortedLabels.find(l => afterAt.startsWith(l))
+            if (matched) {
+              if (nextIdx > 0) el.appendChild(document.createTextNode(remaining.slice(0, nextIdx)))
+              el.appendChild(createChipElement(matched))
+              remaining = remaining.slice(nextIdx + 1 + matched.length)
+            } else {
+              el.appendChild(document.createTextNode(remaining.slice(0, nextIdx + 1)))
+              remaining = remaining.slice(nextIdx + 1)
+            }
+          } else if (type === '#' && taskMap) {
+            const afterHash = remaining.slice(nextIdx + 1)
+            const shortIdMatch = afterHash.match(/^([a-f0-9]{8})\b/)
+            if (shortIdMatch) {
+              const shortId = shortIdMatch[1]
+              const title = taskMap.get(shortId)
+              if (title) {
+                if (nextIdx > 0) el.appendChild(document.createTextNode(remaining.slice(0, nextIdx)))
+                // Find full task ID from allTasks
+                const fullTask = allTasks.find(t => t.id.startsWith(shortId))
+                el.appendChild(createTaskChipElement(fullTask?.id || shortId, title))
+                remaining = remaining.slice(nextIdx + 1 + shortId.length)
+              } else {
+                el.appendChild(document.createTextNode(remaining.slice(0, nextIdx + 1)))
+                remaining = remaining.slice(nextIdx + 1)
+              }
+            } else {
+              el.appendChild(document.createTextNode(remaining.slice(0, nextIdx + 1)))
+              remaining = remaining.slice(nextIdx + 1)
+            }
           } else {
-            el.appendChild(document.createTextNode(remaining.slice(0, atIdx + 1)))
-            remaining = remaining.slice(atIdx + 1)
+            // # found but no taskMap
+            el.appendChild(document.createTextNode(remaining.slice(0, nextIdx + 1)))
+            remaining = remaining.slice(nextIdx + 1)
           }
         }
       },
@@ -158,6 +240,52 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
       setTimeout(() => editor.focus(), 0)
     }
 
+    const insertTaskMention = (task: AITask) => {
+      const editor = editorRef.current
+      if (!editor) return
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+
+      const range = sel.getRangeAt(0)
+      const textNode = range.startContainer
+      if (textNode.nodeType !== Node.TEXT_NODE) return
+
+      const text = textNode.textContent || ''
+      const cursorOffset = range.startOffset
+      const textBefore = text.slice(0, cursorOffset)
+      const hashIndex = textBefore.lastIndexOf('#')
+      if (hashIndex === -1) return
+
+      const beforeText = text.slice(0, hashIndex)
+      const afterText = text.slice(cursorOffset)
+      const chip = createTaskChipElement(task.id, task.title)
+      const parent = textNode.parentNode!
+
+      const beforeNode = document.createTextNode(beforeText)
+      const afterNode = document.createTextNode('\u00A0' + afterText)
+
+      parent.insertBefore(beforeNode, textNode)
+      parent.insertBefore(chip, textNode)
+      parent.insertBefore(afterNode, textNode)
+      parent.removeChild(textNode)
+
+      if (afterNode.textContent && afterNode.textContent.length > 0) {
+        const newSel = window.getSelection()
+        if (newSel) {
+          const newRange = document.createRange()
+          newRange.setStart(afterNode, 1)
+          newRange.collapse(true)
+          newSel.removeAllRanges()
+          newSel.addRange(newRange)
+        }
+      }
+
+      setShowTaskMention(false)
+      setTaskMentionFilter('')
+      onTaskTagged?.(task.id, task.title)
+      setTimeout(() => editor.focus(), 0)
+    }
+
     const handleInput = () => {
       const editor = editorRef.current
       if (!editor) return
@@ -168,28 +296,64 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
       const textNode = range.startContainer
       if (textNode.nodeType !== Node.TEXT_NODE) {
         setShowMention(false)
+        setShowTaskMention(false)
         return
       }
 
       const text = textNode.textContent || ''
       const cursorOffset = range.startOffset
       const textBefore = text.slice(0, cursorOffset)
-      const atIndex = textBefore.lastIndexOf('@')
 
+      // Check for @ project mention
+      const atIndex = textBefore.lastIndexOf('@')
       if (atIndex !== -1) {
         const query = textBefore.slice(atIndex + 1)
-        const charBeforeAt = atIndex > 0 ? text[atIndex - 1] : ' '
-        if ((charBeforeAt === ' ' || charBeforeAt === '\u00A0' || charBeforeAt === '\n' || atIndex === 0) && !query.includes(' ')) {
+        const charBefore = atIndex > 0 ? text[atIndex - 1] : ' '
+        if ((charBefore === ' ' || charBefore === '\u00A0' || charBefore === '\n' || atIndex === 0) && !query.includes(' ')) {
           setShowMention(true)
           setMentionFilter(query)
           setMentionIndex(0)
+          setShowTaskMention(false)
           return
         }
       }
+
+      // Check for # task mention
+      const hashIndex = textBefore.lastIndexOf('#')
+      if (hashIndex !== -1) {
+        const query = textBefore.slice(hashIndex + 1)
+        const charBefore = hashIndex > 0 ? text[hashIndex - 1] : ' '
+        if ((charBefore === ' ' || charBefore === '\u00A0' || charBefore === '\n' || hashIndex === 0) && !query.includes(' ')) {
+          setShowTaskMention(true)
+          setTaskMentionFilter(query)
+          setTaskMentionIndex(0)
+          setShowMention(false)
+          return
+        }
+      }
+
       setShowMention(false)
+      setShowTaskMention(false)
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (showTaskMention && filteredTasks.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          setTaskMentionIndex(prev => (prev + 1) % filteredTasks.length)
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          setTaskMentionIndex(prev => (prev - 1 + filteredTasks.length) % filteredTasks.length)
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault()
+          insertTaskMention(filteredTasks[taskMentionIndex])
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          setShowTaskMention(false)
+        }
+        return
+      }
+
       if (showMention && filteredDirs.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault()
@@ -224,6 +388,13 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
             onProjectRemoved?.(label)
             return
           }
+          if (prev instanceof HTMLElement && prev.hasAttribute(TASK_MENTION_ATTR)) {
+            e.preventDefault()
+            const taskId = prev.getAttribute(TASK_MENTION_ATTR) || ''
+            prev.remove()
+            onTaskRemoved?.(taskId)
+            return
+          }
         }
         if (node === editorRef.current && offset > 0) {
           const prev = node.childNodes[offset - 1]
@@ -232,6 +403,13 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
             const label = prev.getAttribute(MENTION_ATTR) || ''
             prev.remove()
             onProjectRemoved?.(label)
+            return
+          }
+          if (prev instanceof HTMLElement && prev.hasAttribute(TASK_MENTION_ATTR)) {
+            e.preventDefault()
+            const taskId = prev.getAttribute(TASK_MENTION_ATTR) || ''
+            prev.remove()
+            onTaskRemoved?.(taskId)
             return
           }
         }
@@ -276,6 +454,33 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
                 <div className="min-w-0">
                   <p className="truncate font-medium">{dir.customLabel || dir.name}</p>
                   <p className="truncate text-[11px]" style={{ color: 'var(--ai-text-tertiary)' }}>{dir.path}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+        {showTaskMention && filteredTasks.length > 0 && (
+          <div
+            ref={taskMenuRef}
+            className="absolute z-50 mt-1 w-full max-h-[200px] overflow-y-auto rounded-md border shadow-lg"
+            style={{ borderColor: 'var(--ai-border-subtle)', background: 'var(--ai-surface-1)' }}
+          >
+            {filteredTasks.map((task, i) => (
+              <button
+                key={task.id}
+                onMouseDown={e => { e.preventDefault(); insertTaskMention(task) }}
+                className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors"
+                style={{
+                  background: i === taskMentionIndex ? 'var(--ai-surface-3)' : undefined,
+                  color: i === taskMentionIndex ? 'var(--ai-text-primary)' : 'var(--ai-text-secondary)',
+                }}
+              >
+                <Hash className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{task.title}</p>
+                  <p className="truncate text-[11px]" style={{ color: 'var(--ai-text-tertiary)' }}>
+                    #{task.id.slice(0, 8)} · {task.currentPhaseName || task.phase}
+                  </p>
                 </div>
               </button>
             ))}
