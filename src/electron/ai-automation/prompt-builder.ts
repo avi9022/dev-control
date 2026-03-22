@@ -1,4 +1,4 @@
-import { getSettings } from './task-manager.js'
+import { getSettings, getTasks } from './task-manager.js'
 import { listTaskDirFiles, readTaskDirFile, listAttachments, getAttachmentsDir } from './task-dir-manager.js'
 import fs from 'fs'
 import path from 'path'
@@ -81,6 +81,31 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
       amendSection += `\n### Amendment (${date})\n\n${amendment.text}\n`
     }
     parts.push(amendSection)
+  }
+
+  // 5c. Related tasks (cross-references)
+  if (task.linkedTaskIds && task.linkedTaskIds.length > 0) {
+    const allTasks = getTasks()
+    const linkedEntries: string[] = []
+    for (const linkedId of task.linkedTaskIds) {
+      const linked = allTasks.find(t => t.id === linkedId)
+      if (!linked) continue
+      const shortId = linked.id.slice(0, 8)
+      const truncDesc = linked.description.length > 200
+        ? linked.description.slice(0, 200) + '...'
+        : linked.description
+      const phaseName = linked.currentPhaseName || linked.phase
+      let entry = `- #${shortId} — "${linked.title}" [phase: ${phaseName}]\n  ${truncDesc}`
+      if (linked.taskDirPath) {
+        entry += `\n  Task directory: ${linked.taskDirPath}`
+      }
+      linkedEntries.push(entry)
+    }
+    if (linkedEntries.length > 0) {
+      parts.push(
+        `## Related Tasks\n\nThe following tasks are related to this work. If you need more context about a related task, use a subagent to explore its task directory — do not read everything into your main context.\n\n${linkedEntries.join('\n\n')}`
+      )
+    }
   }
 
   // 6. Task directory context (filtered by exclusions)
