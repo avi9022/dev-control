@@ -802,7 +802,17 @@ function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, out
   if (!task) return
 
   if (exitCode !== 0 && exitCode !== null) {
-    updateTask(taskId, { needsUserInput: true })
+    console.warn(`[ai-agent] Agent crashed for task ${taskId} (phase: ${phaseConfig.name}) with exit code ${exitCode}`)
+    const history = [...task.phaseHistory]
+    if (history.length > 0) {
+      history[history.length - 1] = { ...history[history.length - 1], exitedAt: new Date().toISOString(), exitEvent: 'crashed' }
+    }
+    updateTask(taskId, {
+      needsUserInput: true,
+      needsUserInputReason: 'crashed',
+      phaseHistory: history,
+    })
+    sendNotification('needs_attention', taskId, task.title, `Agent crashed in ${phaseConfig.name} (exit code ${exitCode})`)
     return
   }
 

@@ -47,6 +47,7 @@
 - [ ] **F43**: Code Quality & Linting Rules — establish and enforce project-wide coding standards with ESLint rules, run a full codebase quality assessment, fix inconsistencies (naming, patterns, dead code, error handling), and document conventions in CLAUDE.md
 - [ ] **F44**: Codebase Audit & Refactor — comprehensive review of the entire codebase for code quality, performance, accessibility, and maintainability; identify tech debt, refactor large files, extract shared utilities, and ensure consistent patterns across all modules
 - [ ] **F45**: MCP Agent Permissions — granular permission system for MCP tools per agent/phase, controlling which tools each agent can access (e.g., read-only for reviewers, no shell for planners), with a UI to configure permissions per pipeline phase and audit logs of tool usage
+- [ ] **F46**: Task Cross-References — allow tagging/linking other tasks in a task description using @task-id or #task-title syntax, with clickable links in the UI, so agents and users can see task dependencies and related work. Linked tasks should be included as context when an agent works on a task.
 
 ## Backlog (needs investigation)
 
