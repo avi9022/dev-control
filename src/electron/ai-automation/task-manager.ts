@@ -226,7 +226,7 @@ export function migrateTaskWorkspaces() {
       task.projects = paths.map((p, i) => ({
         path: p,
         label: p.split('/').pop() || p,
-        gitStrategy: (taskLegacy.gitStrategy as string) || 'worktree',
+        gitStrategy: ((taskLegacy.gitStrategy as string) || 'worktree') as AIGitStrategy,
         ...(i === 0 ? {
           baseBranch: (taskLegacy.baseBranch as string) || undefined,
           customBranchName: (taskLegacy.customBranchName as string) || undefined,

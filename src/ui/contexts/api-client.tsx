@@ -351,7 +351,7 @@ export const ApiClientProvider: FC<PropsWithChildren> = ({ children }) => {
   const saveRequestToCollection = useCallback(async (
     collectionId: string,
     parentFolderId: string | null,
-    name: string,
+    _name: string,
     config: ApiRequestConfig
   ) => {
     if (!activeWorkspaceId) return

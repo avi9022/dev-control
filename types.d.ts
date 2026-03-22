@@ -482,7 +482,7 @@ interface DockerContainerFilters {
 }
 
 interface DockerLogOptions {
-  containerId: string
+  containerId?: string
   tail?: number
   since?: string
   follow?: boolean

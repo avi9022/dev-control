@@ -297,7 +297,7 @@ export const DocumentList: FC<DocumentListProps> = ({ database, collection, quer
         limit: pageSize,
         skip: currentPage * pageSize,
       }
-      const result = await findDocuments(database, collection, opts.filter, opts)
+      const result = await findDocuments(database, collection, opts)
       setDocuments(result.documents ?? [])
       setTotalCount(result.totalCount ?? 0)
     } catch (err) {

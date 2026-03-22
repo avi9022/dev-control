@@ -32,7 +32,7 @@ export const addDirectoryToStore = async (dirPath: string) => {
   }
 
   const id = Buffer.from(dirPath).toString('base64');
-  const nameToSave = name.replaceAll('-', ' ').replace(name.charAt(0), name.charAt(0).toUpperCase())
+  const nameToSave = name.split('-').join(' ').replace(name.charAt(0), name.charAt(0).toUpperCase())
   let isFrontendProj = false
   if (packageJsonExists) {
     isFrontendProj = await isFrontendProject(dirPath)

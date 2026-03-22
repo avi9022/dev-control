@@ -1,4 +1,4 @@
-import { WebFrameMain } from "electron";
+import type { WebFrameMain } from "electron";
 import { isDev } from "./is-dev.js";
 import { pathToFileURL } from 'url'
 import { getUIPath } from "../pathResolver.js";

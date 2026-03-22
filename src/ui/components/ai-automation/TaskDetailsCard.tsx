@@ -192,9 +192,9 @@ export const TaskDetailsCard: FC<TaskDetailsCardProps> = ({
                 {allTasks && onTaskClick
                   ? renderMentions(task.description, projectLabels).flatMap((node, i) =>
                       typeof node === 'string'
-                        ? renderTextWithTaskRefs(node, allTasks, onTaskClick).map((n, j) =>
+                        ? (renderTextWithTaskRefs(node, allTasks, onTaskClick).map((n, j) =>
                             typeof n === 'string' ? n : <span key={`${i}-${j}`}>{n}</span>
-                          )
+                          ) as React.ReactNode[])
                         : [node]
                     )
                   : renderMentions(task.description, projectLabels)}

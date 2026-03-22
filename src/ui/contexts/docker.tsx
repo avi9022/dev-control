@@ -31,14 +31,14 @@ interface DockerContextValue {
   unpauseContainer: (id: string, dockerContext?: string) => Promise<void>
   removeContainer: (id: string, dockerContext?: string) => Promise<void>
   execInContainer: (id: string, command: string) => Promise<string>
-  getContainerLogs: (id: string, options?: DockerLogOptions, dockerContext?: string) => Promise<string>
+  getContainerLogs: (id: string, options?: DockerLogOptions, dockerContext?: string) => Promise<string[]>
   pullImage: (name: string) => Promise<void>
   removeImage: (id: string, dockerContext?: string) => Promise<void>
   pruneImages: () => Promise<void>
   createVolume: (name: string) => Promise<void>
   removeVolume: (name: string, dockerContext?: string) => Promise<void>
   pruneVolumes: () => Promise<void>
-  createNetwork: (name: string) => Promise<void>
+  createNetwork: (name: string, driver?: string) => Promise<void>
   removeNetwork: (id: string, dockerContext?: string) => Promise<void>
   composeUp: (projectPath: string) => Promise<void>
   composeDown: (projectPath: string) => Promise<void>
@@ -76,7 +76,7 @@ export const DockerContext = createContext<DockerContextValue>({
   unpauseContainer: async () => {},
   removeContainer: async () => {},
   execInContainer: async () => '',
-  getContainerLogs: async () => '',
+  getContainerLogs: async () => [],
   pullImage: async () => {},
   removeImage: async () => {},
   pruneImages: async () => {},
@@ -238,7 +238,7 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   const getContainerLogs = useCallback(async (id: string, options?: DockerLogOptions, dockerContext?: string) => {
-    return await window.electron.dockerGetContainerLogs(id, options, dockerContext)
+    return await window.electron.dockerGetContainerLogs(id, options ?? {}, dockerContext)
   }, [])
 
   const pullImage = useCallback(async (name: string) => {
@@ -252,7 +252,7 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [refreshImages])
 
   const pruneImages = useCallback(async () => {
-    await window.electron.dockerPruneImages()
+    await window.electron.dockerPruneImages(true)
     await refreshImages()
   }, [refreshImages])
 
@@ -271,8 +271,8 @@ export const DockerProvider: FC<PropsWithChildren> = ({ children }) => {
     await refreshVolumes()
   }, [refreshVolumes])
 
-  const createNetwork = useCallback(async (name: string) => {
-    await window.electron.dockerCreateNetwork(name)
+  const createNetwork = useCallback(async (name: string, driver: string = 'bridge') => {
+    await window.electron.dockerCreateNetwork(name, driver)
     await refreshNetworks()
   }, [refreshNetworks])
 

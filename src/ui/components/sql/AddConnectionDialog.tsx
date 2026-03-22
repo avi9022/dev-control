@@ -36,7 +36,7 @@ export const AddConnectionDialog: FC<AddConnectionDialogProps> = ({
   onActivate,
   editConnection,
 }) => {
-  const [configId, setConfigId] = useState(() => crypto.randomUUID())
+  const [configId, setConfigId] = useState<string>(() => crypto.randomUUID())
   const [name, setName] = useState('')
   const [host, setHost] = useState('localhost')
   const [port, setPort] = useState('1521')

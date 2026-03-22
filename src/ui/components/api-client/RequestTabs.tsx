@@ -6,7 +6,7 @@ import { RequestBodyEditor } from './RequestBodyEditor'
 import { InsertVariableEditor, type InsertRule } from './InsertVariableEditor'
 
 interface RequestTabsProps {
-  method: ApiMethod
+  method: ApiHttpMethod
   params: ApiKeyValue[]
   headers: ApiKeyValue[]
   auth: ApiAuth

@@ -428,7 +428,7 @@ function ExecTab({ containerId, dockerContext }: { containerId: string; dockerCo
   const xtermRef = useRef<XTerm | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const sessionIdRef = useRef<string | null>(null)
-  const startSessionRef = useRef<(term?: XTerm, shell?: string) => Promise<void>>()
+  const startSessionRef = useRef<((term?: XTerm, shell?: string) => Promise<void>) | undefined>(undefined)
 
   // Keep sessionId ref in sync
   useEffect(() => {

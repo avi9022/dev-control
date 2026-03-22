@@ -133,7 +133,7 @@ export const IndexList: FC<IndexListProps> = ({ database, collection }) => {
     try {
       setCreateLoading(true)
       setCreateError(null)
-      await createIndex(database, collection, keys, options)
+      await createIndex(database, collection, options)
       setCreateOpen(false)
       resetCreateForm()
       await fetchIndexes()

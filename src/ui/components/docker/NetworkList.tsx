@@ -165,8 +165,8 @@ function NetworkRow({ network, onRemove }: { network: DockerNetwork; onRemove: (
           {containerEntries.map(([id, info]) => (
             <div key={id} className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{info.name}</span>
-              {info.ipv4Address && (
-                <span className="font-mono">{info.ipv4Address}</span>
+              {info.ipv4 && (
+                <span className="font-mono">{info.ipv4}</span>
               )}
             </div>
           ))}

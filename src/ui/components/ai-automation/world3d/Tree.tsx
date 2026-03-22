@@ -1,4 +1,4 @@
-import type { FC } from 'react'
+import type { FC, JSX } from 'react'
 import { useMemo } from 'react'
 import { Block } from './blocks'
 import { hash } from './utils'

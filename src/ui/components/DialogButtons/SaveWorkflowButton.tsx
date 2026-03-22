@@ -44,7 +44,7 @@ export const SaveWorkflowButton: FC<SaveWorkflowButtonProps> = ({ id }) => {
     resolver: zodResolver(FormSchema),
     defaultValues: {
       name: workflowToEdit ? workflowToEdit.name : '',
-      services: workflowToEdit ? workflowToEdit.services : []
+      services: []
     },
   })
 

@@ -133,8 +133,6 @@ export const CollectionSettingsPanel: FC<CollectionSettingsPanelProps> = ({
               <KeyValueTable
                 items={variablesAsKeyValue}
                 onChange={handleVariablesChange}
-                keyPlaceholder="Variable name"
-                valuePlaceholder="Variable value"
               />
             </div>
           </ScrollArea>

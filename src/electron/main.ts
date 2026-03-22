@@ -312,7 +312,7 @@ app.on("ready", async () => {
   let debounceTimer: NodeJS.Timeout | null = null
   let importantValuesDebounceTimer: NodeJS.Timeout | null = null
   ensureTodoFolder().then(() => {
-    todoFolderWatcher = fs.watch(todoFolder, (eventType, filename) => {
+    todoFolderWatcher = fs.watch(todoFolder, (_eventType, filename) => {
       if (filename?.startsWith('TODOS-') && filename.endsWith('.json')) {
         // Debounce to avoid multiple rapid events
         if (debounceTimer) clearTimeout(debounceTimer)
@@ -690,14 +690,16 @@ app.on("ready", async () => {
     try {
       return await sqlExecQuery(sql, params)
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Query execution failed', { cause: err })
+      const msg = err instanceof Error ? err.message : 'Query execution failed'
+      throw new Error(msg)
     }
   })
   ipcMainHandle('sqlExecuteScript', async (_event, sql: string) => {
     try {
       return await sqlExecScript(sql)
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Script execution failed', { cause: err })
+      const msg = err instanceof Error ? err.message : 'Script execution failed'
+      throw new Error(msg)
     }
   })
   ipcMainHandle('sqlCancelQuery', (_event, queryId: string) => sqlCancel(queryId))
@@ -705,7 +707,8 @@ app.on("ready", async () => {
     try {
       return await sqlExplain(sql)
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Explain plan failed', { cause: err })
+      const msg = err instanceof Error ? err.message : 'Explain plan failed'
+      throw new Error(msg)
     }
   })
   ipcMainHandle('sqlEnableDbmsOutput', () => sqlEnableDbms())

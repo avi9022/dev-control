@@ -105,7 +105,7 @@ export const DockerStepFields: FC<DockerStepFieldsProps> = ({
     setMode(newMode)
     if (newMode === 'compose') {
       onContainersChange([], [])
-    } else if (newMode !== 'compose') {
+    } else {
       onComposeProjectChange(undefined)
     }
   }

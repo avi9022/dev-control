@@ -107,6 +107,27 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     }
   }, [messages, debugEvents])
 
+  const sendMessage = async (content: string) => {
+    const userMessage: ChatMessage = { role: 'user', content }
+    const newConversation = [...messages, userMessage]
+    setMessages(newConversation)
+    setInput('')
+    setIsLoading(true)
+    if (!preserveEvents) setDebugEvents([])
+
+    try {
+      const response = await window.electron.aiSendPlannerMessage(
+        newConversation,
+        '/'
+      )
+      setMessages([...newConversation, { role: 'assistant', content: response }])
+    } catch (err) {
+      setMessages([...newConversation, { role: 'assistant', content: `Error: ${err}` }])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Stable ref to sendMessage to avoid re-triggering effect
   const sendMessageRef = useRef(sendMessage)
   sendMessageRef.current = sendMessage
@@ -128,27 +149,6 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     })
     return () => { unsubDebug() }
   }, [])
-
-  const sendMessage = async (content: string) => {
-    const userMessage: ChatMessage = { role: 'user', content }
-    const newConversation = [...messages, userMessage]
-    setMessages(newConversation)
-    setInput('')
-    setIsLoading(true)
-    if (!preserveEvents) setDebugEvents([])
-
-    try {
-      const response = await window.electron.aiSendPlannerMessage(
-        newConversation,
-        '/'
-      )
-      setMessages([...newConversation, { role: 'assistant', content: response }])
-    } catch (err) {
-      setMessages([...newConversation, { role: 'assistant', content: `Error: ${err}` }])
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

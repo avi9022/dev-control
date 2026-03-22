@@ -151,7 +151,7 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
     if (!addMenu) return
     const close = (e: PointerEvent) => {
       // Don't close if clicking inside the menu
-      if (addMenuRef.current && addMenuRef.current.contains(e.target as Node)) return
+      if (addMenuRef.current && e.target instanceof Node && addMenuRef.current.contains(e.target)) return
       setAddMenu(null)
     }
     const timer = setTimeout(() => window.addEventListener('pointerdown', close, true), 10)
@@ -429,7 +429,7 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
     [pipeline, updateBoardPipeline],
   )
 
-  const isValidConnection = useCallback((connection: Connection) => {
+  const isValidConnection = useCallback((connection: Edge | Connection) => {
     return (
       connection.sourceHandle === 'reject' &&
       !['backlog', 'done'].includes(connection.target || '') &&
