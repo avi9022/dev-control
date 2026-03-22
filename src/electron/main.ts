@@ -1040,8 +1040,8 @@ app.on("ready", async () => {
     return sendPlannerMessage(conversation as { role: 'user' | 'assistant'; content: string }[], cwd)
   })
 
-  ipcMainHandle('aiSavePlannerConversation', async (_event, messages: { role: string; content: string }[], debugEvents: unknown[]) => {
-    return savePlannerConversation(messages, debugEvents)
+  ipcMainHandle('aiSavePlannerConversation', async (_event, sessionId: string, messages: { role: string; content: string }[], debugEvents: unknown[]) => {
+    return savePlannerConversation(sessionId, messages, debugEvents)
   })
 
   ipcMainHandle('aiGetSettings', async () => {

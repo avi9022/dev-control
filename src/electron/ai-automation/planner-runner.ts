@@ -69,7 +69,7 @@ export async function sendPlannerMessage(
     const mcpConfig = getMcpConfigPath()
     if (mcpConfig) {
       args.push('--mcp-config', mcpConfig)
-      args.push('--allowedTools', 'mcp__devcontrol__create_task,mcp__devcontrol__create_board,mcp__devcontrol__list_knowledge_docs,mcp__devcontrol__read_knowledge_doc,mcp__devcontrol__list_projects,mcp__devcontrol__list_comments,mcp__devcontrol__resolve_comment')
+      args.push('--allowedTools', 'mcp__devcontrol__create_task,mcp__devcontrol__create_board,mcp__devcontrol__list_boards,mcp__devcontrol__list_knowledge_docs,mcp__devcontrol__read_knowledge_doc,mcp__devcontrol__list_projects,mcp__devcontrol__list_comments,mcp__devcontrol__resolve_comment')
     }
 
     const claudePath = getClaudePath()

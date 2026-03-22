@@ -2235,6 +2235,10 @@ type EventPayloadMapping = {
     return: string;
     args: [{ role: string; content: string }[], string];
   }
+  aiSavePlannerConversation: {
+    return: string;
+    args: [string, { role: string; content: string }[], unknown[]];
+  }
   aiGetSettings: {
     return: AIAutomationSettings;
     args: [];
@@ -2596,7 +2600,7 @@ interface Window {
     aiCleanupTaskServices: (taskId: string) => Promise<void>
     aiRemoveWorktree: (taskId: string) => Promise<void>
     aiSendPlannerMessage: (conversation: { role: string; content: string }[], cwd: string) => Promise<string>
-    aiSavePlannerConversation: (messages: { role: string; content: string }[], debugEvents: unknown[]) => Promise<string>
+    aiSavePlannerConversation: (sessionId: string, messages: { role: string; content: string }[], debugEvents: unknown[]) => Promise<string>
     subscribeAIPlannerChunk: (callback: (chunk: string) => void) => () => void
     subscribeAIPlannerDebug: (callback: (event: unknown) => void) => () => void
     aiGetSettings: () => Promise<AIAutomationSettings>

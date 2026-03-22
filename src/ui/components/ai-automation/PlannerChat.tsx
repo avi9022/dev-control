@@ -85,6 +85,7 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   const [debugEvents, setDebugEvents] = useState<DebugEvent[]>([])
   const [allExpanded, setAllExpanded] = useState(false)
   const [preserveEvents, setPreserveEvents] = useState(false)
+  const sessionIdRef = useRef<string>(Date.now().toString())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const debugEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -97,17 +98,19 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     debugEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [debugEvents])
 
-  // Save conversation when closing
+  // Save conversation on every change
   useEffect(() => {
-    if (!open && messages.length > 1) {
-      window.electron.aiSavePlannerConversation(messages, debugEvents)
+    if (messages.length > 1) {
+      window.electron.aiSavePlannerConversation(sessionIdRef.current, messages, debugEvents)
     }
-  }, [open])
+  }, [messages, debugEvents])
 
+  // New session when opening with no messages
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100)
       if (messages.length === 0) {
+        sessionIdRef.current = Date.now().toString()
         sendMessage('Hi, I want to plan some tasks.')
       }
     }
@@ -157,6 +160,7 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
           <DialogTitle className="flex items-center gap-2" style={{ color: 'var(--ai-text-primary)' }}>
             <Wand2 className="h-4 w-4" style={{ color: 'var(--ai-accent)' }} />
             Task Planner
+            <span className="text-[10px] font-mono" style={{ color: 'var(--ai-text-tertiary)' }}>#{sessionIdRef.current}</span>
           </DialogTitle>
           <button
             onClick={() => setShowDebug(!showDebug)}

@@ -6,6 +6,7 @@ import { createBoardTool } from './create-board.js'
 import { listKnowledgeDocsTool } from './list-knowledge-docs.js'
 import { readKnowledgeDocTool } from './read-knowledge-doc.js'
 import { listProjectsTool } from './list-projects.js'
+import { listBoardsTool } from './list-boards.js'
 
 // Register all MCP tools here — add new tools to this array
 export const mcpTools: McpToolDefinition[] = [
@@ -16,4 +17,5 @@ export const mcpTools: McpToolDefinition[] = [
   listKnowledgeDocsTool,
   readKnowledgeDocTool,
   listProjectsTool,
+  listBoardsTool,
 ]

@@ -1,4 +1,3 @@
-// This is not an MCP tool — it's a utility for saving planner conversations
 import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
@@ -11,13 +10,18 @@ function ensurePlannerDir(): string {
   return dir
 }
 
-export function savePlannerConversation(messages: { role: string; content: string }[], debugEvents: unknown[]): string {
+export function savePlannerConversation(sessionId: string, messages: { role: string; content: string }[], debugEvents: unknown[]): string {
   const dir = ensurePlannerDir()
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const filename = `planner-${timestamp}.json`
+  const filename = `planner-${sessionId}.json`
   const filepath = path.join(dir, filename)
 
-  fs.writeFileSync(filepath, JSON.stringify({ messages, debugEvents, timestamp: new Date().toISOString() }, null, 2))
+  fs.writeFileSync(filepath, JSON.stringify({
+    sessionId,
+    messages,
+    debugEvents,
+    updatedAt: new Date().toISOString(),
+    createdAt: fs.existsSync(filepath) ? JSON.parse(fs.readFileSync(filepath, 'utf-8')).createdAt : new Date().toISOString(),
+  }, null, 2))
   return filepath
 }
 
@@ -27,7 +31,7 @@ export function listPlannerConversations(): { filename: string; timestamp: strin
   return files.map(f => {
     try {
       const data = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8'))
-      return { filename: f, timestamp: data.timestamp || f }
+      return { filename: f, timestamp: data.updatedAt || f }
     } catch {
       return { filename: f, timestamp: f }
     }
