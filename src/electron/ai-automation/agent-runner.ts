@@ -562,18 +562,21 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     }
   }
 
+  // Sanitize null bytes — Node.js doesn't allow them in spawn arguments
+  const sanitize = (s: string) => s.replace(/\0/g, '')
+
   const args = [
     '--print',
     '--verbose',
     '--output-format', 'stream-json',
     '--dangerously-skip-permissions',
-    '--system-prompt', systemPrompt,
+    '--system-prompt', sanitize(systemPrompt),
     '--settings', guardSettings,
     ...toolArgs,
     ...addDirArgs,
     ...mcpArgs,
     '--',
-    message,
+    sanitize(message),
   ]
 
   // Determine working directory
