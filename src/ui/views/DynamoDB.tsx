@@ -1,4 +1,4 @@
-import { useState, useEffect, type FC } from 'react'
+import { useState, useEffect, useCallback, type FC } from 'react'
 import { useDynamoDB } from '@/ui/contexts/dynamodb'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,7 +41,7 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
   // Inline editing state
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
 
-  const loadTableInfo = async () => {
+  const loadTableInfo = useCallback(async () => {
     if (!tableName) return
     try {
       const info = await getTableInfo(tableName)
@@ -49,9 +49,9 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load table info')
     }
-  }
+  }, [tableName, getTableInfo])
 
-  const executeScan = async (options: DynamoDBScanOptions, isNewQuery = true) => {
+  const executeScan = useCallback(async (options: DynamoDBScanOptions, isNewQuery = true) => {
     if (!tableName) return
 
     setLoading(true)
@@ -72,7 +72,7 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [tableName, scanTable])
 
   const executeQuery = async (options: DynamoDBQueryOptions, isNewQuery = true) => {
     if (!tableName) return
@@ -107,7 +107,7 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
       loadTableInfo()
       executeScan({ limit: 50 })
     }
-  }, [tableName])
+  }, [tableName, loadTableInfo, executeScan])
 
   const handleNextPage = async () => {
     if (!scanResult?.lastEvaluatedKey || !lastQueryOptions) return

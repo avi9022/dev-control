@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, type FC, type ReactNode } from 'react'
+import { useState, useCallback, useMemo, type FC } from 'react'
 import { ChevronRight, ChevronDown, Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -213,7 +213,6 @@ const ValueRenderer: FC<{ value: unknown }> = ({ value }) => {
 
 export const JsonViewer: FC<JsonViewerProps> = ({
   data,
-  initialExpanded = true,
   maxInitialDepth = 3,
   className,
 }) => {

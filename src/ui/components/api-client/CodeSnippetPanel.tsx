@@ -397,7 +397,7 @@ export const CodeSnippetPanel: FC<CodeSnippetPanelProps> = ({
         body: resolvedData.resolvedBody,
         auth: maskedAuthData,
       })
-    } catch (error) {
+    } catch {
       return snippet // Fallback to actual snippet
     }
   }, [method, fullUrl, resolvedData, selectedLanguage, selectedClient, snippet])

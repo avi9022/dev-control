@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { ArrowLeft, Plus, Trash2, Folder, Wand2, Loader2, Sun, Moon } from 'lucide-react'
 import { PipelineDiagram } from '@/ui/components/ai-automation/PipelineDiagram'
-import { NAV_ITEMS, DEFAULT_VISIBLE_VIEWS } from '@/ui/components/AppNavbar'
+import { NAV_ITEMS, DEFAULT_VISIBLE_VIEWS } from '@/ui/components/AppNavbarConfig'
 
 interface AISettingsProps {
   defaultTab?: string

@@ -187,7 +187,6 @@ function ComposeGroup({
 
   const hasMultiple = containers.length > 1
   const allRunning = containers.every((c) => c.state === 'running')
-  const allStopped = containers.every((c) => c.state === 'exited' || c.state === 'dead' || c.state === 'created')
   const someRunning = containers.some((c) => c.state === 'running')
 
   const handleStartAll = async (e: React.MouseEvent) => {

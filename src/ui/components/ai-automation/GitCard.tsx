@@ -1,6 +1,5 @@
-import { useState, useEffect, type FC } from 'react'
+import { useState, useEffect, useCallback, type FC } from 'react'
 import { GitBranch, Pencil, Check, X, Loader2, ExternalLink, GitMerge } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 
@@ -21,15 +20,15 @@ export const GitCard: FC<GitCardProps> = ({ taskId }) => {
   const [squashingWorktree, setSquashingWorktree] = useState<string | null>(null)
   const [squashMessage, setSquashMessage] = useState('')
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true)
     window.electron.aiGetBranchInfo(taskId).then(info => {
       setBranches(info)
       setLoading(false)
     }).catch(() => setLoading(false))
-  }
+  }, [taskId])
 
-  useEffect(() => { load() }, [taskId])
+  useEffect(() => { load() }, [load])
 
   if (loading) return null
   if (branches.length === 0) return null
@@ -82,7 +81,6 @@ export const GitCard: FC<GitCardProps> = ({ taskId }) => {
   return (
     <div className="space-y-3">
       {branches.map(branch => {
-        const baseBranch = branch.projectLabel // for display
         const isEditingThisBranch = editingBranch === branch.worktreePath
         const isSquashingThis = squashingWorktree === branch.worktreePath
 
@@ -169,7 +167,7 @@ export const GitCard: FC<GitCardProps> = ({ taskId }) => {
             {/* Commits */}
             {branch.commits.length > 0 && (
               <div>
-                {branch.commits.map((commit, i) => {
+                {branch.commits.map((commit) => {
                   const isEditing = editingCommit === commit.hash
                   return (
                     <div

@@ -70,10 +70,11 @@ function parseValue(str: string, type: AttributeType): unknown {
   switch (type) {
     case 'S':
       return trimmed
-    case 'N':
+    case 'N': {
       const num = Number(trimmed)
       if (isNaN(num)) throw new Error('Invalid number')
       return num
+    }
     case 'BOOL':
       return trimmed.toLowerCase() === 'true'
     case 'NULL':

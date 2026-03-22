@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, type FC } from 'react'
 import { cn } from '@/lib/utils'
-import { useVariableMap } from './VariableHighlight'
 import { VariableEditPopup } from './VariableEditPopup'
 
 interface VariableTooltipProps {
@@ -17,14 +16,14 @@ export const VariableTooltip: FC<VariableTooltipProps> = ({ varName, resolved })
   const isOverTooltip = useRef(false)
   const closeTimeout = useRef<NodeJS.Timeout | null>(null)
 
-  const cancelClose = () => {
+  const cancelClose = useCallback(() => {
     if (closeTimeout.current) {
       clearTimeout(closeTimeout.current)
       closeTimeout.current = null
     }
-  }
+  }, [])
 
-  const scheduleClose = () => {
+  const scheduleClose = useCallback(() => {
     cancelClose()
     closeTimeout.current = setTimeout(() => {
       if (!isOverVariable.current && !isOverTooltip.current && !isEditing) {
@@ -32,7 +31,7 @@ export const VariableTooltip: FC<VariableTooltipProps> = ({ varName, resolved })
         setIsEditing(false)
       }
     }, 150)
-  }
+  }, [cancelClose, isEditing])
 
   const handleVariableEnter = useCallback((e: React.MouseEvent) => {
     cancelClose()
@@ -40,24 +39,24 @@ export const VariableTooltip: FC<VariableTooltipProps> = ({ varName, resolved })
     const rect = (e.target as HTMLElement).getBoundingClientRect()
     setHover({ x: rect.left, y: rect.bottom })
     setIsEditing(false)
-  }, [])
+  }, [cancelClose])
 
   const handleVariableLeave = useCallback(() => {
     isOverVariable.current = false
     scheduleClose()
-  }, [])
+  }, [scheduleClose])
 
   const handleTooltipEnter = useCallback(() => {
     cancelClose()
     isOverTooltip.current = true
-  }, [])
+  }, [cancelClose])
 
   const handleTooltipLeave = useCallback(() => {
     isOverTooltip.current = false
     if (!isEditing) {
       scheduleClose()
     }
-  }, [isEditing])
+  }, [isEditing, scheduleClose])
 
   const handleClose = () => {
     setHover(null)

@@ -74,7 +74,7 @@ export const ItemEditor: FC<ItemEditorProps> = ({
       const parsed = JSON.parse(jsonValue)
       setJsonValue(JSON.stringify(parsed, null, 2))
       setError(null)
-    } catch (err) {
+    } catch {
       setError('Invalid JSON - cannot format')
     }
   }

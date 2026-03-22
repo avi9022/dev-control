@@ -3,9 +3,7 @@ import { Sky, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Zone, Task3D } from './types'
 import { getZonePositions, hash } from './utils'
-import { COTTAGE_META } from './buildings/Cottage'
-import { TOWER_META } from './buildings/Tower'
-import { WORKSHOP_META } from './buildings/Workshop'
+import { COTTAGE_META, TOWER_META, WORKSHOP_META } from './buildings/buildingMeta'
 import { Terrain } from './Terrain'
 import { Zones } from './Zones'
 import { Mountains } from './Mountains'
@@ -23,7 +21,7 @@ const ALL_METAS = [COTTAGE_META, TOWER_META, WORKSHOP_META]
 export const Scene: FC<SceneProps> = ({ zones, tasks, onTaskClick }) => {
   const radii = useMemo(() =>
     zones.map((_, i) => ALL_METAS[Math.floor(hash(i * 37, i * 13) * ALL_METAS.length)].radius),
-  [zones.length])
+  [zones])
   const buildingPositions = useMemo(() => getZonePositions(zones.length, radii), [zones.length, radii])
 
   return (
@@ -43,8 +41,8 @@ export const Scene: FC<SceneProps> = ({ zones, tasks, onTaskClick }) => {
         panSpeed={0.5}
         onChange={(e) => {
           if (!e) return
-          const target = e.target as any
-          const t = target.target as THREE.Vector3
+          const target = e.target as { target: THREE.Vector3 }
+          const t = target.target
           t.x = THREE.MathUtils.clamp(t.x, -50, 50)
           t.z = THREE.MathUtils.clamp(t.z, -50, 50)
         }}

@@ -101,6 +101,14 @@ export const IndexList: FC<IndexListProps> = ({ database, collection }) => {
     )
   }, [])
 
+  const resetCreateForm = useCallback(() => {
+    setKeyFields([{ field: '', direction: '1' }])
+    setIndexName('')
+    setIsUnique(false)
+    setIsSparse(false)
+    setCreateError(null)
+  }, [])
+
   const handleCreateIndex = useCallback(async () => {
     const validFields = keyFields.filter((f) => f.field.trim() !== '')
     if (validFields.length === 0) {
@@ -134,15 +142,7 @@ export const IndexList: FC<IndexListProps> = ({ database, collection }) => {
     } finally {
       setCreateLoading(false)
     }
-  }, [keyFields, indexName, isUnique, isSparse, database, collection, createIndex, fetchIndexes])
-
-  const resetCreateForm = useCallback(() => {
-    setKeyFields([{ field: '', direction: '1' }])
-    setIndexName('')
-    setIsUnique(false)
-    setIsSparse(false)
-    setCreateError(null)
-  }, [])
+  }, [keyFields, indexName, isUnique, isSparse, database, collection, createIndex, fetchIndexes, resetCreateForm])
 
   const handleDropConfirm = useCallback(async () => {
     if (!dropTarget) return

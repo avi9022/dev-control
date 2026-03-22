@@ -29,7 +29,7 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
   }, [isLight])
 
   const activeBoard = settings?.boards?.find(b => b.id === settings.activeBoardId)
-  const pipeline = activeBoard?.pipeline || []
+  const pipeline = useMemo(() => activeBoard?.pipeline || [], [activeBoard?.pipeline])
   const columns: { id: string; label: string; type?: string }[] = [
     { id: 'BACKLOG', label: 'Backlog', type: 'fixed' },
     ...pipeline.map(p => ({ id: p.id, label: p.name, type: p.type })),

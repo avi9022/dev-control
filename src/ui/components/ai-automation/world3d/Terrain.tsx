@@ -6,7 +6,6 @@ import { getBlockTextures } from './textures'
 /** Large flat terrain — grass with dark grass patches */
 export const Terrain: FC = () => {
   const materials = useMemo(() => {
-    const grassTex = getBlockTextures('grass')
     const darkGrassTex = getBlockTextures('darkgrass')
     const dirtTex = getBlockTextures('dirt')
 

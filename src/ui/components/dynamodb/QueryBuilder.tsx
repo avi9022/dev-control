@@ -9,8 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { Search, Filter, X, Plus, Trash2 } from 'lucide-react'
+import { Search, Filter, X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface IndexInfo {

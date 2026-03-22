@@ -59,7 +59,7 @@ export const FolderSettingsPanel: FC<FolderSettingsPanelProps> = ({
     setHasChanges(false)
   }
 
-  const handleNavigateToSource = (source: 'collection' | 'folder', sourceId: string) => {
+  const handleNavigateToSource = (source: 'collection' | 'folder') => {
     if (source === 'collection') {
       onNavigateToCollection()
     }

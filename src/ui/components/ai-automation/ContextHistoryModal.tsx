@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { FileText, MessageSquare, Code, ChevronDown, ChevronRight, Wrench, Bot, User } from 'lucide-react'
 import { MarkdownViewer } from './MarkdownViewer'
-import { useSearchOverlay, SearchBar, SearchOverlayLayer } from './SearchOverlay'
+import { useSearchOverlay } from './useSearchOverlay'
+import { SearchBar, SearchOverlayLayer } from './SearchOverlay'
 
 interface ContextHistoryModalProps {
   contextHistoryPath: string

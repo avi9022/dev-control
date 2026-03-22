@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type FC } from 'react'
+import { useState, useEffect, useMemo, useRef, type FC } from 'react'
 import { useDirectories } from '@/ui/contexts/directories'
 import { Terminal } from '@/ui/components/terminal'
 import { Layers, FolderOpen } from 'lucide-react'
@@ -26,10 +26,12 @@ export const TaskDevControl: FC<TaskDevControlProps> = ({ taskId }) => {
   }, [taskId])
 
   // Keep serviceDirs in sync with store updates, preserving original order
+  const serviceDirsRef = useRef(serviceDirs)
+  serviceDirsRef.current = serviceDirs
   useEffect(() => {
-    if (serviceDirs.length === 0) return
+    if (serviceDirsRef.current.length === 0) return
     const dirMap = new Map(directories.map(d => [d.id, d]))
-    const updated = serviceDirs.map(d => dirMap.get(d.id)).filter(Boolean) as DirectorySettings[]
+    const updated = serviceDirsRef.current.map(d => dirMap.get(d.id)).filter(Boolean) as DirectorySettings[]
     if (updated.length > 0) setServiceDirs(updated)
   }, [directories])
 

@@ -125,7 +125,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
       setElapsed(Math.floor((Date.now() - startTime) / 1000))
     }, 1000)
     return () => clearInterval(interval)
-  }, [isAgentRunning, task?.phase, task?.phaseHistory])
+  }, [isAgentRunning, task])
 
   if (!task) {
     return (

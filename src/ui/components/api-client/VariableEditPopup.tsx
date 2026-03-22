@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, type FC } from 'react'
-import { useVariableMap } from './VariableHighlight'
+import { useVariableMap } from './variableUtils'
 import { useApiClient } from '@/ui/contexts/api-client'
 
 interface VariableEditPopupProps {

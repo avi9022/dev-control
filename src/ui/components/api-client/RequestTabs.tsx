@@ -22,6 +22,8 @@ interface RequestTabsProps {
 const countEnabled = (items: ApiKeyValue[]): number =>
   items.filter((i) => i.enabled && i.key.length > 0).length
 
+const NO_BODY_METHODS = ['GET', 'DELETE', 'HEAD', 'OPTIONS']
+
 export const RequestTabs: FC<RequestTabsProps> = ({
   method,
   params,
@@ -39,14 +41,13 @@ export const RequestTabs: FC<RequestTabsProps> = ({
   const headersCount = countEnabled(headers)
 
   // Methods that typically don't have a body
-  const noBodyMethods = ['GET', 'DELETE', 'HEAD', 'OPTIONS']
-  const defaultTab = noBodyMethods.includes(method) ? 'params' : 'body'
+  const defaultTab = NO_BODY_METHODS.includes(method) ? 'params' : 'body'
 
   // Track current tab and reset when method changes
   const [activeTab, setActiveTab] = useState(defaultTab)
 
   useEffect(() => {
-    setActiveTab(noBodyMethods.includes(method) ? 'params' : 'body')
+    setActiveTab(NO_BODY_METHODS.includes(method) ? 'params' : 'body')
   }, [method])
 
   return (

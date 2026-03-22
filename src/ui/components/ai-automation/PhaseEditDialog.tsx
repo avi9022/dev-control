@@ -47,7 +47,7 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
       setLocalRejectPattern(phase.rejectPattern || '')
       setLocalStallTimeout(phase.stallTimeout?.toString() || '')
     }
-  }, [phase?.id])
+  }, [phase])
 
   if (!phase) return null
 

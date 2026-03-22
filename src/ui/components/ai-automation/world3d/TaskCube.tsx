@@ -1,4 +1,4 @@
-import { useRef, useEffect, type FC } from 'react'
+import { useRef, useEffect, useCallback, type FC } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 import * as THREE from 'three'
@@ -153,7 +153,7 @@ export const TaskCube: FC<TaskCubeProps> = ({ position, title, isRunning, needsA
   const targetRotY = useRef(0)
   const waypointQueue = useRef<[number, number][]>([])
 
-  const startNextLeg = () => {
+  const startNextLeg = useCallback(() => {
     if (waypointQueue.current.length === 0) return
     const [nx, nz] = waypointQueue.current.shift()!
     if (groupRef.current) {
@@ -164,7 +164,7 @@ export const TaskCube: FC<TaskCubeProps> = ({ position, title, isRunning, needsA
     walkDuration.current = Math.max(dist / WALK_SPEED, 0.3)
     walkTime.current = 0
     progress.current = 0
-  }
+  }, [position])
 
   useEffect(() => {
     const newEnd = new THREE.Vector3(...position)
@@ -192,7 +192,7 @@ export const TaskCube: FC<TaskCubeProps> = ({ position, title, isRunning, needsA
         progress.current = 0
       }
     }
-  }, [position, route])
+  }, [position, route, startNextLeg])
 
   useFrame((_, delta) => {
     if (!groupRef.current) return

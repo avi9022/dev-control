@@ -1,31 +1,8 @@
 import { useMemo, type FC } from 'react'
 import { Lantern } from '../Lantern'
-import type { BuildingMetadata } from './types'
 import type { BlockType } from '../blocks'
 import { buildMergedMeshes } from './buildMerged'
 
-export const TOWER_META: BuildingMetadata = {
-  radius: 24,
-  gatherPoint: { x: 0, z: 12 },
-  gatherSpread: 1.5,
-  workSpots: [
-    { x: -4, z: 2, type: 'craft' },    // workstation
-    { x: 4, z: -1, type: 'hammer' },   // near campfire
-    { x: 0, z: 7, type: 'read' },      // outside gate
-  ],
-  entryPoint: { x: 0, z: 8 },          // front gate
-  internalPaths: new Map([
-    // spot 0 (workstation -4,2) → spot 1 (campfire 4,-1): walk around back
-    ['0-1', [[-6, 2], [-6, -4], [6, -4], [6, -1], [4, -1]]],
-    ['1-0', [[6, -1], [6, -4], [-6, -4], [-6, 2], [-4, 2]]],
-    // spot 0 (workstation) → spot 2 (gate 0,7): walk around left to front
-    ['0-2', [[-6, 2], [-6, 6], [0, 7]]],
-    ['2-0', [[-6, 6], [-6, 2], [-4, 2]]],
-    // spot 1 (campfire) → spot 2 (gate): walk around right to front
-    ['1-2', [[6, -1], [6, 6], [0, 7]]],
-    ['2-1', [[6, 6], [6, -1], [4, -1]]],
-  ]),
-}
 
 interface TowerProps {
   position: [number, number]
@@ -34,14 +11,14 @@ interface TowerProps {
 
 export const Tower: FC<TowerProps> = ({ position, color }) => {
   const [x, z] = position
-  const blocks: { type: BlockType; x: number; y: number; z: number; color?: string }[] = []
 
-  const b = (type: BlockType, bx: number, by: number, bz: number, c?: string) => {
-    blocks.push({ type, x: x + bx, y: by, z: z + bz, color: c })
-  }
+  const meshes = useMemo(() => {
+    const blocks: { type: BlockType; x: number; y: number; z: number; color?: string }[] = []
+    const b = (type: BlockType, bx: number, by: number, bz: number, c?: string) => {
+      blocks.push({ type, x: x + bx, y: by, z: z + bz, color: c })
+    }
 
-
-  // ── Perimeter fence ──
+    // ── Perimeter fence ──
   for (let fx = -5; fx <= 5; fx++) {
     if (Math.abs(fx) < 5) b('wood', fx, 1, -4)
     if (Math.abs(fx) > 1 && Math.abs(fx) < 5) b('wood', fx, 1, 6)
@@ -138,7 +115,8 @@ export const Tower: FC<TowerProps> = ({ position, color }) => {
   b('wood', -4, 1, -3); b('wood', -4, 2, -3)
   b('wood', 4, 1, -3); b('wood', 4, 2, -3)
 
-  const meshes = useMemo(() => buildMergedMeshes(blocks), [x, z, color])
+    return buildMergedMeshes(blocks)
+  }, [x, z, color])
 
   return (
     <group>

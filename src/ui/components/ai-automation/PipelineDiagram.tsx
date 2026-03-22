@@ -243,7 +243,7 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
     })
 
     return result
-  }, [pipeline, onOpenAddMenu, themeClass])
+  }, [pipeline])
 
   const buildEdges = useCallback((): Edge[] => {
     const result: Edge[] = []
@@ -272,7 +272,7 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
     })
 
     return result
-  }, [pipeline, onOpenAddMenu, themeClass])
+  }, [pipeline, onOpenAddMenu])
 
   // React Flow owns node/edge state — we sync from pipeline on changes
   const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes())

@@ -1,6 +1,6 @@
 import { useRef, useCallback, type FC } from 'react'
 import { cn } from '@/lib/utils'
-import { useVariableMap, parseTextSegments, textHasVariables } from './VariableHighlight'
+import { useVariableMap, parseTextSegments, textHasVariables } from './variableUtils'
 import { VariableTooltip } from './VariableTooltip'
 
 interface VariableTextareaProps {

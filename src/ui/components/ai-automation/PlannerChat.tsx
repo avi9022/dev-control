@@ -89,6 +89,8 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const debugEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -105,13 +107,17 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     }
   }, [messages, debugEvents])
 
+  // Stable ref to sendMessage to avoid re-triggering effect
+  const sendMessageRef = useRef(sendMessage)
+  sendMessageRef.current = sendMessage
+
   // New session when opening with no messages
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100)
-      if (messages.length === 0) {
+      if (messagesRef.current.length === 0) {
         sessionIdRef.current = Date.now().toString()
-        sendMessage('Hi, I want to plan some tasks.')
+        sendMessageRef.current('Hi, I want to plan some tasks.')
       }
     }
   }, [open])

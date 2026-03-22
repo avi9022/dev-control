@@ -1,4 +1,4 @@
-import { useState, useEffect, type FC } from 'react'
+import { useState, useEffect, useCallback, type FC } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Paperclip, X } from 'lucide-react'
@@ -66,11 +66,11 @@ function renderTextWithTaskRefs(
 const AttachmentsInline: FC<{ taskId: string }> = ({ taskId }) => {
   const [attachments, setAttachments] = useState<string[]>([])
 
-  const loadAttachments = () => {
+  const loadAttachments = useCallback(() => {
     window.electron.aiListTaskAttachments(taskId).then(setAttachments)
-  }
+  }, [taskId])
 
-  useEffect(() => { loadAttachments() }, [taskId])
+  useEffect(() => { loadAttachments() }, [loadAttachments])
 
   return (
     <div>

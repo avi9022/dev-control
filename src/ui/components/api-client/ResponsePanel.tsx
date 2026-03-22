@@ -38,7 +38,7 @@ const formatXml = (xml: string): string => {
       indent = indent.substring(tab.length)
     }
     formatted += indent + '<' + node + '>\n'
-    if (node.match(/^<?\w[^>]*[^\/]$/) && !node.startsWith('?')) {
+    if (node.match(/^<?\w[^>]*[^/]$/) && !node.startsWith('?')) {
       indent += tab
     }
   })
@@ -298,7 +298,7 @@ const XmlHighlighter: FC<{ xml: string }> = ({ xml }) => {
     let key = 0
 
     // Simple tokenization for XML
-    const regex = /(<\/?[\w:-]+)|(\s+[\w:-]+=)|("[^"]*")|('[^']*')|(>)|(<!\-\-[\s\S]*?\-\->)|([^<>"']+)/g
+    const regex = /(<\/?[\w:-]+)|(\s+[\w:-]+=)|("[^"]*")|('[^']*')|(>)|(<!--[\s\S]*?-->)|([^<>"']+)/g
     let match
 
     while ((match = regex.exec(xml)) !== null) {
@@ -307,7 +307,7 @@ const XmlHighlighter: FC<{ xml: string }> = ({ xml }) => {
       if (fullMatch.startsWith('<!--')) {
         result.push(<span key={key++} className="text-muted-foreground">{fullMatch}</span>)
       } else if (fullMatch.startsWith('</') || fullMatch.startsWith('<')) {
-        const tagName = fullMatch.replace(/[<\/>]/g, '')
+        const tagName = fullMatch.replace(/[</>]/g, '')
         result.push(
           <span key={key++}>
             <span className="text-muted-foreground">{fullMatch.startsWith('</') ? '</' : '<'}</span>

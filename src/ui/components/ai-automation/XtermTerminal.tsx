@@ -13,6 +13,8 @@ export const XtermTerminal: FC<XtermTerminalProps> = ({ cwd, onExit }) => {
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const shellIdRef = useRef<string | null>(null)
+  const onExitRef = useRef(onExit)
+  onExitRef.current = onExit
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -92,7 +94,7 @@ export const XtermTerminal: FC<XtermTerminalProps> = ({ cwd, onExit }) => {
       if (data.shellId === shellIdRef.current) {
         term.write('\r\n\x1b[90m[shell exited]\x1b[0m\r\n')
         shellIdRef.current = null
-        onExit?.(data.exitCode)
+        onExitRef.current?.(data.exitCode)
       }
     })
 

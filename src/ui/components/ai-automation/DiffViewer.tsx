@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Columns2, Rows3, FileCode, ChevronRight, ChevronDown, Plus, X, MessageSquare, AlertTriangle, Check, CircleCheck, FolderOpen, PanelLeftClose, PanelLeft, Folder } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useSearchOverlay, SearchBar, SearchOverlayLayer } from './SearchOverlay'
+import { useSearchOverlay } from './useSearchOverlay'
+import { SearchBar, SearchOverlayLayer } from './SearchOverlay'
 
 const LARGE_DIFF_THRESHOLD = 200 // lines changed
 
@@ -715,23 +716,6 @@ export const DiffViewer: FC<DiffViewerProps> = ({ taskId, comments, onCommentsCh
   const multiProject = projectGroups.length > 1
 
   const resolvedCount = comments.filter(c => c.resolved).length
-
-  // Collect all line numbers present in the current diff per file
-  const diffLinesByFile = useMemo(() => {
-    const map = new Map<string, Set<number>>()
-    for (const file of files) {
-      const filePath = file.newPath || file.oldPath
-      const lineSet = new Set<number>()
-      for (const hunk of file.hunks) {
-        for (const line of hunk.lines) {
-          if (line.newLineNum !== undefined) lineSet.add(line.newLineNum)
-          if (line.oldLineNum !== undefined) lineSet.add(line.oldLineNum)
-        }
-      }
-      map.set(filePath, lineSet)
-    }
-    return map
-  }, [files])
 
   // Build comment lookup map: "file:line" -> comments[] (line-specific only)
   const commentMap = useMemo(() => {

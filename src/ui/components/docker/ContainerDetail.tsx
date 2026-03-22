@@ -386,7 +386,7 @@ function LogsTab({ containerId, dockerContext }: { containerId: string; dockerCo
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                e.shiftKey ? handleSearchPrev() : handleSearchNext()
+                if (e.shiftKey) { handleSearchPrev() } else { handleSearchNext() }
               }
             }}
             className="pl-8 h-7 text-xs"
@@ -428,6 +428,7 @@ function ExecTab({ containerId, dockerContext }: { containerId: string; dockerCo
   const xtermRef = useRef<XTerm | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const sessionIdRef = useRef<string | null>(null)
+  const startSessionRef = useRef<(term?: XTerm, shell?: string) => Promise<void>>()
 
   // Keep sessionId ref in sync
   useEffect(() => {
@@ -468,7 +469,7 @@ function ExecTab({ containerId, dockerContext }: { containerId: string; dockerCo
     // Initial fit after render
     setTimeout(() => {
       fitAddon.fit()
-      startSession(term)
+      startSessionRef.current?.(term)
     }, 100)
 
     // Handle user input - send to PTY
@@ -563,6 +564,7 @@ function ExecTab({ containerId, dockerContext }: { containerId: string; dockerCo
     setConnecting(false)
     terminal.write('\x1b[31mFailed to connect. Shell may not be installed or container not running.\x1b[0m\r\n')
   }
+  startSessionRef.current = startSession
 
   const reconnect = () => {
     if (xtermRef.current) {
@@ -684,7 +686,7 @@ export const ContainerDetail: FC<ContainerDetailProps> = ({ container: container
       // Fallback to prop if fetch fails
     })
     return () => { mounted = false }
-  }, [containerProp.id])
+  }, [containerProp.id, containerProp.dockerContext])
 
   // Use detailed container if available, otherwise fallback to prop
   const container = detailedContainer ?? containerProp

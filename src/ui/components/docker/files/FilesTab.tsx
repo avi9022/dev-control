@@ -167,7 +167,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId, dockerContext }) => {
     } finally {
       setPreviewLoading(false)
     }
-  }, [containerId])
+  }, [containerId, dockerContext])
 
   useEffect(() => {
     loadDirectory('/')

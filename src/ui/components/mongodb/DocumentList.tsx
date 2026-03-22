@@ -341,7 +341,7 @@ export const DocumentList: FC<DocumentListProps> = ({ database, collection, quer
       setEditLoading(true)
       setEditError(null)
       const docId = String(editDoc._id)
-      const { _id, ...update } = parsed
+      const update = Object.fromEntries(Object.entries(parsed).filter(([key]) => key !== '_id'))
       await updateDocument(database, collection, docId, update)
       setEditOpen(false)
       await fetchDocuments()

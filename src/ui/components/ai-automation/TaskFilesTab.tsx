@@ -1,4 +1,4 @@
-import { useState, useEffect, type FC, type CSSProperties } from 'react'
+import { useState, useEffect, useCallback, type FC, type CSSProperties } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -205,12 +205,12 @@ export const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
   }
   const excluded = task?.excludedFiles || []
 
-  const loadFiles = () => {
+  const loadFiles = useCallback(() => {
     window.electron.aiGetTaskFiles(taskId).then(setAgentFiles)
     window.electron.aiListTaskAttachments(taskId).then(setAttachments)
-  }
+  }, [taskId])
 
-  useEffect(() => { loadFiles() }, [taskId])
+  useEffect(() => { loadFiles() }, [loadFiles])
 
   useEffect(() => {
     if (selectedFile) {

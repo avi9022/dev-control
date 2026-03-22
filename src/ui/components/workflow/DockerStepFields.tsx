@@ -37,7 +37,7 @@ export const DockerStepFields: FC<DockerStepFieldsProps> = ({
   useEffect(() => {
     refreshContainers()
     refreshComposeProjects()
-  }, [])
+  }, [refreshContainers, refreshComposeProjects])
 
   const alreadySelected = new Set(containerIds)
 

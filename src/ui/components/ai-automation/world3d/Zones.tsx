@@ -2,10 +2,11 @@ import { useMemo, useState, useEffect, useRef, type FC } from 'react'
 import type { Zone, Task3D } from './types'
 import type { WorkType } from './buildings/types'
 import { getZonePositions, hash } from './utils'
-import { buildRoadNetwork, getRoute, type RoadNetwork } from './roadNetwork'
-import { Cottage, COTTAGE_META } from './buildings/Cottage'
-import { Tower, TOWER_META } from './buildings/Tower'
-import { Workshop, WORKSHOP_META } from './buildings/Workshop'
+import { buildRoadNetwork, getRoute } from './roadNetwork'
+import { Cottage } from './buildings/Cottage'
+import { Tower } from './buildings/Tower'
+import { Workshop } from './buildings/Workshop'
+import { COTTAGE_META, TOWER_META, WORKSHOP_META } from './buildings/buildingMeta'
 import type { BuildingMetadata } from './buildings/types'
 import { SignPost } from './SignPost'
 import { Path } from './Path'
@@ -56,7 +57,7 @@ export const Zones: FC<ZonesProps> = ({ zones, tasks = [], onTaskClick }) => {
   // Determine building type per zone
   const buildingTypes = useMemo(() =>
     zones.map((_, i) => getBuildingForZone(i)),
-  [zones.length])
+  [zones])
 
   // Get radii for spacing
   const radii = useMemo(() =>

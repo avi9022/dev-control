@@ -26,7 +26,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({ activeTab }) => {
     if (VIEW_TABS.has(activeTab)) {
       updateView(activeTab as ViewType, null)
     }
-  }, [activeTab])
+  }, [activeTab, updateView])
 
   return (
     <Sidebar>

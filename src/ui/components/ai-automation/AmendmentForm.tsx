@@ -29,7 +29,6 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
   const [projectConfigs, setProjectConfigs] = useState<Record<string, { gitStrategy: AIGitStrategy; branchName: string; baseBranch: string }>>({})
 
   const phases = pipeline.filter(p => p.id !== 'BACKLOG' && p.id !== 'DONE')
-  const existingPaths = new Set(existingProjects.map(p => p.path))
   const worktreePaths = new Set(existingWorktrees.map(w => w.projectPath))
 
   const handleProjectTagged = (dir: DirectorySettings) => {

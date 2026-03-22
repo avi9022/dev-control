@@ -6,7 +6,7 @@ import { AlertCircle, Check, Pencil, Eye, WrapText, Minimize2 } from 'lucide-rea
 import { Button } from '@/components/ui/button'
 import { JsonViewer } from './JsonViewer'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { useVariableMap } from './VariableHighlight'
+import { useVariableMap } from './variableUtils'
 import { VariableEditPopup } from './VariableEditPopup'
 
 // Strip comments from JSONC for parsing (supports // and /* */ comments)
@@ -301,7 +301,7 @@ export const JsonEditor: FC<JsonEditorProps> = ({
         scheduleClose()
       }
     })
-  }, [vars, cancelClose, scheduleClose])
+  }, [cancelClose, scheduleClose])
 
   // Replace {{variables}} with placeholder strings for JSON validation
   // Also strip comments for validation (JSONC support)

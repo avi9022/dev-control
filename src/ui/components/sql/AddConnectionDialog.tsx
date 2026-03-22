@@ -50,7 +50,7 @@ export const AddConnectionDialog: FC<AddConnectionDialogProps> = ({
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null)
   const [testError, setTestError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [, setSaved] = useState(false)
 
   const isEditMode = !!editConnection
 

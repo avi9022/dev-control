@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect, useState, type FC } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
-import { useVariableMap, parseTextSegments, textHasVariables } from './VariableHighlight'
+import { useVariableMap, parseTextSegments, textHasVariables } from './variableUtils'
 import { useApiClient } from '@/ui/contexts/api-client'
 
 interface VariableInputProps {
@@ -21,7 +21,7 @@ const VariableEditTooltip: FC<{
   onMouseLeave: () => void
   onClose: () => void
 }> = ({ varName, position, onMouseEnter, onMouseLeave, onClose }) => {
-  const { vars, envName } = useVariableMap()
+  const { vars } = useVariableMap()
   const { activeWorkspace, updateEnvironment, createEnvironment, setActiveEnvironment } = useApiClient()
   const [editValue, setEditValue] = useState(vars.get(varName) ?? '')
   const resolved = vars.has(varName)
@@ -262,7 +262,7 @@ export const VariableInput: FC<VariableInputProps> = ({
     if (value) {
       buildContent(value)
     }
-  }, [])
+  }, [value, buildContent])
 
   const handleInput = useCallback(() => {
     const editor = editorRef.current
@@ -329,7 +329,7 @@ export const VariableInput: FC<VariableInputProps> = ({
       const newCursorPos = cursorPos + pastedText.length
       setCursorPosition(editor, newCursorPos)
     })
-  }, [onChange, buildContent, externalOnPaste])
+  }, [onChange, buildContent, externalOnPaste, setCursorPosition])
 
   const handleCompositionStart = useCallback(() => {
     isComposingRef.current = true

@@ -131,7 +131,6 @@ function UsageIndicator({ usedBy }: { usedBy: DockerVolumeUsage[] }) {
   }
 
   const runningCount = usedBy.filter((u) => u.running).length
-  const stoppedCount = usedBy.length - runningCount
 
   return (
     <TooltipProvider>
