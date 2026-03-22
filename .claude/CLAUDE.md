@@ -201,11 +201,10 @@ For push notifications, use `ipcWebContentsSend` in main and `ipcOn` in preload 
 
 ## Coding Standards
 
-- **React**: Context API over prop drilling, Radix UI primitives, functional components with hooks, immutable state updates
-- **Electron**: Always validate IPC via `validateEventFrame()`, typed handlers via `ipcMainHandle()`, never expose filesystem directly to renderer, use `tree-kill` for process termination
-- **TypeScript**: Electron uses `NodeNext` module system, `@/*` import alias maps to `./src/*`, all IPC types in `types.d.ts`
-- **Error Handling**: Non-blocking async, graceful degradation, SIGTERM then SIGKILL fallback
-- **File Organization**: Many small files, 200-400 lines typical (800 max), organized by feature/domain
+Detailed rules are in `.claude/rules/`:
+- **`.claude/rules/general.md`** — TypeScript, file organization, naming, error handling
+- **`.claude/rules/ui.md`** — React components, state management, hooks, styling, IPC subscriptions
+- **`.claude/rules/electron.md`** — IPC handlers, preload bridge, security, child processes, storage
 
 ---
 
