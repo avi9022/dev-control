@@ -47,7 +47,7 @@ export const Settings = ({ onBack, onAppearanceChange }: SettingsProps) => {
     }
   }
 
-  const saveSettings = async (updates: Partial<TodoSettings>) => {
+  const saveSettings = useCallback(async (updates: Partial<TodoSettings>) => {
     const merged = { autoHide, opacity, bgColor, shortcut, ...updates }
     onAppearanceChange(merged.opacity, merged.bgColor)
     try {
@@ -55,7 +55,7 @@ export const Settings = ({ onBack, onAppearanceChange }: SettingsProps) => {
     } catch (error) {
       console.error('Failed to save settings:', error)
     }
-  }
+  }, [autoHide, opacity, bgColor, shortcut, onAppearanceChange])
 
   const handleAutoHideChange = (checked: boolean) => {
     setAutoHide(checked)
@@ -112,7 +112,7 @@ export const Settings = ({ onBack, onAppearanceChange }: SettingsProps) => {
     setShortcut(accel)
     setIsRecording(false)
     saveSettings({ shortcut: accel })
-  }, [autoHide, opacity, bgColor, shortcut])
+  }, [saveSettings])
 
   useEffect(() => {
     if (!isRecording) return
