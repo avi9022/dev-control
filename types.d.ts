@@ -750,6 +750,7 @@ interface AITask {
   phaseHistory: AIPhaseHistoryEntry[]
   excludedFiles?: string[]
   amendments?: AITaskAmendment[]
+  linkedTaskIds?: string[]
   /** @deprecated Use projects[].gitStrategy instead */
   gitStrategy?: AIGitStrategy
   /** @deprecated Use projects[].baseBranch instead */
