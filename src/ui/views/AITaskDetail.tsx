@@ -57,8 +57,12 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
     setEditing(true)
     // Hydrate editor on next tick after it mounts
     const labels = new Set((task.projects || []).map(p => p.label))
+    const taskMap = new Map<string, string>()
+    for (const t of tasks) {
+      if (t.id !== task.id) taskMap.set(t.id.slice(0, 8), t.title)
+    }
     setTimeout(() => {
-      editDescRef.current?.hydrateText(task.description, labels)
+      editDescRef.current?.hydrateText(task.description, labels, taskMap)
     }, 0)
   }
 

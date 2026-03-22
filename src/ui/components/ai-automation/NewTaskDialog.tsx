@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
-import { FolderOpen, X, Paperclip, GitBranch, Eye } from 'lucide-react'
+import { FolderOpen, X, Paperclip, GitBranch, Eye, Hash } from 'lucide-react'
 
 interface NewTaskDialogProps {
   open: boolean
@@ -13,6 +13,7 @@ interface NewTaskDialogProps {
 }
 
 const MENTION_ATTR = 'data-mention-id'
+const TASK_MENTION_ATTR = 'data-task-id'
 
 function getPlainText(el: HTMLElement): string {
   let text = ''
@@ -22,6 +23,9 @@ function getPlainText(el: HTMLElement): string {
     } else if (node instanceof HTMLElement) {
       if (node.hasAttribute(MENTION_ATTR)) {
         text += `@${node.textContent || ''}`
+      } else if (node.hasAttribute(TASK_MENTION_ATTR)) {
+        const taskId = node.getAttribute(TASK_MENTION_ATTR) || ''
+        text += `#${taskId.slice(0, 8)}`
       } else {
         text += getPlainText(node)
       }
@@ -62,6 +66,13 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
   const editorRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  // #-task mention state
+  const [allTasks, setAllTasks] = useState<AITask[]>([])
+  const [showTaskMention, setShowTaskMention] = useState(false)
+  const [taskMentionFilter, setTaskMentionFilter] = useState('')
+  const [taskMentionIndex, setTaskMentionIndex] = useState(0)
+  const taskMenuRef = useRef<HTMLDivElement>(null)
+
   // Auto-scroll dropdown to keep highlighted item visible
   useEffect(() => {
     if (!showMention || !menuRef.current) return
@@ -71,16 +82,32 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
     }
   }, [mentionIndex, showMention])
 
+  // Auto-scroll task dropdown
+  useEffect(() => {
+    if (!showTaskMention || !taskMenuRef.current) return
+    const activeItem = taskMenuRef.current.children[taskMentionIndex] as HTMLElement | undefined
+    if (activeItem) activeItem.scrollIntoView({ block: 'nearest' })
+  }, [taskMentionIndex, showTaskMention])
+
   useEffect(() => {
     if (open) {
       window.electron.getDirectories().then(setDirectories)
+      window.electron.aiGetTasks().then(tasks => {
+        setAllTasks(settings?.activeBoardId ? tasks.filter(t => t.boardId === settings.activeBoardId) : tasks)
+      })
     }
-  }, [open])
+  }, [open, settings?.activeBoardId])
 
   const filteredDirs = directories.filter(d => {
     const label = d.customLabel || d.name
     return label.toLowerCase().includes(mentionFilter.toLowerCase()) &&
       !taggedProjects.some(tp => tp.id === d.id)
+  })
+
+  const filteredTasks = allTasks.filter(t => {
+    const shortId = t.id.slice(0, 8)
+    const query = taskMentionFilter.toLowerCase()
+    return t.title.toLowerCase().includes(query) || shortId.includes(query)
   })
 
   // Sync taggedProjects from chips currently in the editor
@@ -102,6 +129,65 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
     chip.style.color = 'var(--ai-accent)'
     chip.textContent = dir.customLabel || dir.name
     return chip
+  }
+
+  const createTaskChipElement = (taskId: string, taskTitle: string): HTMLSpanElement => {
+    const chip = document.createElement('span')
+    chip.setAttribute(TASK_MENTION_ATTR, taskId)
+    chip.setAttribute('contenteditable', 'false')
+    chip.className = 'inline-flex items-center gap-0.5 px-1.5 py-0 rounded border text-xs mx-0.5 align-baseline cursor-default select-none'
+    chip.style.background = 'var(--ai-warning-subtle, #fef3c7)'
+    chip.style.borderColor = 'var(--ai-warning, #f59e0b)'
+    chip.style.color = 'var(--ai-warning, #d97706)'
+    chip.textContent = taskTitle
+    return chip
+  }
+
+  const insertTaskMention = (task: AITask) => {
+    const editor = editorRef.current
+    if (!editor) return
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+
+    const range = sel.getRangeAt(0)
+    const textNode = range.startContainer
+    if (textNode.nodeType !== Node.TEXT_NODE) return
+
+    const text = textNode.textContent || ''
+    const cursorOffset = range.startOffset
+    const textBefore = text.slice(0, cursorOffset)
+    const hashIndex = textBefore.lastIndexOf('#')
+    if (hashIndex === -1) return
+
+    const beforeText = text.slice(0, hashIndex)
+    const afterText = text.slice(cursorOffset)
+    const chip = createTaskChipElement(task.id, task.title)
+    const parent = textNode.parentNode!
+
+    const beforeNode = document.createTextNode(beforeText)
+    const afterNode = document.createTextNode('\u00A0' + afterText)
+
+    parent.insertBefore(beforeNode, textNode)
+    parent.insertBefore(chip, textNode)
+    parent.insertBefore(afterNode, textNode)
+    parent.removeChild(textNode)
+
+    if (afterNode.textContent && afterNode.textContent.length > 0) {
+      const newSel = window.getSelection()
+      if (newSel) {
+        const newRange = document.createRange()
+        newRange.setStart(afterNode, 1)
+        newRange.collapse(true)
+        newSel.removeAllRanges()
+        newSel.addRange(newRange)
+      }
+    } else {
+      placeCursorAfter(chip)
+    }
+
+    setShowTaskMention(false)
+    setTaskMentionFilter('')
+    setTimeout(() => editor.focus(), 0)
   }
 
   const insertMention = (dir: DirectorySettings) => {
@@ -205,8 +291,9 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
     const text = textNode.textContent || ''
     const cursorOffset = range.startOffset
     const textBefore = text.slice(0, cursorOffset)
-    const atIndex = textBefore.lastIndexOf('@')
 
+    // Check for @ project mention
+    const atIndex = textBefore.lastIndexOf('@')
     if (atIndex !== -1) {
       const query = textBefore.slice(atIndex + 1)
       const charBeforeAt = atIndex > 0 ? text[atIndex - 1] : ' '
@@ -214,14 +301,49 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
         setShowMention(true)
         setMentionFilter(query)
         setMentionIndex(0)
+        setShowTaskMention(false)
+        return
+      }
+    }
+
+    // Check for # task mention
+    const hashIndex = textBefore.lastIndexOf('#')
+    if (hashIndex !== -1) {
+      const query = textBefore.slice(hashIndex + 1)
+      const charBeforeHash = hashIndex > 0 ? text[hashIndex - 1] : ' '
+      if ((charBeforeHash === ' ' || charBeforeHash === '\u00A0' || charBeforeHash === '\n' || hashIndex === 0) && !query.includes(' ')) {
+        setShowTaskMention(true)
+        setTaskMentionFilter(query)
+        setTaskMentionIndex(0)
+        setShowMention(false)
         return
       }
     }
 
     setShowMention(false)
+    setShowTaskMention(false)
   }
 
   const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Task mention keyboard nav
+    if (showTaskMention && filteredTasks.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setTaskMentionIndex(prev => (prev + 1) % filteredTasks.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setTaskMentionIndex(prev => (prev - 1 + filteredTasks.length) % filteredTasks.length)
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        insertTaskMention(filteredTasks[taskMentionIndex])
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowTaskMention(false)
+      }
+      return
+    }
+
+    // Project mention keyboard nav
     if (showMention && filteredDirs.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -259,6 +381,11 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
           syncTagsFromEditor()
           return
         }
+        if (prev instanceof HTMLElement && prev.hasAttribute(TASK_MENTION_ATTR)) {
+          e.preventDefault()
+          prev.remove()
+          return
+        }
       }
 
       // If cursor is in the editor div itself, check child at offset
@@ -268,6 +395,11 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
           e.preventDefault()
           prev.remove()
           syncTagsFromEditor()
+          return
+        }
+        if (prev instanceof HTMLElement && prev.hasAttribute(TASK_MENTION_ATTR)) {
+          e.preventDefault()
+          prev.remove()
           return
         }
       }
@@ -346,11 +478,39 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
               onInput={handleEditorInput}
               onKeyDown={handleEditorKeyDown}
               onPaste={handlePaste}
-              data-placeholder="Describe what needs to be done... Type @ to tag a project"
+              data-placeholder="Describe what needs to be done... Type @ to tag a project, # to reference a task"
               className="mt-1 w-full min-h-[100px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 overflow-y-auto empty:before:content-[attr(data-placeholder)] empty:before:pointer-events-none"
               style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderColor: 'var(--ai-border-subtle)', background: 'var(--ai-surface-2)', color: 'var(--ai-text-primary)', '--tw-ring-color': 'var(--ai-border)' } as React.CSSProperties}
               data-empty-color="var(--ai-text-tertiary)"
             />
+            {/* #-task mention dropdown */}
+            {showTaskMention && filteredTasks.length > 0 && (
+              <div
+                ref={taskMenuRef}
+                className="absolute z-50 mt-1 w-full max-h-[200px] overflow-y-auto rounded-md border shadow-lg"
+                style={{ borderColor: 'var(--ai-border-subtle)', background: 'var(--ai-surface-2)' }}
+              >
+                {filteredTasks.map((task, i) => (
+                  <button
+                    key={task.id}
+                    onMouseDown={e => { e.preventDefault(); insertTaskMention(task) }}
+                    className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors"
+                    style={{
+                      background: i === taskMentionIndex ? 'var(--ai-surface-3)' : undefined,
+                      color: i === taskMentionIndex ? 'var(--ai-text-primary)' : 'var(--ai-text-secondary)',
+                    }}
+                  >
+                    <Hash className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{task.title}</p>
+                      <p className="truncate text-[11px]" style={{ color: 'var(--ai-text-tertiary)' }}>
+                        #{task.id.slice(0, 8)} · {task.currentPhaseName || task.phase}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
             {/* @-mention dropdown */}
             {showMention && filteredDirs.length > 0 && (
               <div
