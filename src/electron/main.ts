@@ -47,7 +47,7 @@ import { exportPostmanCollection } from './api-client/postman-exporter.js'
 import { dockerManager } from './docker/docker-manager.js'
 // SQL Developer
 import { sqlManager } from './sql/sql-manager.js'
-import { executeQuery as sqlExecQuery, executeScript as sqlExecScript, cancelQuery as sqlCancel, explainPlan as sqlExplain, commit as sqlCommit, rollback as sqlRollback, enableDbmsOutput as sqlEnableDbms, getDbmsOutput as sqlGetDbms } from './sql/query-executor.js'
+import { executeQuery as sqlExecQuery, executeScript as sqlExecScript, cancelQuery as sqlCancel, explainPlan as sqlExplain, enableDbmsOutput as sqlEnableDbms, getDbmsOutput as sqlGetDbms } from './sql/query-executor.js'
 import { getSchemas as sqlGetSchemas, getTables as sqlGetTables, getViews as sqlGetViews, getSequences as sqlGetSequences, getProcedures as sqlGetProcedures, getFunctions as sqlGetFunctions, getPackages as sqlGetPackages, getTriggers as sqlGetTriggers, getTableColumns as sqlGetColumns, getTableConstraints as sqlGetConstraints, getTableIndexes as sqlGetIndexes, getTableTriggers as sqlGetTableTriggers, getObjectDDL as sqlGetDDL, getTableRowCount as sqlGetRowCount, describeObject as sqlDescribeObject, getTableGrants as sqlGetGrants, getSchemaColumnMap as sqlGetSchemaColumnMap } from './sql/schema-inspector.js'
 // MongoDB
 import { mongoManager } from './mongodb/mongo-manager.js'
@@ -555,14 +555,14 @@ app.on("ready", async () => {
   ipcMainHandle('apiSetActiveWorkspace', (_event, id: string) => apiClientManager.setActiveWorkspace(id))
   ipcMainHandle('apiGetActiveWorkspaceId', () => store.get('activeApiWorkspaceId') ?? null)
   ipcMainHandle('apiImportPostmanCollection', async (_event, workspaceId: string) => {
-    const collections = await importPostmanCollection(workspaceId)
+    const collections = await importPostmanCollection()
     for (const collection of collections) {
       apiClientManager.addCollectionToWorkspace(workspaceId, collection)
     }
     return collections
   })
   ipcMainHandle('apiImportPostmanEnvironment', async (_event, workspaceId: string) => {
-    const environments = await importPostmanEnvironment(workspaceId)
+    const environments = await importPostmanEnvironment()
     for (const env of environments) {
       apiClientManager.addEnvironmentToWorkspace(workspaceId, env)
     }
@@ -932,7 +932,7 @@ app.on("ready", async () => {
 
     // Clean up any stale entries from previous runs first
     const prefix = `wt-${taskId}-`
-    let directories = (store.get('directories') as DirectorySettings[]).filter(d => !d.id.startsWith(prefix))
+    const directories = (store.get('directories') as DirectorySettings[]).filter(d => !d.id.startsWith(prefix))
     const created: DirectorySettings[] = []
 
     for (const wt of task.worktrees) {
@@ -1205,6 +1205,10 @@ app.on('before-quit', async (event) => {
 // Cleanup global shortcuts when app quits
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  if (tray) {
+    tray.destroy()
+    tray = null
+  }
 })
 
 // Handle SIGTERM/SIGINT for graceful shutdown

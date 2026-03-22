@@ -89,9 +89,10 @@ export function deleteTask(id: string) {
     }
   }
   // Legacy: cleanup single worktree if still present from pre-migration
-  if ((task as any)?.worktreePath && task?.projectPaths?.[0]) {
+  const taskRecord = task as unknown as Record<string, unknown>
+  if (taskRecord?.worktreePath && task?.projectPaths?.[0]) {
     try {
-      cleanupWorktree(task.projectPaths[0], (task as any).worktreePath)
+      cleanupWorktree(task.projectPaths[0], taskRecord.worktreePath as string)
     } catch {
       // Best effort cleanup
     }
@@ -193,13 +194,14 @@ export function migrateTaskWorkspaces() {
     migrateTaskDirStructure(task.id)
 
     // Convert worktreePath to worktrees array
-    if ((task as any).worktreePath && !task.worktrees) {
-      const worktreePath = (task as any).worktreePath as string
+    const taskRec = task as unknown as Record<string, unknown>
+    if (taskRec.worktreePath && !task.worktrees) {
+      const worktreePath = taskRec.worktreePath as string
       const projectPath = task.projectPaths?.[0] || ''
       const branchName = task.branchName || ''
       task.worktrees = [{ projectPath, worktreePath, branchName }]
-      delete (task as any).worktreePath
-      delete (task as any).worktreeDir
+      delete taskRec.worktreePath
+      delete taskRec.worktreeDir
       changed = true
     }
 
@@ -210,22 +212,24 @@ export function migrateTaskWorkspaces() {
     }
 
     // Remove deprecated fields
+    const taskDeprecated = task as unknown as Record<string, unknown>
     if ('maxReviewCycles' in task || 'reviewCycleCount' in task) {
-      delete (task as any).maxReviewCycles
-      delete (task as any).reviewCycleCount
+      delete taskDeprecated.maxReviewCycles
+      delete taskDeprecated.reviewCycleCount
       changed = true
     }
 
     // Migrate projectPaths to projects array
     if (!task.projects && task.projectPaths) {
       const paths = task.projectPaths || []
+      const taskLegacy = task as unknown as Record<string, unknown>
       task.projects = paths.map((p, i) => ({
         path: p,
         label: p.split('/').pop() || p,
-        gitStrategy: (task as any).gitStrategy || 'worktree',
+        gitStrategy: (taskLegacy.gitStrategy as string) || 'worktree',
         ...(i === 0 ? {
-          baseBranch: (task as any).baseBranch || undefined,
-          customBranchName: (task as any).customBranchName || undefined,
+          baseBranch: (taskLegacy.baseBranch as string) || undefined,
+          customBranchName: (taskLegacy.customBranchName as string) || undefined,
         } : {})
       }))
       changed = true
@@ -240,8 +244,8 @@ export function migrateTaskWorkspaces() {
 
   // Remove deprecated settings fields
   if ('defaultMaxReviewCycles' in settings || 'defaultWorktreeDir' in settings) {
-    delete (settings as any).defaultMaxReviewCycles
-    delete (settings as any).defaultWorktreeDir
+    delete settings.defaultMaxReviewCycles
+    delete settings.defaultWorktreeDir
     store.set('aiAutomationSettings', settings as unknown as AIAutomationSettings)
   }
 
@@ -254,13 +258,13 @@ export function migrateSettings() {
   const settings = store.get('aiAutomationSettings') as unknown as Record<string, unknown>
 
   // If pipeline already exists (pre-boards migration), skip
-  if ((settings as any).pipeline && (settings as any).pipeline.length > 0) return
+  if (settings.pipeline && (settings.pipeline as unknown as unknown[]).length > 0) return
 
   // Initialize default pipeline
   const pipeline = DEFAULT_PIPELINE.map(p => ({ ...p }))
 
   // Copy existing phase prompts into pipeline
-  const phasePrompts = (settings as any).phasePrompts as AIAutomationSettings['phasePrompts'] | undefined
+  const phasePrompts = settings.phasePrompts as AIAutomationSettings['phasePrompts'] | undefined
   if (phasePrompts) {
     if (phasePrompts.planning) {
       const planningPhase = pipeline.find(p => p.id === 'planning')
@@ -281,7 +285,7 @@ export function migrateSettings() {
 
 export function migrateExistingTasks() {
   const settings = getSettings() as unknown as Record<string, unknown>
-  const legacyPipeline = (settings as any).pipeline as AIPipelinePhase[] | undefined
+  const legacyPipeline = settings.pipeline as AIPipelinePhase[] | undefined
   if (!legacyPipeline || legacyPipeline.length === 0) return
 
   const tasks = store.get('aiTasks')
@@ -325,7 +329,8 @@ export function migrateToBoards(): void {
   if (settings.boards && settings.boards.length > 0) return
 
   // Create default board from existing pipeline
-  const existingPipeline = (settings as any).pipeline || DEFAULT_PIPELINE
+  const settingsRecord = settings as unknown as Record<string, unknown>
+  const existingPipeline = (settingsRecord.pipeline as AIPipelinePhase[]) || DEFAULT_PIPELINE
   const defaultBoard: AIBoard = {
     id: 'default',
     name: 'My Board',
@@ -335,9 +340,9 @@ export function migrateToBoards(): void {
   }
 
   // Update settings
-  const updated = { ...settings, boards: [defaultBoard], activeBoardId: 'default' }
-  delete (updated as any).pipeline
-  store.set('aiAutomationSettings', updated)
+  const updated: Record<string, unknown> = { ...settings, boards: [defaultBoard], activeBoardId: 'default' }
+  delete updated.pipeline
+  store.set('aiAutomationSettings', updated as unknown as AIAutomationSettings)
 
   // Add boardId to all existing tasks
   const tasks = store.get('aiTasks')

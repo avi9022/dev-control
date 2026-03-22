@@ -30,9 +30,11 @@ const detectPortFromEnv = async (dir: string): Promise<number | null> => {
   return null;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const detectPortFromFramework = async (dirPath: string, pkg: Record<string, any>): Promise<number | null> => {
-  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+export const detectPortFromFramework = async (dirPath: string, pkg: Record<string, unknown>): Promise<number | null> => {
+  const deps: Record<string, unknown> = {
+    ...(pkg.dependencies as Record<string, unknown> | undefined),
+    ...(pkg.devDependencies as Record<string, unknown> | undefined),
+  };
   if (!deps) return null;
 
   // Vite
@@ -130,7 +132,7 @@ export const detectPortByRunning = async (
 export const detectPort = async (dirPath: string, runCommand: string | null): Promise<number | null> => {
   const pkgPath = path.join(dirPath, 'package.json');
 
-  let pkg: Record<string, any>;
+  let pkg: Record<string, unknown>;
   try {
     const pkgContent = await fs.promises.readFile(pkgPath, 'utf-8');
     pkg = JSON.parse(pkgContent);
@@ -138,7 +140,7 @@ export const detectPort = async (dirPath: string, runCommand: string | null): Pr
     return null;
   }
 
-  const scripts = pkg.scripts || {};
+  const scripts = (pkg.scripts || {}) as Record<string, string>;
 
   // Try static methods first (in order of speed)
   const scriptsPort = detectPortFromScripts(scripts);

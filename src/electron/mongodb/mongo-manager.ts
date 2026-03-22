@@ -228,7 +228,7 @@ class MongoManager {
     if (client) {
       try {
         await client.close()
-      } catch (error) {
+      } catch {
         // Ignore close errors gracefully
       }
       this.clients.delete(id)

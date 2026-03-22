@@ -373,7 +373,7 @@ function parsePostmanCollection(data: PostmanCollection): ApiCollection {
   }
 }
 
-export async function importPostmanCollection(workspaceId: string): Promise<ApiCollection[]> {
+export async function importPostmanCollection(): Promise<ApiCollection[]> {
   const result = await dialog.showOpenDialog({
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'JSON', extensions: ['json'] }],
@@ -409,7 +409,7 @@ export async function importPostmanCollectionFromPath(filePath: string): Promise
   throw new Error('File is not a valid Postman collection format. Expected "info" and "item" fields.')
 }
 
-export async function importPostmanEnvironment(workspaceId: string): Promise<ApiEnvironment[]> {
+export async function importPostmanEnvironment(): Promise<ApiEnvironment[]> {
   const result = await dialog.showOpenDialog({
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'JSON', extensions: ['json'] }],

@@ -56,7 +56,7 @@ export const executeDockerStep = async (
           await dockerManager.stopContainer(containerId, ctx)
         }
         onOutput?.(`Container ${name} ${action}ed successfully\n`)
-      } catch (error) {
+      } catch {
         // If ID fails (stale), try by name
         try {
           if (phase === 'start') {

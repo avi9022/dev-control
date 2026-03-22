@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { resolveRequestConfig, resolveInheritedAuth } from './variable-resolver.js'
+import { resolveRequestConfig } from './variable-resolver.js'
 
 // Strip comments from JSONC for sending (supports // and /* */ comments)
 function stripJsonComments(jsonc: string): string {
@@ -285,7 +285,6 @@ function buildAuthHeaders(auth: ApiAuth): Record<string, string> {
       // Full NTLM requires multi-step negotiation
       if (auth.ntlm?.username && auth.ntlm?.password) {
         // Type 1 message (Negotiate)
-        const domain = auth.ntlm.domain ?? ''
         const negotiateFlags = Buffer.alloc(4)
         negotiateFlags.writeUInt32LE(0x00000001, 0) // NTLMSSP_NEGOTIATE_UNICODE
 

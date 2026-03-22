@@ -100,7 +100,9 @@ export async function updateDocument(
     const coll = db.collection(collection)
     const filter = toObjectIdFilter(id)
 
-    const { _id, ...updateWithoutId } = update
+    const updateWithoutId = Object.fromEntries(
+      Object.entries(update).filter(([key]) => key !== '_id')
+    )
     await coll.replaceOne(filter, updateWithoutId)
   } catch (error) {
     throw new Error(

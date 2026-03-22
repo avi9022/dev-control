@@ -7,7 +7,7 @@ import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 import { getTaskById, updateTask, moveTaskPhase, getSettings, getBoardPipeline } from './task-manager.js'
 import { sendNotification } from './notification-manager.js'
 import { buildPrompt } from './prompt-builder.js'
-import { createWorktree, generateBranchName, getDiff } from './worktree-manager.js'
+import { createWorktree, generateBranchName } from './worktree-manager.js'
 import { getOrCreateTaskDir } from './task-dir-manager.js'
 import { getMcpPort } from './mcp-server.js'
 
