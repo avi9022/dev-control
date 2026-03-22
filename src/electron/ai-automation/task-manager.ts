@@ -5,6 +5,7 @@ import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 import { cleanupWorktree } from './worktree-manager.js'
 import { getOrCreateTaskDir, cleanupTaskDir, migrateTaskDirStructure } from './task-dir-manager.js'
 import { sendNotification } from './notification-manager.js'
+import { extractLinkedTaskIds } from './cross-reference-parser.js'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -54,6 +55,7 @@ export function createTask(
   }
 
   const tasks = store.get('aiTasks')
+  task.linkedTaskIds = extractLinkedTaskIds(task, tasks)
   tasks.push(task)
   store.set('aiTasks', tasks)
   broadcastTasks()
@@ -66,6 +68,10 @@ export function updateTask(id: string, updates: Partial<AITask>) {
   if (index === -1) throw new Error(`Task ${id} not found`)
 
   tasks[index] = { ...tasks[index], ...updates, updatedAt: new Date().toISOString() }
+  // Re-parse linked task IDs when description or amendments change
+  if (updates.description !== undefined || updates.amendments !== undefined) {
+    tasks[index].linkedTaskIds = extractLinkedTaskIds(tasks[index], tasks)
+  }
   store.set('aiTasks', tasks)
   broadcastTasks()
 }
