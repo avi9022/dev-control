@@ -2,9 +2,14 @@
 
 ## TypeScript
 
-- **No `any`** — use `unknown`, `Record<string, unknown>`, or proper interfaces. When receiving untyped data (JSON parse, YAML load, external APIs), type it at the boundary.
+- **No `any` or `unknown`** — every variable, parameter, and return type must have a specific, meaningful type. Define interfaces or type aliases for all data shapes. When receiving untyped data from external sources (JSON parse, YAML load, external APIs), define an interface for the expected shape and validate/cast at the boundary.
+- **No implicit typing** — always provide explicit type annotations for function parameters, return types, and variable declarations where the type isn't obvious from the assignment. Don't rely on TypeScript inference for public API surfaces (exported functions, component props, context values).
+- **No casting** — never use `as` type assertions. If TypeScript can't infer the type, the code structure is wrong. Use type guards (`instanceof`, `in`, `typeof`), discriminated unions, or generics to narrow types safely. The only exception is when interfacing with a third-party library that has incorrect or incomplete type definitions — and even then, prefer wrapping with a properly typed function.
 - **No suppression comments** — never use `eslint-disable`, `@ts-ignore`, or `@ts-expect-error`. Fix the root cause. If a rule is wrong for a pattern, change the ESLint config.
 - **Unused variables** — remove them. Don't prefix with `_` to suppress. For catch blocks that don't use the error, use `catch {` (no parameter). For destructuring where you need to exclude a key, use `Object.fromEntries(Object.entries(...).filter(...))` instead of `{ [key]: _, ...rest }`.
+- **No magic numbers** — extract numeric literals into named constants. Numbers like `0`, `1`, `-1` in obvious contexts (array index, increment) are fine. But `500`, `5000`, `200`, `3` scattered in code must be named constants that explain their purpose (e.g., `const POLL_INTERVAL_MS = 500`, `const MAX_RETRY_COUNT = 3`, `const DESCRIPTION_TRUNCATE_LENGTH = 200`).
+- **No magic strings** — extract string literals used for comparisons, keys, or identifiers into named constants or enums. Strings in JSX content (labels, placeholders) are fine. But `if (status === 'running')` or `type: 'worktree'` should use an enum or constant.
+- **Use enums for predefined value sets** — when a value can be one of a fixed set of options (statuses, types, modes, strategies), define it as a TypeScript enum or const object. Examples: task phases, git strategies, notification types, broker types. Union types (`'a' | 'b' | 'c'`) are acceptable for simple cases with 2-3 values, but prefer enums when the set is used across multiple files or has more than 3 values.
 - **Module resolution** — Electron code uses `NodeNext`. All internal imports in `src/electron/` must use `.js` extension (`import { foo } from './bar.js'`). UI code uses `@/*` alias mapping to `./src/*`.
 - **All IPC types** live in `types.d.ts` under `EventPayloadMapping`. Never define IPC types elsewhere.
 
