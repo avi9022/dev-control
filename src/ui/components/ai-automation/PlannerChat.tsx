@@ -2,10 +2,12 @@ import { useState, useRef, useEffect, type FC } from 'react'
 import { Send, Loader2, Wand2, Bug, ChevronRight, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ProjectCreationModal } from '@/ui/components/ai-automation/ProjectCreationModal'
 
 const SUMMARY_TRUNCATE_LENGTH = 80
 const INPUT_FOCUS_DELAY_MS = 100
 const DEBUG_JSON_MAX_HEIGHT = 300
+const PLANNER_GREETING = "Hey! What would you like to plan today? Tell me about the goal or project you have in mind."
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -102,6 +104,7 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   const [debugEvents, setDebugEvents] = useState<PlannerDebugEvent[]>([])
   const [allExpanded, setAllExpanded] = useState(false)
   const [preserveEvents, setPreserveEvents] = useState(false)
+  const [projectCreationRequest, setProjectCreationRequest] = useState<ProjectCreationRequest | null>(null)
   const sessionIdRef = useRef<string>(Date.now().toString())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const debugEndRef = useRef<HTMLDivElement>(null)
@@ -149,13 +152,12 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   const sendMessageRef = useRef(sendMessage)
   sendMessageRef.current = sendMessage
 
-  // New session when opening with no messages
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), INPUT_FOCUS_DELAY_MS)
       if (messagesRef.current.length === 0) {
         sessionIdRef.current = Date.now().toString()
-        sendMessageRef.current('Hi, I want to plan some tasks.')
+        setMessages([{ role: 'assistant', content: PLANNER_GREETING }])
       }
     }
   }, [open])
@@ -166,7 +168,13 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
         setDebugEvents(prev => [...prev, event as PlannerDebugEvent])
       }
     })
-    return () => { unsubDebug() }
+    const unsubShowModal = window.electron.subscribeAIProjectCreationModal((request: ProjectCreationRequest) => {
+      setProjectCreationRequest(request)
+    })
+    const unsubCloseModal = window.electron.subscribeAICloseProjectCreationModal(() => {
+      setProjectCreationRequest(null)
+    })
+    return () => { unsubDebug(); unsubShowModal(); unsubCloseModal() }
   }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -298,6 +306,12 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
           )}
         </div>
       </DialogContent>
+      {projectCreationRequest && (
+        <ProjectCreationModal
+          request={projectCreationRequest}
+          onComplete={() => setProjectCreationRequest(null)}
+        />
+      )}
     </Dialog>
   )
 }

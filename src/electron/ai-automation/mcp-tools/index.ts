@@ -7,6 +7,7 @@ import { listKnowledgeDocsTool } from './list-knowledge-docs.js'
 import { readKnowledgeDocTool } from './read-knowledge-doc.js'
 import { listProjectsTool } from './list-projects.js'
 import { listBoardsTool } from './list-boards.js'
+import { requestProjectCreationTool } from './request-project-creation.js'
 
 // Register all MCP tools here — add new tools to this array.
 // McpToolBase uses Record<string, unknown> for the handler arg, which is the
@@ -20,4 +21,5 @@ export const mcpTools: McpToolBase[] = [
   readKnowledgeDocTool as McpToolBase,
   listProjectsTool as McpToolBase,
   listBoardsTool as McpToolBase,
+  requestProjectCreationTool as McpToolBase,
 ]

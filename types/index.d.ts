@@ -10,4 +10,5 @@
 /// <reference path="sql.d.ts" />
 /// <reference path="dynamodb.d.ts" />
 /// <reference path="brokers.d.ts" />
+/// <reference path="planner.d.ts" />
 /// <reference path="ipc.d.ts" />

@@ -390,6 +390,13 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('aiSettings', (settings) => {
       callback(settings);
     }),
+  aiProjectCreationResult: (requestId: string, result: ProjectCreationResponse) =>
+    ipcInvoke('aiProjectCreationResult', { requestId, result }),
+  aiPickDirectory: () => ipcInvoke('aiPickDirectory'),
+  subscribeAIProjectCreationModal: (callback: (request: ProjectCreationRequest) => void) =>
+    ipcOn('aiShowProjectCreationModal', (request) => callback(request)),
+  subscribeAICloseProjectCreationModal: (callback: (data: { requestId: string }) => void) =>
+    ipcOn('aiCloseProjectCreationModal', (data) => callback(data)),
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

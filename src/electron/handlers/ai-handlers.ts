@@ -1,4 +1,4 @@
-import { shell } from 'electron'
+import { dialog, shell } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { ipcMainHandle } from '../utils/ipc-handle.js'
@@ -14,6 +14,7 @@ import { getBranchInfo, renameBranch, editCommitMessage, editMultipleCommitMessa
 import { getNotifications, markAllRead } from '../ai-automation/notification-manager.js'
 import { sendPlannerMessage } from '../ai-automation/planner-runner.js'
 import { savePlannerConversation } from '../ai-automation/mcp-tools/save-planner-conversation.js'
+import { resolveProjectCreation } from '../ai-automation/mcp-tools/request-project-creation.js'
 
 export function registerAIHandlers(): void {
   ipcMainHandle('aiGetTasks', async () => {
@@ -347,5 +348,15 @@ export function registerAIHandlers(): void {
 
   ipcMainHandle('aiSquashCommits', async (_event, worktreePath, baseBranch, newMessage, pushToRemote) => {
     squashCommits(worktreePath, baseBranch, newMessage, pushToRemote)
+  })
+
+  ipcMainHandle('aiProjectCreationResult', async (_event, { requestId, result }) => {
+    resolveProjectCreation(requestId, result)
+  })
+
+  ipcMainHandle('aiPickDirectory', async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
   })
 }

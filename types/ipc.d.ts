@@ -1086,6 +1086,22 @@ type EventPayloadMapping = {
     return: { shellId: string; exitCode: number };
     args: [{ shellId: string; exitCode: number }];
   }
+  aiShowProjectCreationModal: {
+    args: [ProjectCreationRequest]
+    return: void
+  }
+  aiCloseProjectCreationModal: {
+    args: [{ requestId: string }]
+    return: void
+  }
+  aiProjectCreationResult: {
+    args: [{ requestId: string; result: ProjectCreationResponse }]
+    return: void
+  }
+  aiPickDirectory: {
+    args: []
+    return: string | null
+  }
 };
 
 interface Window {
@@ -1397,5 +1413,9 @@ interface Window {
     aiGetNotifications: () => Promise<AINotification[]>
     aiMarkNotificationsRead: () => Promise<void>
     subscribeAISettings: (callback: (settings: AIAutomationSettings) => void) => () => void
+    aiProjectCreationResult: (requestId: string, result: ProjectCreationResponse) => Promise<void>
+    aiPickDirectory: () => Promise<string | null>
+    subscribeAIProjectCreationModal: (callback: (request: ProjectCreationRequest) => void) => () => void
+    subscribeAICloseProjectCreationModal: (callback: (data: { requestId: string }) => void) => () => void
   }
 }

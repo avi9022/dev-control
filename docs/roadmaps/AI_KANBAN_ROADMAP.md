@@ -51,6 +51,12 @@
 - [ ] **F47**: Mobile App — companion mobile app (React Native or similar) to monitor and control your workflow from your phone. View kanban boards, receive push notifications for agent events (task completed, needs attention, review ready), approve/reject tasks, view diffs, drag tasks between phases, and trigger agent runs. Connects to the desktop app via local network or cloud sync.
 - [ ] **F48**: Task Dependencies — allow marking tasks as blocked by other tasks, so a task waits until its dependencies are complete before it can proceed through the pipeline. Visual dependency indicators on the kanban board, automatic unblocking when upstream tasks reach DONE, and optional auto-start of the next pipeline phase when unblocked.
 - [ ] **F49**: Phase Agent Skills & Scripts — allow attaching custom skills (markdown instruction files) and scripts (shell commands) to pipeline phase agents. Skills are injected into the agent's system prompt as additional context/instructions. Scripts run before or after the agent (pre/post hooks per phase). Configurable per phase in the pipeline editor UI.
+- [ ] **F50**: Enhanced Service Terminal — replace the basic terminal with a full-featured xterm.js terminal for services, with proper PTY support, scrollback, search, copy/paste, clickable links, and theme integration matching the app's dark/light mode
+- [ ] **F51**: Service Groups & Categories — allow organizing services into named groups/categories (e.g., "Backend", "Frontend", "Infrastructure"), with collapsible group headers in the sidebar, bulk start/stop per group, and drag-and-drop reordering between groups
+- [ ] **F52**: MCP Worktree Tool — add an MCP tool that allows agents to create, list, and manage git worktrees for tasks. Agents can request a new worktree for a specific project/branch without user intervention, useful for planning agents that break work into tasks needing isolated workspaces.
+- [ ] **F53**: Kanban Sorting — add sorting options to kanban columns (by creation date, last updated, priority, title alphabetical), with a sort dropdown per column and a global default sort setting. Persist sort preference per board.
+- [ ] **F54**: Planner Project Management — enable the planner to create new projects via a user-confirmed modal (name, location, git init, board selection), so tasks for new codebases get proper project directories from the start. Future phases: planner tags projects in tasks, uses cross-references, uses task dependencies. (Design: `docs/plans/2026-03-23-planner-project-management-design.md`)
+- [ ] **F55**: Debug Mode Environment Variable — add a `DEVCONTROL_DEBUG` env var (or app setting) that controls visibility of debug features across the app. When enabled: show the planner debug panel, agent stream events, context history raw JSON, MCP tool call logs, and verbose error details. When disabled: hide all debug UI for a cleaner end-user experience. Default off in production builds, on in dev.
 
 ## Backlog (needs investigation)
 
@@ -66,6 +72,8 @@
 - [ ] **B2**: Silent phase errors — when a phase fails to start (e.g., spawn error, invalid args), there is no UI indication; the task just stops with no error message shown to the user
 - [ ] **B3**: Git section shows unrelated commits — the branch info in task details shows commits that don't belong to the task's branch (likely showing all commits instead of only those since branching from base)
 - [ ] **B4**: Lint errors across codebase — ~60+ ESLint errors (unused imports, `any` types, missing hook deps) need a full sweep to fix. Run `npm run lint` to see all issues.
+- [ ] **B5**: Workflows broken — workflow execution is not functioning after the F35 restructure. The workflow view, step execution, and progress tracking need to be restored and verified end-to-end.
+- [ ] **B6**: Preload/Window type mismatch — the Window interface in `types/ipc.d.ts` and the actual `preload.cts` implementation are not validated against each other. Methods declared in the Window interface may not exist at runtime. Need to restructure so TypeScript catches mismatches at compile time (e.g., shared interface that preload implements).
 
 ## Notes
 
