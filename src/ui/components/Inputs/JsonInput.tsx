@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, type FC } from "react";
 import Editor from "@monaco-editor/react";
 
 interface JsonInputProps {
-  onChange?: (json: any) => void;
-  value?: any;
+  onChange?: (json: string) => void;
+  value?: string;
   disabled?: boolean
 }
 

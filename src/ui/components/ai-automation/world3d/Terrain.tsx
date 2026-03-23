@@ -1,39 +1,43 @@
 import { useMemo, type FC } from 'react'
 import * as THREE from 'three'
 import { TERRAIN_SIZE } from './types'
+import { TEXTURE_SIZE } from './config'
 import { getBlockTextures } from './textures'
 
-/** Large flat terrain — grass with dark grass patches */
+const BLEND_TILE_COUNT = 4
+const BLEND_SIZE = TEXTURE_SIZE * BLEND_TILE_COUNT
+const TOP_REPEAT_DIVISOR = 4
+const SIDE_REPEAT_VERTICAL = 1
+const SLAB_HEIGHT = 1
+const DIRT_LAYER_Y = -1
+
 export const Terrain: FC = () => {
   const materials = useMemo(() => {
     const darkGrassTex = getBlockTextures('darkgrass')
     const dirtTex = getBlockTextures('dirt')
 
-    // Create a blended top texture — patches of dark grass on regular grass
-    const size = 64
     const canvas = document.createElement('canvas')
-    canvas.width = size
-    canvas.height = size
-    const ctx = canvas.getContext('2d')!
+    canvas.width = BLEND_SIZE
+    canvas.height = BLEND_SIZE
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return { grassMats: [], dirtMats: [] }
 
-    // Use dark grass for the entire terrain
     const darkCanvas = darkGrassTex.top.image as HTMLCanvasElement
-    for (let tx = 0; tx < 4; tx++)
-      for (let tz = 0; tz < 4; tz++)
-        ctx.drawImage(darkCanvas, tx * 16, tz * 16)
+    for (let tx = 0; tx < BLEND_TILE_COUNT; tx++)
+      for (let tz = 0; tz < BLEND_TILE_COUNT; tz++)
+        ctx.drawImage(darkCanvas, tx * TEXTURE_SIZE, tz * TEXTURE_SIZE)
 
     const blendedTop = new THREE.CanvasTexture(canvas)
     blendedTop.magFilter = THREE.NearestFilter
     blendedTop.minFilter = THREE.NearestFilter
     blendedTop.wrapS = THREE.RepeatWrapping
     blendedTop.wrapT = THREE.RepeatWrapping
-    blendedTop.repeat.set(TERRAIN_SIZE / 4, TERRAIN_SIZE / 4)
+    blendedTop.repeat.set(TERRAIN_SIZE / TOP_REPEAT_DIVISOR, TERRAIN_SIZE / TOP_REPEAT_DIVISOR)
 
-    // Side texture — tile dark grass side
     const tileSide = darkGrassTex.side.clone()
     tileSide.wrapS = THREE.RepeatWrapping
     tileSide.wrapT = THREE.RepeatWrapping
-    tileSide.repeat.set(TERRAIN_SIZE, 1)
+    tileSide.repeat.set(TERRAIN_SIZE, SIDE_REPEAT_VERTICAL)
 
     const tileBottom = dirtTex.top.clone()
     tileBottom.wrapS = THREE.RepeatWrapping
@@ -43,7 +47,7 @@ export const Terrain: FC = () => {
     const tileDirtSide = dirtTex.side.clone()
     tileDirtSide.wrapS = THREE.RepeatWrapping
     tileDirtSide.wrapT = THREE.RepeatWrapping
-    tileDirtSide.repeat.set(TERRAIN_SIZE, 1)
+    tileDirtSide.repeat.set(TERRAIN_SIZE, SIDE_REPEAT_VERTICAL)
 
     const grassMats = [
       new THREE.MeshStandardMaterial({ map: tileSide }),
@@ -69,10 +73,10 @@ export const Terrain: FC = () => {
   return (
     <group>
       <mesh position={[0, 0, 0]} material={materials.grassMats}>
-        <boxGeometry args={[TERRAIN_SIZE, 1, TERRAIN_SIZE]} />
+        <boxGeometry args={[TERRAIN_SIZE, SLAB_HEIGHT, TERRAIN_SIZE]} />
       </mesh>
-      <mesh position={[0, -1, 0]} material={materials.dirtMats}>
-        <boxGeometry args={[TERRAIN_SIZE, 1, TERRAIN_SIZE]} />
+      <mesh position={[0, DIRT_LAYER_Y, 0]} material={materials.dirtMats}>
+        <boxGeometry args={[TERRAIN_SIZE, SLAB_HEIGHT, TERRAIN_SIZE]} />
       </mesh>
     </group>
   )

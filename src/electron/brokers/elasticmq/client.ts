@@ -10,7 +10,7 @@ import {
   QueueAttributeName
 } from "@aws-sdk/client-sqs"
 import type { BrokerClient } from "../types.js"
-import { store } from "../../storage/store.js"
+import { archiveMessage, getArchivedMessages } from "../message-archive.js"
 
 export class ElasticMQClient implements BrokerClient {
   readonly type = 'elasticmq' as const
@@ -124,33 +124,17 @@ export class ElasticMQClient implements BrokerClient {
         QueueUrl: queueUrl,
         MessageBody: message,
       }))
-      this.archiveMessage(queueUrl, message)
+      archiveMessage(queueUrl, message)
     } catch (error) {
       console.error("ElasticMQ: Failed to send message:", error)
     }
-  }
-
-  private archiveMessage(queueUrl: string, message: string): void {
-    const archived = store.get('archivedMessages') || {}
-    const queueMessages = archived[queueUrl] || []
-    const newMessage: QueueMessage = {
-      id: crypto.randomUUID(),
-      queueUrl,
-      createdAt: Date.now(),
-      message
-    }
-    const updatedMessages = [newMessage, ...queueMessages].slice(0, 5)
-    store.set('archivedMessages', {
-      ...archived,
-      [queueUrl]: updatedMessages
-    })
   }
 
   async getQueueData(queueUrl: string): Promise<QueueData> {
     const [attributes, waitingMessages, lastFiveMessages] = await Promise.all([
       this.getQueueAttributes(queueUrl),
       this.getWaitingMessages(queueUrl),
-      Promise.resolve(this.getArchivedMessages(queueUrl))
+      Promise.resolve(getArchivedMessages(queueUrl))
     ])
 
     return {
@@ -210,10 +194,5 @@ export class ElasticMQClient implements BrokerClient {
     }
 
     return messages
-  }
-
-  private getArchivedMessages(queueUrl: string): QueueMessage[] {
-    const archived = store.get('archivedMessages') || {}
-    return archived[queueUrl] || []
   }
 }

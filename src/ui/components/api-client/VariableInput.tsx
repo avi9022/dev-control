@@ -7,8 +7,8 @@ import { useApiClient } from '@/ui/contexts/api-client'
 interface VariableInputProps {
   value: string
   onChange: (value: string) => void
-  onKeyDown?: (e: React.KeyboardEvent) => void
-  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void
+  onKeyDown?: (e: React.KeyboardEvent<HTMLElement>) => void
+  onPaste?: (e: React.ClipboardEvent<Element>) => void
   placeholder?: string
   className?: string
 }
@@ -194,13 +194,13 @@ export const VariableInput: FC<VariableInputProps> = ({
 
   // Handle mouse over for tooltip
   const handleMouseOver = useCallback((e: MouseEvent) => {
-    const target = e.target as HTMLElement
-    if (target.dataset.varName) {
+    if (!(e.target instanceof HTMLElement)) return
+    if (e.target.dataset.varName) {
       cancelClose()
       isOverVarRef.current = true
-      const rect = target.getBoundingClientRect()
+      const rect = e.target.getBoundingClientRect()
       setTooltip({
-        varName: target.dataset.varName,
+        varName: e.target.dataset.varName,
         x: rect.left,
         y: rect.bottom,
       })
@@ -208,8 +208,8 @@ export const VariableInput: FC<VariableInputProps> = ({
   }, [cancelClose])
 
   const handleMouseOut = useCallback((e: MouseEvent) => {
-    const target = e.target as HTMLElement
-    if (target.dataset.varName) {
+    if (!(e.target instanceof HTMLElement)) return
+    if (e.target.dataset.varName) {
       isOverVarRef.current = false
       scheduleClose()
     }
@@ -277,13 +277,13 @@ export const VariableInput: FC<VariableInputProps> = ({
     if (e.key === 'Enter') {
       e.preventDefault()
     }
-    onKeyDown?.(e as unknown as React.KeyboardEvent)
+    onKeyDown?.(e)
   }, [onKeyDown])
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     // Call external handler first (for cURL detection etc.)
     if (externalOnPaste) {
-      externalOnPaste(e as unknown as React.ClipboardEvent<HTMLInputElement>)
+      externalOnPaste(e)
       // If the external handler prevented default, don't do our handling
       if (e.defaultPrevented) return
     }

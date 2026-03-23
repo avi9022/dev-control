@@ -4,7 +4,7 @@ import path from 'path';
 import { addDirectoryToStore } from '../utils/add-directory-to-store.js';
 import { listDirectories } from '../utils/list-directories.js';
 
-export const addDirectoriesFromFolder = async () => {
+export const addDirectoriesFromFolder = async (): Promise<void> => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory', 'multiSelections'],
   });

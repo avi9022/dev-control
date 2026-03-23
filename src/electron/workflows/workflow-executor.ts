@@ -4,6 +4,10 @@ import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 import { getWorkflowById } from '../storage/get-workflow-by-id.js'
 import { store } from '../storage/store.js'
 import { executeCommandStep, executeDockerStep, executeServiceStep } from './workflow-step-handlers.js'
+import { WorkflowStatus, WorkflowStepStatus, WorkflowRecordStatus, WORKFLOW_RETRY_DELAY_MS } from '../../shared/constants.js'
+
+const MAX_STEP_OUTPUT_LENGTH = 5_000
+const MAX_HISTORY_RECORDS = 50
 
 export class WorkflowExecutor {
   private activeExecutions = new Map<string, AbortController>()
@@ -42,28 +46,28 @@ export class WorkflowExecutor {
     if (!workflow) throw new Error('Workflow not found')
 
     const currentStatus = this.statusMap.get(id)
-    if (currentStatus === 'starting' || currentStatus === 'stopping') {
+    if (currentStatus === WorkflowStatus.Starting || currentStatus === WorkflowStatus.Stopping) {
       throw new Error('Workflow is already executing')
     }
 
     const controller = new AbortController()
     this.activeExecutions.set(id, controller)
-    this.setStatus(id, 'starting')
+    this.setStatus(id, WorkflowStatus.Starting)
 
     const steps = workflow.startSteps.filter((s) => s.enabled)
     const progress = this.createProgress(id, 'starting', steps)
     this.broadcastProgress(progress)
 
     try {
-      await this.executeSteps(workflow, steps, 'start', controller.signal, progress)
-      this.setStatus(id, 'running')
-      progress.status = 'running'
+      await this.executeSteps(steps, 'start', controller.signal, progress)
+      this.setStatus(id, WorkflowStatus.Running)
+      progress.status = WorkflowStatus.Running
       this.broadcastProgress(progress)
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
-      this.setStatus(id, 'error')
+      this.setStatus(id, WorkflowStatus.Error)
       progress.error = msg
-      progress.status = 'error'
+      progress.status = WorkflowStatus.Error
       this.broadcastProgress(progress)
     } finally {
       this.activeExecutions.delete(id)
@@ -84,22 +88,22 @@ export class WorkflowExecutor {
 
     const controller = new AbortController()
     this.activeExecutions.set(id, controller)
-    this.setStatus(id, 'stopping')
+    this.setStatus(id, WorkflowStatus.Stopping)
 
     const steps = workflow.stopSteps.filter((s) => s.enabled)
     const progress = this.createProgress(id, 'stopping', steps)
     this.broadcastProgress(progress)
 
     try {
-      await this.executeSteps(workflow, steps, 'stop', controller.signal, progress)
-      this.setStatus(id, 'idle')
-      progress.status = 'idle'
+      await this.executeSteps(steps, 'stop', controller.signal, progress)
+      this.setStatus(id, WorkflowStatus.Idle)
+      progress.status = WorkflowStatus.Idle
       this.broadcastProgress(progress)
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
-      this.setStatus(id, 'error')
+      this.setStatus(id, WorkflowStatus.Error)
       progress.error = msg
-      progress.status = 'error'
+      progress.status = WorkflowStatus.Error
       this.broadcastProgress(progress)
     } finally {
       this.activeExecutions.delete(id)
@@ -112,14 +116,14 @@ export class WorkflowExecutor {
     if (controller) {
       controller.abort()
       this.activeExecutions.delete(id)
-      this.setStatus(id, 'error')
+      this.setStatus(id, WorkflowStatus.Error)
     }
   }
 
   cancelAll(): void {
     for (const [id, controller] of this.activeExecutions.entries()) {
       controller.abort()
-      this.setStatus(id, 'error')
+      this.setStatus(id, WorkflowStatus.Error)
     }
     this.activeExecutions.clear()
   }
@@ -132,10 +136,10 @@ export class WorkflowExecutor {
     return {
       workflowId,
       phase,
-      status: phase === 'starting' ? 'starting' : 'stopping',
+      status: phase === 'starting' ? WorkflowStatus.Starting : WorkflowStatus.Stopping,
       steps: steps.map((s) => ({
         stepId: s.id,
-        status: 'pending' as WorkflowStepStatus,
+        status: WorkflowStepStatus.Pending,
         attempt: 0,
       })),
       startedAt: Date.now(),
@@ -143,7 +147,6 @@ export class WorkflowExecutor {
   }
 
   private async executeSteps(
-    _workflow: EnhancedWorkflow,
     steps: WorkflowStep[],
     phase: 'start' | 'stop',
     signal: AbortSignal,
@@ -156,7 +159,7 @@ export class WorkflowExecutor {
         // Mark remaining as skipped
         for (let j = i; j < steps.length; j++) {
           const stepProgress = progress.steps[j]
-          progress.steps[j] = { ...stepProgress, status: 'skipped' }
+          progress.steps[j] = { ...stepProgress, status: WorkflowStepStatus.Skipped }
         }
         this.broadcastProgress(progress)
         throw new Error('Workflow cancelled')
@@ -170,22 +173,22 @@ export class WorkflowExecutor {
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         progress.steps[i] = {
           ...stepProgress,
-          status: 'running',
+          status: WorkflowStepStatus.Running,
           attempt,
           startedAt: Date.now(),
         }
         this.broadcastProgress(progress)
 
         try {
-          const onOutput = (data: string) => {
+          const onOutput = (data: string): void => {
             progress.steps[i] = {
               ...progress.steps[i],
-              output: ((progress.steps[i].output || '') + data).slice(-5000),
+              output: ((progress.steps[i].output || '') + data).slice(-MAX_STEP_OUTPUT_LENGTH),
             }
             this.broadcastProgress(progress)
           }
 
-          const handlerOptions = { signal, onOutput, mainWindow: this.mainWindow! }
+          const handlerOptions = { signal, onOutput, mainWindow: this.mainWindow }
 
           switch (step.type) {
             case 'command':
@@ -202,7 +205,7 @@ export class WorkflowExecutor {
           // Success
           progress.steps[i] = {
             ...progress.steps[i],
-            status: 'completed',
+            status: WorkflowStepStatus.Completed,
             completedAt: Date.now(),
           }
           this.broadcastProgress(progress)
@@ -217,7 +220,7 @@ export class WorkflowExecutor {
               message: `Attempt ${attempt} failed: ${lastError.message}. Retrying...`,
             }
             this.broadcastProgress(progress)
-            await new Promise((r) => setTimeout(r, 1000))
+            await new Promise((r) => setTimeout(r, WORKFLOW_RETRY_DELAY_MS))
           }
         }
       }
@@ -225,7 +228,7 @@ export class WorkflowExecutor {
       if (lastError) {
         progress.steps[i] = {
           ...progress.steps[i],
-          status: 'failed',
+          status: WorkflowStepStatus.Failed,
           message: lastError.message,
           completedAt: Date.now(),
         }
@@ -234,7 +237,7 @@ export class WorkflowExecutor {
         if (!step.continueOnError) {
           // Mark remaining as skipped
           for (let j = i + 1; j < steps.length; j++) {
-            progress.steps[j] = { ...progress.steps[j], status: 'skipped' }
+            progress.steps[j] = { ...progress.steps[j], status: WorkflowStepStatus.Skipped }
           }
           this.broadcastProgress(progress)
           throw lastError
@@ -254,7 +257,7 @@ export class WorkflowExecutor {
       workflowId,
       workflowName,
       phase,
-      status: progress.error ? 'failed' : 'completed',
+      status: progress.error ? WorkflowRecordStatus.Failed : WorkflowRecordStatus.Completed,
       steps: progress.steps,
       startedAt: progress.startedAt,
       completedAt: Date.now(),
@@ -262,7 +265,7 @@ export class WorkflowExecutor {
 
     const history = store.get('workflowHistory') || {}
     const existingRecords = history[workflowId] || []
-    const updatedRecords = [record, ...existingRecords].slice(0, 50)
+    const updatedRecords = [record, ...existingRecords].slice(0, MAX_HISTORY_RECORDS)
     store.set('workflowHistory', { ...history, [workflowId]: updatedRecords })
   }
 

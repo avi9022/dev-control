@@ -62,6 +62,11 @@ function EndpointNode({ data }: NodeProps<EndpointNodeType>) {
   )
 }
 
+interface FlowEdgeData extends Record<string, unknown> {
+  insertIndex: number
+  onOpenMenu: (index: number, x: number, y: number) => void
+}
+
 // Flow edge with "+" add button at midpoint — menu is rendered by parent PipelineDiagram
 function FlowEdge(props: EdgeProps) {
   const { sourceX, sourceY, targetX, targetY, data } = props
@@ -70,7 +75,7 @@ function FlowEdge(props: EdgeProps) {
   const midY = (sourceY + targetY) / 2
   const path = `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`
 
-  const edgeData = data as { insertIndex: number; onOpenMenu: (index: number, x: number, y: number) => void }
+  const edgeData = data as FlowEdgeData
 
   return (
     <>
@@ -102,6 +107,9 @@ function FlowEdge(props: EdgeProps) {
 /*  Node / edge type registries                                        */
 /* ------------------------------------------------------------------ */
 
+// ReactFlow's NodeTypes/EdgeTypes expect components typed with the base
+// Node/Edge generics, but custom nodes use narrower generic params (e.g.
+// NodeProps<PhaseNodeType>). The library's own examples use this cast pattern.
 const nodeTypes: NodeTypes = {
   phase: PhaseNode,
   endpoint: EndpointNode,
@@ -125,13 +133,11 @@ const NODE_SPACING = 280
 interface PipelineDiagramProps {
   settings: AIAutomationSettings
   updateSettings: (updates: Partial<AIAutomationSettings>) => void
-  themeClass: string
 }
 
 export const PipelineDiagram: FC<PipelineDiagramProps> = ({
   settings,
   updateSettings,
-  themeClass,
 }) => {
   const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null)
   const [addMenu, setAddMenu] = useState<{ insertIndex: number; pos: { top: number; left: number } } | null>(null)
@@ -444,7 +450,7 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
     : null
 
   return (
-    <div ref={containerRef} className={themeClass} style={{
+    <div ref={containerRef} style={{
       height: '100%', width: '100%', overflow: 'hidden', position: 'relative',
       borderTop: '1px solid var(--ai-border-subtle)',
       backgroundImage: `radial-gradient(circle, var(--ai-border) 1px, transparent 1px)`,
@@ -533,7 +539,6 @@ export const PipelineDiagram: FC<PipelineDiagramProps> = ({
         }}
         onUpdate={updatePhase}
         onDelete={deletePhase}
-        themeClass={themeClass}
       />
     </div>
   )

@@ -63,7 +63,7 @@ export const RequestUrlBar: FC<RequestUrlBarProps> = ({
     }
   }
 
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = useCallback((e: React.ClipboardEvent<Element>) => {
     const pastedText = e.clipboardData.getData('text')
 
     if (isCurlCommand(pastedText)) {
@@ -131,7 +131,7 @@ export const RequestUrlBar: FC<RequestUrlBarProps> = ({
     <div className="flex items-center gap-1.5 min-w-0">
       <Select
         value={method}
-        onValueChange={(v) => onMethodChange(v as ApiHttpMethod)}
+        onValueChange={(v) => { if (METHODS.includes(v as ApiHttpMethod)) onMethodChange(v as ApiHttpMethod) }}
       >
         <SelectTrigger className={`w-24 h-8 text-xs font-semibold ${METHOD_COLORS[method]}`}>
           <SelectValue />

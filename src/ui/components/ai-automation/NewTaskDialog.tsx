@@ -6,6 +6,9 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { FolderOpen, X, Paperclip, GitBranch, Eye, Hash } from 'lucide-react'
+import { GIT_STRATEGY, SHORT_ID_LENGTH } from '@/shared/constants'
+
+const DEFAULT_BASE_BRANCH = 'main'
 
 interface NewTaskDialogProps {
   open: boolean
@@ -25,7 +28,7 @@ function getPlainText(el: HTMLElement): string {
         text += `@${node.textContent || ''}`
       } else if (node.hasAttribute(TASK_MENTION_ATTR)) {
         const taskId = node.getAttribute(TASK_MENTION_ATTR) || ''
-        text += `#${taskId.slice(0, 8)}`
+        text += `#${taskId.slice(0, SHORT_ID_LENGTH)}`
       } else {
         text += getPlainText(node)
       }
@@ -52,7 +55,6 @@ function clearEditor(el: HTMLElement) {
 
 export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) => {
   const { createTask, settings } = useAIAutomation()
-  const themeClass = ''
   const [title, setTitle] = useState('')
   const [taggedProjects, setTaggedProjects] = useState<DirectorySettings[]>([])
   const [projectConfigs, setProjectConfigs] = useState<Record<string, { gitStrategy: AIGitStrategy; branchName: string; baseBranch: string }>>({})
@@ -76,8 +78,8 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
   // Auto-scroll dropdown to keep highlighted item visible
   useEffect(() => {
     if (!showMention || !menuRef.current) return
-    const activeItem = menuRef.current.children[mentionIndex] as HTMLElement | undefined
-    if (activeItem) {
+    const activeItem = menuRef.current.children[mentionIndex]
+    if (activeItem instanceof HTMLElement) {
       activeItem.scrollIntoView({ block: 'nearest' })
     }
   }, [mentionIndex, showMention])
@@ -85,8 +87,8 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
   // Auto-scroll task dropdown
   useEffect(() => {
     if (!showTaskMention || !taskMenuRef.current) return
-    const activeItem = taskMenuRef.current.children[taskMentionIndex] as HTMLElement | undefined
-    if (activeItem) activeItem.scrollIntoView({ block: 'nearest' })
+    const activeItem = taskMenuRef.current.children[taskMentionIndex]
+    if (activeItem instanceof HTMLElement) activeItem.scrollIntoView({ block: 'nearest' })
   }, [taskMentionIndex, showTaskMention])
 
   useEffect(() => {
@@ -105,7 +107,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
   })
 
   const filteredTasks = allTasks.filter(t => {
-    const shortId = t.id.slice(0, 8)
+    const shortId = t.id.slice(0, SHORT_ID_LENGTH)
     const query = taskMentionFilter.toLowerCase()
     return t.title.toLowerCase().includes(query) || shortId.includes(query)
   })
@@ -136,9 +138,9 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
     chip.setAttribute(TASK_MENTION_ATTR, taskId)
     chip.setAttribute('contenteditable', 'false')
     chip.className = 'inline-flex items-center gap-0.5 px-1.5 py-0 rounded border text-xs mx-0.5 align-baseline cursor-default select-none'
-    chip.style.background = 'var(--ai-warning-subtle, #fef3c7)'
-    chip.style.borderColor = 'var(--ai-warning, #f59e0b)'
-    chip.style.color = 'var(--ai-warning, #d97706)'
+    chip.style.background = 'var(--ai-warning-subtle)'
+    chip.style.borderColor = 'var(--ai-warning)'
+    chip.style.color = 'var(--ai-warning)'
     chip.textContent = taskTitle
     return chip
   }
@@ -246,9 +248,9 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
       setProjectConfigs(prev => ({
         ...prev,
         [dir.id]: {
-          gitStrategy: settings?.defaultGitStrategy === 'none' ? 'none' : 'worktree',
+          gitStrategy: settings?.defaultGitStrategy === GIT_STRATEGY.NONE ? GIT_STRATEGY.NONE : GIT_STRATEGY.WORKTREE,
           branchName: '',
-          baseBranch: settings?.defaultBaseBranch ?? 'main'
+          baseBranch: settings?.defaultBaseBranch ?? DEFAULT_BASE_BRANCH
         }
       }))
     }
@@ -429,13 +431,13 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
     if (!title.trim()) return
     const description = getDescription()
     const projects: AITaskProject[] = taggedProjects.map(p => {
-      const config = projectConfigs[p.id] || { gitStrategy: 'worktree', branchName: '', baseBranch: 'main' }
+      const config = projectConfigs[p.id] || { gitStrategy: GIT_STRATEGY.WORKTREE, branchName: '', baseBranch: DEFAULT_BASE_BRANCH }
       return {
         path: p.path,
         label: p.customLabel || p.name,
         gitStrategy: config.gitStrategy,
-        ...(config.gitStrategy === 'worktree' ? {
-          baseBranch: config.baseBranch.trim() || 'main',
+        ...(config.gitStrategy === GIT_STRATEGY.WORKTREE ? {
+          baseBranch: config.baseBranch.trim() || DEFAULT_BASE_BRANCH,
           customBranchName: config.branchName.trim() || undefined
         } : {})
       }
@@ -454,7 +456,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${themeClass} !max-w-[95vw] h-[85vh] flex flex-col`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
+      <DialogContent className={`!max-w-[95vw] h-[85vh] flex flex-col`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>New Task</DialogTitle>
         </DialogHeader>
@@ -504,7 +506,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
                     <div className="min-w-0">
                       <p className="truncate font-medium">{task.title}</p>
                       <p className="truncate text-[11px]" style={{ color: 'var(--ai-text-tertiary)' }}>
-                        #{task.id.slice(0, 8)} · {task.currentPhaseName || task.phase}
+                        #{task.id.slice(0, SHORT_ID_LENGTH)} · {task.currentPhaseName || task.phase}
                       </p>
                     </div>
                   </button>
@@ -547,7 +549,7 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
               </p>
               <div className="space-y-2">
                 {taggedProjects.map(p => {
-                  const config = projectConfigs[p.id] || { gitStrategy: 'worktree', branchName: '', baseBranch: 'main' }
+                  const config = projectConfigs[p.id] || { gitStrategy: GIT_STRATEGY.WORKTREE, branchName: '', baseBranch: DEFAULT_BASE_BRANCH }
                   return (
                     <div key={p.id} className="rounded-md border p-2.5" style={{ borderColor: 'var(--ai-border-subtle)', background: 'var(--ai-surface-2)' }}>
                       <div className="flex items-start justify-between gap-2 mb-2">
@@ -566,21 +568,25 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
                         <div className="flex items-end gap-2">
                           <div className="flex-shrink-0">
                             <span className="text-[10px] font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>Strategy</span>
-                            <Select value={config.gitStrategy} onValueChange={v => updateProjectConfig(p.id, { gitStrategy: v as AIGitStrategy })}>
+                            <Select value={config.gitStrategy} onValueChange={v => {
+                              if (v === GIT_STRATEGY.WORKTREE || v === GIT_STRATEGY.NONE) {
+                                updateProjectConfig(p.id, { gitStrategy: v })
+                              }
+                            }}>
                               <SelectTrigger className="h-7 w-[130px] text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="worktree">
+                                <SelectItem value={GIT_STRATEGY.WORKTREE}>
                                   <span className="flex items-center gap-1"><GitBranch className="h-3 w-3" /> Worktree</span>
                                 </SelectItem>
-                                <SelectItem value="none">
+                                <SelectItem value={GIT_STRATEGY.NONE}>
                                   <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> Read Only</span>
                                 </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
-                          {config.gitStrategy === 'worktree' && (
+                          {config.gitStrategy === GIT_STRATEGY.WORKTREE && (
                             <div className="flex-1 min-w-0">
                               <span className="text-[10px] font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>Base Branch</span>
                               <Input
@@ -591,11 +597,11 @@ export const NewTaskDialog: FC<NewTaskDialogProps> = ({ open, onOpenChange }) =>
                               />
                             </div>
                           )}
-                          {config.gitStrategy === 'none' && (
+                          {config.gitStrategy === GIT_STRATEGY.NONE && (
                             <span className="text-[11px] italic" style={{ color: 'var(--ai-text-tertiary)' }}>Agent can read but not modify this project</span>
                           )}
                         </div>
-                        {config.gitStrategy === 'worktree' && (
+                        {config.gitStrategy === GIT_STRATEGY.WORKTREE && (
                           <div>
                             <span className="text-[10px] font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>Branch Name</span>
                             <Input

@@ -334,7 +334,7 @@ export const ContainerList: FC = () => {
             className="pl-9 h-8"
           />
         </div>
-        <Select value={filter} onValueChange={(v) => setFilter(v as StateFilter)}>
+        <Select value={filter} onValueChange={(v) => { const valid: StateFilter[] = ['all', 'running', 'stopped', 'paused']; if (valid.includes(v as StateFilter)) setFilter(v as StateFilter) }}>
           <SelectTrigger className="w-[120px] h-8">
             <SelectValue />
           </SelectTrigger>

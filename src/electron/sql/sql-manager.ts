@@ -1,9 +1,7 @@
 import oracledb from 'oracledb'
 import { BrowserWindow } from 'electron'
-import Store from 'electron-store'
+import { store } from '../storage/store.js'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
-
-const store = new Store()
 
 class SQLManager {
   private mainWindow: BrowserWindow | null = null
@@ -17,7 +15,7 @@ class SQLManager {
   // ─── Connection Storage ───
 
   getConnections(): SQLConnectionConfig[] {
-    return (store.get('sqlConnections') as SQLConnectionConfig[] | undefined) ?? []
+    return store.get('sqlConnections') ?? []
   }
 
   saveConnection(config: SQLConnectionConfig): void {

@@ -24,6 +24,7 @@
 - [x] **F33**: Multiple Boards — allow creating and switching between separate kanban boards, each with its own tasks and pipeline, for organizing work across different projects or teams
 - [x] **F34**: Unified Theme — apply the AI kanban warm charcoal design system (palette, typography, component styling) to the original DevControl views (services, databases, Docker, API client, etc.)
 - [x] **F35**: Kanban as Main View — restructure the app so the kanban board is the primary landing page, with DevControl tools (services, databases, Docker, queues, etc.) accessible as integrated panels or tabs within it, replacing the current toggle between two separate modes
+- [x] **F46**: Task Cross-References — `#shortId` syntax in descriptions and amendments, autocomplete dropdown, clickable chips in task detail, Related Tasks section in agent prompts with truncated description + task directory path for on-demand exploration
 
 ## Planned Features
 
@@ -47,8 +48,9 @@
 - [ ] **F43**: Code Quality & Linting Rules — establish and enforce project-wide coding standards with ESLint rules, run a full codebase quality assessment, fix inconsistencies (naming, patterns, dead code, error handling), and document conventions in CLAUDE.md
 - [ ] **F44**: Codebase Audit & Refactor — comprehensive review of the entire codebase for code quality, performance, accessibility, and maintainability; identify tech debt, refactor large files, extract shared utilities, and ensure consistent patterns across all modules
 - [ ] **F45**: MCP Agent Permissions — granular permission system for MCP tools per agent/phase, controlling which tools each agent can access (e.g., read-only for reviewers, no shell for planners), with a UI to configure permissions per pipeline phase and audit logs of tool usage
-- [x] **F46**: Task Cross-References — `#shortId` syntax in descriptions and amendments, autocomplete dropdown, clickable chips in task detail, Related Tasks section in agent prompts with truncated description + task directory path for on-demand exploration
 - [ ] **F47**: Mobile App — companion mobile app (React Native or similar) to monitor and control your workflow from your phone. View kanban boards, receive push notifications for agent events (task completed, needs attention, review ready), approve/reject tasks, view diffs, drag tasks between phases, and trigger agent runs. Connects to the desktop app via local network or cloud sync.
+- [ ] **F48**: Task Dependencies — allow marking tasks as blocked by other tasks, so a task waits until its dependencies are complete before it can proceed through the pipeline. Visual dependency indicators on the kanban board, automatic unblocking when upstream tasks reach DONE, and optional auto-start of the next pipeline phase when unblocked.
+- [ ] **F49**: Phase Agent Skills & Scripts — allow attaching custom skills (markdown instruction files) and scripts (shell commands) to pipeline phase agents. Skills are injected into the agent's system prompt as additional context/instructions. Scripts run before or after the agent (pre/post hooks per phase). Configurable per phase in the pipeline editor UI.
 
 ## Backlog (needs investigation)
 

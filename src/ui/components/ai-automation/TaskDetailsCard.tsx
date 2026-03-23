@@ -4,6 +4,9 @@ import { Input } from '@/components/ui/input'
 import { Paperclip, X } from 'lucide-react'
 import { MentionEditor, type MentionEditorHandle } from './MentionEditor'
 import { renderMentions } from './mention-utils'
+import { GIT_STRATEGY } from '@/shared/constants'
+
+const DEFAULT_BASE_BRANCH = 'main'
 
 interface TaskDetailsCardProps {
   task: AITask
@@ -43,9 +46,9 @@ function renderTextWithTaskRefs(
           onClick={() => onTaskClick(linked.id)}
           className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded border text-xs mx-0.5 align-baseline cursor-pointer hover:opacity-80 transition-opacity"
           style={{
-            background: 'var(--ai-warning-subtle, #fef3c7)',
-            borderColor: 'var(--ai-warning, #f59e0b)',
-            color: 'var(--ai-warning, #d97706)',
+            background: 'var(--ai-warning-subtle)',
+            borderColor: 'var(--ai-warning)',
+            color: 'var(--ai-warning)',
           }}
           title={`${linked.title} · ${linked.currentPhaseName || linked.phase}`}
         >
@@ -178,8 +181,8 @@ export const TaskDetailsCard: FC<TaskDetailsCardProps> = ({
                   setEditProjects(prev => [...prev, {
                     path: dir.path,
                     label: dir.customLabel || dir.name,
-                    gitStrategy: settings?.defaultGitStrategy === 'none' ? 'none' : 'worktree',
-                    baseBranch: settings?.defaultBaseBranch ?? 'main'
+                    gitStrategy: settings?.defaultGitStrategy === GIT_STRATEGY.NONE ? GIT_STRATEGY.NONE : GIT_STRATEGY.WORKTREE,
+                    baseBranch: settings?.defaultBaseBranch ?? DEFAULT_BASE_BRANCH
                   }])
                 }
               }}
@@ -190,11 +193,11 @@ export const TaskDetailsCard: FC<TaskDetailsCardProps> = ({
             task.description ? (
               <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--ai-text-secondary)' }}>
                 {allTasks && onTaskClick
-                  ? renderMentions(task.description, projectLabels).flatMap((node, i) =>
+                  ? renderMentions(task.description, projectLabels).flatMap((node, i): React.ReactNode[] =>
                       typeof node === 'string'
-                        ? (renderTextWithTaskRefs(node, allTasks, onTaskClick).map((n, j) =>
+                        ? renderTextWithTaskRefs(node, allTasks, onTaskClick).map((n, j) =>
                             typeof n === 'string' ? n : <span key={`${i}-${j}`}>{n}</span>
-                          ) as React.ReactNode[])
+                          )
                         : [node]
                     )
                   : renderMentions(task.description, projectLabels)}

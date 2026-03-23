@@ -4,11 +4,19 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FolderOpen, GitBranch, Trash2, Plus, X, Pencil, Check, Loader2, ExternalLink, GitMerge, Save } from 'lucide-react'
+import { GIT_STRATEGY } from '@/shared/constants'
 
-type PendingChange =
-  | { type: 'rename-branch'; worktreePath: string; taskId: string; newName: string }
-  | { type: 'edit-commit'; worktreePath: string; hash: string; newMessage: string }
-  | { type: 'squash'; worktreePath: string; baseBranch: string; message: string }
+const DEFAULT_BASE_BRANCH = 'main'
+
+interface PendingRenameBranch { type: 'rename-branch'; worktreePath: string; taskId: string; newName: string }
+interface PendingEditCommit { type: 'edit-commit'; worktreePath: string; hash: string; newMessage: string }
+interface PendingSquash { type: 'squash'; worktreePath: string; baseBranch: string; message: string }
+
+type PendingChange = PendingRenameBranch | PendingEditCommit | PendingSquash
+
+function isRenameBranch(c: PendingChange): c is PendingRenameBranch { return c.type === 'rename-branch' }
+function isEditCommit(c: PendingChange): c is PendingEditCommit { return c.type === 'edit-commit' }
+function isSquash(c: PendingChange): c is PendingSquash { return c.type === 'squash' }
 
 interface SourceGitCardProps {
   task: AITask
@@ -33,22 +41,22 @@ const ProjectBranchSection: FC<{
   const [squashMessage, setSquashMessage] = useState('')
 
   // Get the displayed branch name (pending rename overrides original)
-  const pendingRename = pendingChanges.find(
-    c => c.type === 'rename-branch' && c.worktreePath === branch.worktreePath
-  ) as (PendingChange & { type: 'rename-branch' }) | undefined
+  const pendingRename = pendingChanges.filter(isRenameBranch).find(
+    c => c.worktreePath === branch.worktreePath
+  )
   const displayBranchName = pendingRename?.newName || branch.branchName
 
   // Get displayed commit messages (pending edits override originals)
   const getDisplayCommitMessage = (commit: AIBranchCommit) => {
-    const pending = pendingChanges.find(
-      c => c.type === 'edit-commit' && c.worktreePath === branch.worktreePath && c.hash === commit.hash
-    ) as (PendingChange & { type: 'edit-commit' }) | undefined
+    const pending = pendingChanges.filter(isEditCommit).find(
+      c => c.worktreePath === branch.worktreePath && c.hash === commit.hash
+    )
     return pending?.newMessage || commit.message
   }
 
-  const pendingSquash = pendingChanges.find(
-    c => c.type === 'squash' && c.worktreePath === branch.worktreePath
-  ) as (PendingChange & { type: 'squash' }) | undefined
+  const pendingSquash = pendingChanges.filter(isSquash).find(
+    c => c.worktreePath === branch.worktreePath
+  )
 
   const confirmBranchRename = () => {
     const trimmed = newBranchName.trim()
@@ -84,7 +92,7 @@ const ProjectBranchSection: FC<{
     const trimmed = squashMessage.trim()
     if (!trimmed) { setSquashing(false); return }
     if (pendingSquash) onUnstageChange(pendingSquash)
-    onStageChange({ type: 'squash', worktreePath: branch.worktreePath, baseBranch: 'main', message: trimmed })
+    onStageChange({ type: 'squash', worktreePath: branch.worktreePath, baseBranch: DEFAULT_BASE_BRANCH, message: trimmed })
     setSquashing(false)
   }
 
@@ -309,7 +317,7 @@ export const SourceGitCard: FC<SourceGitCardProps> = ({
     setError(null)
     try {
       // Group commit edits by worktree so they can be applied in a single rebase
-      const commitEdits = pendingChanges.filter(c => c.type === 'edit-commit') as (PendingChange & { type: 'edit-commit' })[]
+      const commitEdits = pendingChanges.filter(isEditCommit)
       const editsByWorktree = new Map<string, { hash: string; newMessage: string }[]>()
       for (const edit of commitEdits) {
         const existing = editsByWorktree.get(edit.worktreePath) || []
@@ -318,7 +326,7 @@ export const SourceGitCard: FC<SourceGitCardProps> = ({
       }
 
       // Apply squashes first (they replace all commits, so commit edits on that worktree are moot)
-      const squashes = pendingChanges.filter(c => c.type === 'squash') as (PendingChange & { type: 'squash' })[]
+      const squashes = pendingChanges.filter(isSquash)
       const squashedWorktrees = new Set(squashes.map(s => s.worktreePath))
       for (const squash of squashes) {
         await window.electron.aiSquashCommits(squash.worktreePath, squash.baseBranch, squash.message, pushToRemote)
@@ -331,7 +339,7 @@ export const SourceGitCard: FC<SourceGitCardProps> = ({
       }
 
       // Apply branch renames last
-      const renames = pendingChanges.filter(c => c.type === 'rename-branch') as (PendingChange & { type: 'rename-branch' })[]
+      const renames = pendingChanges.filter(isRenameBranch)
       for (const rename of renames) {
         await window.electron.aiRenameBranch(task.id, rename.worktreePath, rename.newName, pushToRemote)
       }
@@ -339,7 +347,7 @@ export const SourceGitCard: FC<SourceGitCardProps> = ({
       setPendingChanges([])
       loadBranches()
     } catch (err) {
-      setError((err as Error).message)
+      setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
       setSaving(false)
     }
@@ -354,8 +362,8 @@ export const SourceGitCard: FC<SourceGitCardProps> = ({
   // Sort projects: worktree first, read-only last
   const sortedProjects = hasProjects
     ? [...task.projects!].sort((a, b) => {
-        if (a.gitStrategy === 'worktree' && b.gitStrategy !== 'worktree') return -1
-        if (a.gitStrategy !== 'worktree' && b.gitStrategy === 'worktree') return 1
+        if (a.gitStrategy === GIT_STRATEGY.WORKTREE && b.gitStrategy !== GIT_STRATEGY.WORKTREE) return -1
+        if (a.gitStrategy !== GIT_STRATEGY.WORKTREE && b.gitStrategy === GIT_STRATEGY.WORKTREE) return 1
         return 0
       })
     : []
@@ -409,14 +417,18 @@ export const SourceGitCard: FC<SourceGitCardProps> = ({
                   </Button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Select value={proj.gitStrategy} onValueChange={v => setEditProjects(prev => prev.map((p, j) => j === i ? { ...p, gitStrategy: v as AIGitStrategy } : p))}>
+                  <Select value={proj.gitStrategy} onValueChange={v => {
+                    if (v === GIT_STRATEGY.WORKTREE || v === GIT_STRATEGY.NONE) {
+                      setEditProjects(prev => prev.map((p, j) => j === i ? { ...p, gitStrategy: v } : p))
+                    }
+                  }}>
                     <SelectTrigger className="h-7 w-[110px] text-xs flex-shrink-0"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="worktree">Worktree</SelectItem>
-                      <SelectItem value="none">Read Only</SelectItem>
+                      <SelectItem value={GIT_STRATEGY.WORKTREE}>Worktree</SelectItem>
+                      <SelectItem value={GIT_STRATEGY.NONE}>Read Only</SelectItem>
                     </SelectContent>
                   </Select>
-                  {proj.gitStrategy === 'worktree' && (
+                  {proj.gitStrategy === GIT_STRATEGY.WORKTREE && (
                     <>
                       <Input
                         value={proj.customBranchName || ''}
@@ -432,7 +444,7 @@ export const SourceGitCard: FC<SourceGitCardProps> = ({
                       />
                     </>
                   )}
-                  {proj.gitStrategy === 'none' && (
+                  {proj.gitStrategy === GIT_STRATEGY.NONE && (
                     <span className="text-[11px] italic" style={{ color: 'var(--ai-text-tertiary)' }}>Read only</span>
                   )}
                 </div>
@@ -441,7 +453,7 @@ export const SourceGitCard: FC<SourceGitCardProps> = ({
             <Button variant="outline" size="sm" onClick={async () => {
               const selected = await window.electron.aiSelectDirectory()
               if (selected && !editProjects.some(p => p.path === selected)) {
-                setEditProjects(prev => [...prev, { path: selected, label: selected.split('/').pop() || selected, gitStrategy: 'worktree', baseBranch: 'main' }])
+                setEditProjects(prev => [...prev, { path: selected, label: selected.split('/').pop() || selected, gitStrategy: GIT_STRATEGY.WORKTREE, baseBranch: DEFAULT_BASE_BRANCH }])
               }
             }}>
               <Plus className="h-3 w-3 mr-1" /> Add Project
@@ -467,14 +479,14 @@ export const SourceGitCard: FC<SourceGitCardProps> = ({
                         <span className="text-sm font-medium" style={{ color: 'var(--ai-text-primary)' }}>{proj.label}</span>
                         <span
                           className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                          style={proj.gitStrategy === 'worktree'
+                          style={proj.gitStrategy === GIT_STRATEGY.WORKTREE
                             ? { backgroundColor: 'var(--ai-accent-subtle)', color: 'var(--ai-accent)' }
                             : { backgroundColor: 'var(--ai-surface-3)', color: 'var(--ai-text-tertiary)' }
                           }
                         >
-                          {proj.gitStrategy === 'worktree' ? 'worktree' : 'read only'}
+                          {proj.gitStrategy === GIT_STRATEGY.WORKTREE ? 'worktree' : 'read only'}
                         </span>
-                        {proj.gitStrategy === 'worktree' && proj.baseBranch && (
+                        {proj.gitStrategy === GIT_STRATEGY.WORKTREE && proj.baseBranch && (
                           <span className="text-[11px]" style={{ color: 'var(--ai-text-tertiary)' }}>
                             base: <span className="font-mono">{proj.baseBranch}</span>
                           </span>

@@ -1,5 +1,6 @@
 import { store } from '../../storage/store.js'
 import { type McpToolDefinition, textResult } from './types.js'
+import { WORKTREE_ID_PREFIX } from '../../../shared/constants.js'
 
 export const listProjectsTool: McpToolDefinition = {
   name: 'list_projects',
@@ -10,14 +11,14 @@ export const listProjectsTool: McpToolDefinition = {
     required: [],
   },
   async handler() {
-    const directories = store.get('directories') as DirectorySettings[]
+    const directories = store.get('directories')
 
     if (!directories || directories.length === 0) {
       return textResult('No projects registered.')
     }
 
     const list = directories
-      .filter(d => !d.id.startsWith('wt-'))
+      .filter(d => !d.id.startsWith(WORKTREE_ID_PREFIX))
       .map(d => {
         const parts = [`- **${d.name}**`]
         parts.push(`  Path: ${d.path}`)

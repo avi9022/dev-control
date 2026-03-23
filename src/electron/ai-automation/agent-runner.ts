@@ -1,4 +1,4 @@
-import { spawn, execFileSync, type ChildProcess } from 'child_process'
+import { spawn, type ChildProcess } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import treeKill from 'tree-kill'
@@ -10,21 +10,63 @@ import { buildPrompt } from './prompt-builder.js'
 import { createWorktree, generateBranchName } from './worktree-manager.js'
 import { getOrCreateTaskDir } from './task-dir-manager.js'
 import { getMcpPort } from './mcp-server.js'
+import { getClaudePath } from './claude-path.js'
+import { getGuardScriptPath } from './guard-script.js'
+import { formatStreamEvent } from './stream-formatter.js'
+import {
+  type ClaudeStreamEvent,
+  isAssistantEvent,
+  isResultEvent,
+  isToolUseBlock,
+  isSaveableEvent,
+} from './stream-types.js'
+import {
+  FIXED_PHASES,
+  PhaseExitEvent,
+  AttentionReason,
+  PhaseType,
+  GIT_STRATEGY,
+  DEFAULT_STALL_TIMEOUT_MINUTES,
+  MAX_STALL_RETRIES,
+} from '../../shared/constants.js'
 
-const ROLE_TOOLS: Record<string, string[]> = {
-  worker:   ['Bash', 'Edit', 'Write', 'Read', 'Grep', 'Glob'],
-  planner:  ['Read', 'Grep', 'Glob', 'Write'],
-  reviewer: ['Read', 'Grep', 'Glob'],
-  git:      ['Bash(git *)'],
+// ─── Constants ───
+
+const DEFAULT_CONTEXT_WINDOW = 200_000
+const STALL_CHECK_INTERVAL_MS = 30_000
+
+enum AgentRole {
+  Worker = 'worker',
+  Planner = 'planner',
+  Reviewer = 'reviewer',
+  Git = 'git',
 }
+
+const ROLE_TOOLS: Record<AgentRole, string[]> = {
+  [AgentRole.Worker]:   ['Bash', 'Edit', 'Write', 'Read', 'Grep', 'Glob'],
+  [AgentRole.Planner]:  ['Read', 'Grep', 'Glob', 'Write'],
+  [AgentRole.Reviewer]: ['Read', 'Grep', 'Glob'],
+  [AgentRole.Git]:      ['Bash(git *)'],
+}
+
+// Context window sizes by model family
+const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
+  'claude-opus-4': DEFAULT_CONTEXT_WINDOW,
+  'claude-sonnet-4': DEFAULT_CONTEXT_WINDOW,
+  'claude-haiku-4': DEFAULT_CONTEXT_WINDOW,
+  'claude-3-5': DEFAULT_CONTEXT_WINDOW,
+  'claude-3': DEFAULT_CONTEXT_WINDOW,
+}
+
+// ─── State ───
 
 const runningProcesses = new Map<string, ChildProcess>()
 const agentStats = new Map<string, AIAgentStats>()
 const taskQueue: string[] = []
 let mainWindow: BrowserWindow | null = null
-let resolvedClaudePath: string | null = null
 let aiLogsDir: string | null = null
-let guardScriptPath: string | null = null
+
+// ─── Logging ───
 
 function getAILogsDir(): string {
   if (!aiLogsDir) {
@@ -40,122 +82,11 @@ function getTaskLogPath(taskId: string): string {
   return path.join(getAILogsDir(), `${taskId}.log`)
 }
 
-function appendTaskLog(taskId: string, text: string) {
+function appendTaskLog(taskId: string, text: string): void {
   fs.appendFileSync(getTaskLogPath(taskId), text)
 }
 
-function getClaudePath(): string {
-  if (resolvedClaudePath) return resolvedClaudePath
-  try {
-    resolvedClaudePath = execFileSync('which', ['claude'], { encoding: 'utf-8' }).trim()
-  } catch {
-    resolvedClaudePath = 'claude'
-  }
-  return resolvedClaudePath
-}
-
-function getGuardScriptPath(): string {
-  if (guardScriptPath) return guardScriptPath
-  const dir = path.join(app.getPath('userData'), 'ai-scripts')
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  guardScriptPath = path.join(dir, 'ai-guard.sh')
-
-  const script = `#!/bin/bash
-INPUT=$(cat)
-TOOL=$(echo "$INPUT" | jq -r '.tool_name')
-
-if [ -z "$ALLOWED_WRITE_DIR" ]; then
-  exit 0
-fi
-
-get_path() {
-  echo "$INPUT" | jq -r "$1 // empty"
-}
-
-resolve_path() {
-  local raw="$1"
-  local dir="$raw"
-  while [ ! -d "$dir" ] && [ "$dir" != "/" ]; do
-    dir=$(dirname "$dir")
-  done
-  local resolved
-  resolved=$(cd "$dir" 2>/dev/null && echo "$(pwd -P)/$(basename "$raw")")
-  [ -z "$resolved" ] && resolved=$(realpath -m "$raw" 2>/dev/null || echo "$raw")
-  echo "$resolved"
-}
-
-check_write() {
-  local raw="$1"
-  [ -z "$raw" ] && return 0
-  local resolved
-  resolved=$(resolve_path "$raw")
-  local write_real
-  write_real=$(cd "$ALLOWED_WRITE_DIR" 2>/dev/null && pwd -P)
-  [ -z "$write_real" ] && return 1
-  case "$resolved" in
-    "$write_real"*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-check_read() {
-  local raw="$1"
-  [ -z "$raw" ] && return 0
-  local resolved
-  resolved=$(resolve_path "$raw")
-
-  # Check write dir first
-  local write_real
-  write_real=$(cd "$ALLOWED_WRITE_DIR" 2>/dev/null && pwd -P)
-  if [ -n "$write_real" ]; then
-    case "$resolved" in
-      "$write_real"*) return 0 ;;
-    esac
-  fi
-
-  # Check read dirs
-  IFS=',' read -ra DIRS <<< "$ALLOWED_READ_DIRS"
-  for dir in "\${DIRS[@]}"; do
-    [ -z "$dir" ] && continue
-    local dir_real
-    dir_real=$(cd "$dir" 2>/dev/null && pwd -P)
-    [ -z "$dir_real" ] && continue
-    case "$resolved" in
-      "$dir_real"*) return 0 ;;
-    esac
-  done
-  return 1
-}
-
-case "$TOOL" in
-  Edit|Write)
-    FILE=$(get_path '.tool_input.file_path')
-    if ! check_write "$FILE"; then
-      echo "Blocked: $FILE is outside writable directory" >&2
-      exit 2
-    fi
-    ;;
-  Read)
-    FILE=$(get_path '.tool_input.file_path')
-    if ! check_read "$FILE"; then
-      echo "Blocked: $FILE is outside allowed directories" >&2
-      exit 2
-    fi
-    ;;
-  Grep|Glob)
-    DIR=$(get_path '.tool_input.path')
-    if [ -n "$DIR" ] && ! check_read "$DIR"; then
-      echo "Blocked: $DIR is outside allowed directories" >&2
-      exit 2
-    fi
-    ;;
-esac
-
-exit 0
-`
-  fs.writeFileSync(guardScriptPath, script, { mode: 0o755 })
-  return guardScriptPath
-}
+// ─── Tool Helpers ───
 
 function buildAllowedTools(phaseConfig: AIPipelinePhase): string[] {
   // Legacy support: if old allowedTools string exists and no roles, use it
@@ -168,7 +99,7 @@ function buildAllowedTools(phaseConfig: AIPipelinePhase): string[] {
   // Add tools from selected roles
   if (phaseConfig.roles) {
     for (const role of phaseConfig.roles) {
-      const roleTools = ROLE_TOOLS[role]
+      const roleTools = ROLE_TOOLS[role as AgentRole]
       if (roleTools) {
         for (const tool of roleTools) tools.add(tool)
       }
@@ -184,7 +115,9 @@ function buildAllowedTools(phaseConfig: AIPipelinePhase): string[] {
   return [...tools]
 }
 
-export function setAgentMainWindow(window: BrowserWindow) {
+// ─── Exports ───
+
+export function setAgentMainWindow(window: BrowserWindow): void {
   mainWindow = window
 }
 
@@ -223,7 +156,7 @@ export function stopAgent(taskId: string): Promise<void> {
         history[history.length - 1] = {
           ...history[history.length - 1],
           exitedAt: new Date().toISOString(),
-          exitEvent: 'stopped',
+          exitEvent: PhaseExitEvent.Stopped,
         }
       }
       updateTask(taskId, { phaseHistory: history })
@@ -242,21 +175,23 @@ export function stopAgent(taskId: string): Promise<void> {
   })
 }
 
-export function sendInput(taskId: string, input: string) {
+export function sendInput(taskId: string, input: string): void {
   const proc = runningProcesses.get(taskId)
   if (proc && proc.stdin && !proc.stdin.destroyed) {
     proc.stdin.write(input)
   }
 }
 
-export function enqueueTask(taskId: string) {
+export function enqueueTask(taskId: string): void {
   if (!taskQueue.includes(taskId)) {
     taskQueue.push(taskId)
   }
   processQueue()
 }
 
-function processQueue() {
+// ─── Internal Helpers ───
+
+function processQueue(): void {
   const settings = getSettings()
 
   while (taskQueue.length > 0 && runningProcesses.size < settings.maxConcurrency) {
@@ -269,47 +204,38 @@ function processQueue() {
     const pipeline = getBoardPipeline(task.boardId)
 
     // If task is in BACKLOG, move to first pipeline phase
-    if (task.phase === 'BACKLOG' && pipeline.length > 0) {
+    if (task.phase === FIXED_PHASES.BACKLOG && pipeline.length > 0) {
       moveTaskPhase(taskId, pipeline[0].id)
       task = getTaskById(taskId)
       if (!task) continue
     }
 
     // Look up current phase config
-    const phaseConfig = pipeline.find(p => p.id === task!.phase)
-    if (!phaseConfig || phaseConfig.type !== 'agent') continue
+    const phaseConfig = pipeline.find(p => p.id === task.phase)
+    if (!phaseConfig || phaseConfig.type !== PhaseType.Agent) continue
 
     spawnAgent(taskId, phaseConfig)
   }
 }
 
-function emit(taskId: string, text: string) {
+function emit(taskId: string, text: string): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     ipcWebContentsSend('aiTaskOutput', mainWindow.webContents, { taskId, output: text })
   }
 }
 
-function emitStats(taskId: string) {
+function emitStats(taskId: string): void {
   const stats = agentStats.get(taskId)
   if (stats && mainWindow && !mainWindow.isDestroyed()) {
     ipcWebContentsSend('aiAgentStats', mainWindow.webContents, stats)
   }
 }
 
-// Context window sizes by model family
-const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
-  'claude-opus-4': 200000,
-  'claude-sonnet-4': 200000,
-  'claude-haiku-4': 200000,
-  'claude-3-5': 200000,
-  'claude-3': 200000,
-}
-
 function getContextWindowForModel(model: string): number {
   for (const [prefix, size] of Object.entries(MODEL_CONTEXT_WINDOWS)) {
     if (model.startsWith(prefix)) return size
   }
-  return 200000 // default
+  return DEFAULT_CONTEXT_WINDOW
 }
 
 function initStats(taskId: string): AIAgentStats {
@@ -319,7 +245,7 @@ function initStats(taskId: string): AIAgentStats {
     outputTokens: 0,
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
-    contextWindowMax: 200000,
+    contextWindowMax: DEFAULT_CONTEXT_WINDOW,
     peakContext: 0,
     turns: 0,
     toolCalls: 0,
@@ -331,103 +257,7 @@ function initStats(taskId: string): AIAgentStats {
   return stats
 }
 
-function formatToolUse(block: Record<string, unknown>): string {
-  const name = block.name as string
-  const input = block.input as Record<string, unknown> | undefined
-  let detail = ''
-  if (input) {
-    if (name === 'Read' && input.file_path) detail = ` → ${input.file_path}`
-    else if (name === 'Edit' && input.file_path) detail = ` → ${input.file_path}`
-    else if (name === 'Write' && input.file_path) detail = ` → ${input.file_path}`
-    else if ((name === 'Bash' || name === 'bash') && input.command) {
-      const cmd = (input.command as string).slice(0, 100)
-      detail = ` → ${cmd}${(input.command as string).length > 100 ? '...' : ''}`
-    }
-    else if (name === 'Grep' && input.pattern) detail = ` → "${input.pattern}"`
-    else if (name === 'Glob' && input.pattern) detail = ` → "${input.pattern}"`
-  }
-  return `\n🔧 ${name}${detail}\n`
-}
-
-function formatStreamEvent(event: Record<string, unknown>): string | null {
-  const type = event.type as string | undefined
-
-  // --- Claude Code CLI events (assistant turns with full content) ---
-  if (type === 'assistant') {
-    const message = event.message as Record<string, unknown> | undefined
-    if (!message) return null
-    const content = message.content as Array<Record<string, unknown>> | undefined
-    if (!content) return null
-
-    const parts: string[] = []
-    for (const block of content) {
-      if (block.type === 'text' && block.text) {
-        parts.push(block.text as string)
-      } else if (block.type === 'tool_use') {
-        parts.push(formatToolUse(block))
-      }
-    }
-    return parts.length > 0 ? parts.join('') : null
-  }
-
-  // Tool result events
-  if (type === 'tool') {
-    return null
-  }
-
-  // --- Anthropic API streaming events ---
-  if (type === 'content_block_start') {
-    const block = event.content_block as Record<string, unknown> | undefined
-    if (block?.type === 'tool_use') return `\n🔧 ${block.name as string}\n`
-    return null
-  }
-
-  if (type === 'content_block_delta') {
-    const delta = event.delta as Record<string, unknown> | undefined
-    if (delta?.type === 'text_delta') return delta.text as string
-    return null
-  }
-
-  if (type === 'content_block_stop' || type === 'message_stop') {
-    return null
-  }
-
-  // Extract usage data from message events (don't display, but return for stats tracking)
-  if (type === 'message_start' || type === 'message_delta') {
-    return null
-  }
-
-  // --- Result & system events ---
-  if (type === 'result') {
-    const parts: string[] = []
-    const resultText = event.result as string | undefined
-    if (resultText) parts.push(`\n${resultText}\n`)
-    if (event.cost_usd !== undefined) {
-      const cost = (event.cost_usd as number).toFixed(4)
-      const duration = event.duration_ms ? ` | ${((event.duration_ms as number) / 1000).toFixed(1)}s` : ''
-      parts.push(`💰 Cost: $${cost}${duration}\n`)
-    }
-    return parts.length > 0 ? parts.join('') : null
-  }
-
-  if (type === 'system') {
-    const subtype = event.subtype as string | undefined
-    if (subtype === 'init') return '⚡ Agent initialized\n'
-    const msg = event.message as string | undefined
-    if (msg) return `[system] ${msg}\n`
-    return null
-  }
-
-  if (type === 'error') {
-    const err = event.error as Record<string, unknown> | undefined
-    return `\n❌ Error: ${err?.message || JSON.stringify(event)}\n`
-  }
-
-  console.log(`[ai-agent] Unhandled event type: ${type}`, JSON.stringify(event).slice(0, 300))
-  return null
-}
-
-function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
+function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase): void {
   let task = getTaskById(taskId)
   if (!task) return
 
@@ -438,7 +268,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     const existingWorktreePaths = new Set(task.worktrees.map(w => w.projectPath))
     const newWorktrees: AITaskWorktree[] = []
     for (const project of task.projects) {
-      if (project.gitStrategy !== 'worktree') continue
+      if (project.gitStrategy !== GIT_STRATEGY.WORKTREE) continue
       if (existingWorktreePaths.has(project.path)) continue
       const branchName = project.customBranchName || generateBranchName(taskId, task.title)
       const baseBranch = project.baseBranch || settings.defaultBaseBranch || undefined
@@ -447,12 +277,14 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
         newWorktrees.push({ projectPath: project.path, worktreePath, branchName })
         emit(taskId, `\n📁 Created worktree: ${worktreePath} (branch: ${branchName} from ${baseBranch || 'auto'})\n`)
       } catch (err) {
-        emit(taskId, `\n⚠️ Git setup failed for ${project.label}: ${(err as Error).message}. Agent will use project directory.\n`)
+        emit(taskId, `\n⚠️ Git setup failed for ${project.label}: ${err instanceof Error ? err.message : String(err)}. Agent will use project directory.\n`)
       }
     }
     if (newWorktrees.length > 0) {
       updateTask(taskId, { worktrees: [...task.worktrees, ...newWorktrees] })
-      task = getTaskById(taskId)!
+      const refreshedTask = getTaskById(taskId)
+      if (!refreshedTask) return
+      task = refreshedTask
     }
   }
 
@@ -460,14 +292,18 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   if (!task.taskDirPath) {
     const taskDir = getOrCreateTaskDir(taskId)
     updateTask(taskId, { taskDirPath: taskDir })
-    task = getTaskById(taskId)!
+    const refreshedTask = getTaskById(taskId)
+    if (!refreshedTask) return
+    task = refreshedTask
   }
 
   const systemPrompt = buildPrompt(task, phaseConfig)
 
   // Save context history: prompt + events directory
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const contextHistoryDir = path.join(task.taskDirPath!, 'context-history', `${phaseConfig.id}-${timestamp}`)
+  const taskDirPath = task.taskDirPath
+  if (!taskDirPath) return
+  const contextHistoryDir = path.join(taskDirPath, 'context-history', `${phaseConfig.id}-${timestamp}`)
   fs.mkdirSync(contextHistoryDir, { recursive: true })
   fs.writeFileSync(path.join(contextHistoryDir, 'prompt.md'), systemPrompt)
   fs.writeFileSync(path.join(contextHistoryDir, 'events.json'), '[\n')
@@ -479,19 +315,21 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     if (lastEntry.phase === phaseConfig.id && !lastEntry.exitedAt) {
       phaseHistory[phaseHistory.length - 1] = { ...lastEntry, contextHistoryPath: contextHistoryDir }
       updateTask(taskId, { phaseHistory })
-      task = getTaskById(taskId)!
+      const refreshedTask = getTaskById(taskId)
+      if (!refreshedTask) return
+      task = refreshedTask
     }
   }
 
   let eventCount = 0
-  const appendEvent = (event: Record<string, unknown>) => {
+  const appendEvent = (event: ClaudeStreamEvent): void => {
     try {
       const prefix = eventCount > 0 ? ',\n' : ''
       fs.appendFileSync(path.join(contextHistoryDir, 'events.json'), prefix + JSON.stringify(event))
       eventCount++
     } catch { /* */ }
   }
-  const finalizeEvents = () => {
+  const finalizeEvents = (): void => {
     try {
       fs.appendFileSync(path.join(contextHistoryDir, 'events.json'), '\n]')
     } catch { /* */ }
@@ -525,8 +363,8 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
 
   // Add task directory, additional worktrees, and read-only project paths
   const addDirArgs: string[] = []
-  if (task.taskDirPath) {
-    addDirArgs.push('--add-dir', task.taskDirPath)
+  if (taskDirPath) {
+    addDirArgs.push('--add-dir', taskDirPath)
   }
   // Add worktrees beyond the first (first is CWD)
   for (const wt of task.worktrees.slice(1)) {
@@ -535,7 +373,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   // Add read-only project paths
   const readOnlyPaths: string[] = []
   for (const project of task.projects) {
-    if (project.gitStrategy === 'none') {
+    if (project.gitStrategy === GIT_STRATEGY.NONE) {
       addDirArgs.push('--add-dir', project.path)
       readOnlyPaths.push(project.path)
     }
@@ -563,7 +401,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
   }
 
   // Sanitize null bytes — Node.js doesn't allow them in spawn arguments
-  const sanitize = (s: string) => s.replace(/\0/g, '')
+  const sanitize = (s: string): string => s.replace(/\0/g, '')
 
   const args = [
     '--print',
@@ -596,8 +434,8 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     cwd,
     env: {
       ...process.env,
-      ALLOWED_WRITE_DIR: task.taskDirPath || '',
-      ALLOWED_READ_DIRS: [task.taskDirPath || '', ...readOnlyPaths].filter(Boolean).join(','),
+      ALLOWED_WRITE_DIR: taskDirPath || '',
+      ALLOWED_READ_DIRS: [taskDirPath || '', ...readOnlyPaths].filter(Boolean).join(','),
     },
     stdio: ['pipe', 'pipe', 'pipe']
   })
@@ -619,7 +457,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
 
   // Stall detection
   let lastEventTime = Date.now()
-  const stallTimeoutMs = ((phaseConfig.stallTimeout ?? settings.stallTimeoutMinutes ?? 3) * 60 * 1000)
+  const stallTimeoutMs = ((phaseConfig.stallTimeout ?? settings.stallTimeoutMinutes ?? DEFAULT_STALL_TIMEOUT_MINUTES) * 60 * 1000)
   const stallCheckInterval = setInterval(() => {
     const elapsed = Date.now() - lastEventTime
     if (elapsed > stallTimeoutMs) {
@@ -627,7 +465,6 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
       const currentTask = getTaskById(taskId)
       if (!currentTask) return
       const retryCount = (currentTask.stallRetryCount || 0) + 1
-      const maxRetries = 3
 
       emit(taskId, `\n⚠️ Agent stalled (no events for ${Math.round(elapsed / 60000)}min)\n`)
 
@@ -637,7 +474,7 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
         history[history.length - 1] = {
           ...history[history.length - 1],
           exitedAt: new Date().toISOString(),
-          exitEvent: 'stalled',
+          exitEvent: PhaseExitEvent.Stalled,
         }
       }
 
@@ -648,8 +485,8 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
       }
       runningProcesses.delete(taskId)
 
-      if (retryCount < maxRetries) {
-        emit(taskId, `⚠️ Retrying phase (attempt ${retryCount + 1}/${maxRetries})...\n`)
+      if (retryCount < MAX_STALL_RETRIES) {
+        emit(taskId, `⚠️ Retrying phase (attempt ${retryCount + 1}/${MAX_STALL_RETRIES})...\n`)
         updateTask(taskId, {
           activeProcessPid: undefined,
           currentPhaseName: undefined,
@@ -663,33 +500,29 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
           activeProcessPid: undefined,
           currentPhaseName: undefined,
           needsUserInput: true,
-          needsUserInputReason: 'max_retries',
+          needsUserInputReason: AttentionReason.MaxRetries,
           stallRetryCount: retryCount,
           phaseHistory: history,
         })
         sendNotification('needs_attention', taskId, currentTask.title, 'Agent stalled repeatedly — needs attention')
       }
     }
-  }, 30000)
+  }, STALL_CHECK_INTERVAL_MS)
 
-  const emitText = (text: string) => {
+  const emitText = (text: string): void => {
     fullOutput += text
     appendTaskLog(taskId, text)
     emit(taskId, text)
   }
 
-  const updateStatsFromEvent = (event: Record<string, unknown>) => {
-    const type = event.type as string
-
+  const updateStatsFromEvent = (event: ClaudeStreamEvent): void => {
     // assistant events carry usage, model, and tool calls in content
-    if (type === 'assistant') {
-      const message = event.message as Record<string, unknown> | undefined
-      if (!message) return
+    if (isAssistantEvent(event)) {
+      const message = event.message
 
-      const model = message.model as string | undefined
-      if (model) stats.contextWindowMax = getContextWindowForModel(model)
+      if (message.model) stats.contextWindowMax = getContextWindowForModel(message.model)
 
-      const usage = message.usage as Record<string, number> | undefined
+      const usage = message.usage
       if (usage) {
         const raw = usage.input_tokens || 0
         const cacheCreate = usage.cache_creation_input_tokens || 0
@@ -704,13 +537,12 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
       }
 
       // Count tool calls from content blocks
-      const content = message.content as Record<string, unknown>[] | undefined
+      const content = message.content
       if (content) {
         for (const block of content) {
-          if (block.type === 'tool_use') {
+          if (isToolUseBlock(block)) {
             stats.toolCalls++
-            const name = block.name as string
-            if (name && !stats.toolNames.includes(name)) stats.toolNames.push(name)
+            if (!stats.toolNames.includes(block.name)) stats.toolNames.push(block.name)
           }
         }
       }
@@ -720,9 +552,9 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     }
 
     // Final cost from result event
-    if (type === 'result') {
+    if (isResultEvent(event)) {
       if (event.cost_usd !== undefined) {
-        stats.costUsd = event.cost_usd as number
+        stats.costUsd = event.cost_usd
       }
       emitStats(taskId)
     }
@@ -736,11 +568,9 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     for (const line of lines) {
       if (!line.trim()) continue
       try {
-        const event = JSON.parse(line)
+        const event: ClaudeStreamEvent = JSON.parse(line)
         lastEventTime = Date.now()
-        // Save assistant, user, result, error events to context history
-        const evType = event.type as string
-        if (evType === 'assistant' || evType === 'user' || evType === 'result' || evType === 'error') {
+        if (isSaveableEvent(event)) {
           appendEvent(event)
         }
         updateStatsFromEvent(event)
@@ -763,9 +593,8 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     clearInterval(stallCheckInterval)
     if (stdoutBuffer.trim()) {
       try {
-        const event = JSON.parse(stdoutBuffer)
-        const evType = event.type as string
-        if (evType === 'assistant' || evType === 'user' || evType === 'result' || evType === 'error') {
+        const event: ClaudeStreamEvent = JSON.parse(stdoutBuffer)
+        if (isSaveableEvent(event)) {
           appendEvent(event)
         }
         const formatted = formatStreamEvent(event)
@@ -793,14 +622,14 @@ function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase) {
     const errTask = getTaskById(taskId)
     const errHistory = errTask ? [...errTask.phaseHistory] : []
     if (errHistory.length > 0) {
-      errHistory[errHistory.length - 1] = { ...errHistory[errHistory.length - 1], exitedAt: new Date().toISOString(), exitEvent: 'error' }
+      errHistory[errHistory.length - 1] = { ...errHistory[errHistory.length - 1], exitedAt: new Date().toISOString(), exitEvent: PhaseExitEvent.Error }
     }
-    updateTask(taskId, { activeProcessPid: undefined, currentPhaseName: undefined, needsUserInput: true, needsUserInputReason: 'error', phaseHistory: errHistory })
+    updateTask(taskId, { activeProcessPid: undefined, currentPhaseName: undefined, needsUserInput: true, needsUserInputReason: AttentionReason.Error, phaseHistory: errHistory })
     sendNotification('needs_attention', taskId, errTask?.title || taskId, `Agent error: ${err.message}`)
   })
 }
 
-function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, output: string, exitCode: number | null) {
+function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, output: string, exitCode: number | null): void {
   const task = getTaskById(taskId)
   if (!task) return
 
@@ -808,11 +637,11 @@ function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, out
     console.warn(`[ai-agent] Agent crashed for task ${taskId} (phase: ${phaseConfig.name}) with exit code ${exitCode}`)
     const history = [...task.phaseHistory]
     if (history.length > 0) {
-      history[history.length - 1] = { ...history[history.length - 1], exitedAt: new Date().toISOString(), exitEvent: 'crashed' }
+      history[history.length - 1] = { ...history[history.length - 1], exitedAt: new Date().toISOString(), exitEvent: PhaseExitEvent.Crashed }
     }
     updateTask(taskId, {
       needsUserInput: true,
-      needsUserInputReason: 'crashed',
+      needsUserInputReason: AttentionReason.Crashed,
       phaseHistory: history,
     })
     sendNotification('needs_attention', taskId, task.title, `Agent crashed in ${phaseConfig.name} (exit code ${exitCode})`)
@@ -828,8 +657,8 @@ function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, out
   // Check for reject pattern
   if (phaseConfig.rejectPattern && output.includes(phaseConfig.rejectPattern) && phaseConfig.rejectTarget) {
     const targetExists = pipeline.some(p => p.id === phaseConfig.rejectTarget)
-    if (targetExists) {
-      moveTaskPhase(taskId, phaseConfig.rejectTarget!)
+    if (targetExists && phaseConfig.rejectTarget) {
+      moveTaskPhase(taskId, phaseConfig.rejectTarget)
       enqueueTask(taskId)
       return
     }
@@ -839,10 +668,10 @@ function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, out
   const nextIndex = currentIndex + 1
   if (nextIndex < pipeline.length) {
     moveTaskPhase(taskId, pipeline[nextIndex].id)
-    if (pipeline[nextIndex].type === 'agent') {
+    if (pipeline[nextIndex].type === PhaseType.Agent) {
       enqueueTask(taskId)
     }
   } else {
-    moveTaskPhase(taskId, 'DONE')
+    moveTaskPhase(taskId, FIXED_PHASES.DONE)
   }
 }

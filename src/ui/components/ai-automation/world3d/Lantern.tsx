@@ -1,41 +1,51 @@
 import type { FC } from 'react'
+import { WORLD_COLORS } from './colors'
+
+const CAP_WIDTH = 0.4
+const CAP_HEIGHT = 0.1
+const CAP_DEPTH = 0.4
+const TOP_CAP_Y = 0.35
+const HOOK_SIZE = 0.15
+const HOOK_HEIGHT = 0.1
+const HOOK_Y = 0.45
+const BOTTOM_CAP_Y = -0.35
+const POST_OFFSET = 0.18
+const POST_WIDTH = 0.06
+const POST_HEIGHT = 0.6
+const GLOW_SIZE = 0.25
+const GLOW_HEIGHT = 0.4
+const EMISSIVE_INTENSITY = 0.8
 
 interface LanternProps {
   position: [number, number, number]
 }
 
-/** Small hanging lantern — iron frame with glowing center */
 export const Lantern: FC<LanternProps> = ({ position }) => {
   const [x, y, z] = position
 
   return (
     <group position={[x, y, z]}>
-      {/* Top cap — dark iron */}
-      <mesh position={[0, 0.35, 0]}>
-        <boxGeometry args={[0.4, 0.1, 0.4]} />
-        <meshStandardMaterial color="#3a3a3a" />
+      <mesh position={[0, TOP_CAP_Y, 0]}>
+        <boxGeometry args={[CAP_WIDTH, CAP_HEIGHT, CAP_DEPTH]} />
+        <meshStandardMaterial color={WORLD_COLORS.IRON_DARK} />
       </mesh>
-      {/* Hook ring */}
-      <mesh position={[0, 0.45, 0]}>
-        <boxGeometry args={[0.15, 0.1, 0.15]} />
-        <meshStandardMaterial color="#4a4a4a" />
+      <mesh position={[0, HOOK_Y, 0]}>
+        <boxGeometry args={[HOOK_SIZE, HOOK_HEIGHT, HOOK_SIZE]} />
+        <meshStandardMaterial color={WORLD_COLORS.IRON_LIGHT} />
       </mesh>
-      {/* Bottom cap */}
-      <mesh position={[0, -0.35, 0]}>
-        <boxGeometry args={[0.4, 0.1, 0.4]} />
-        <meshStandardMaterial color="#3a3a3a" />
+      <mesh position={[0, BOTTOM_CAP_Y, 0]}>
+        <boxGeometry args={[CAP_WIDTH, CAP_HEIGHT, CAP_DEPTH]} />
+        <meshStandardMaterial color={WORLD_COLORS.IRON_DARK} />
       </mesh>
-      {/* Corner posts — 4 thin iron bars */}
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([cx, cz], i) => (
-        <mesh key={i} position={[cx * 0.18, 0, cz * 0.18]}>
-          <boxGeometry args={[0.06, 0.6, 0.06]} />
-          <meshStandardMaterial color="#4a4a4a" />
+        <mesh key={i} position={[cx * POST_OFFSET, 0, cz * POST_OFFSET]}>
+          <boxGeometry args={[POST_WIDTH, POST_HEIGHT, POST_WIDTH]} />
+          <meshStandardMaterial color={WORLD_COLORS.IRON_LIGHT} />
         </mesh>
       ))}
-      {/* Glowing center */}
       <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[0.25, 0.4, 0.25]} />
-        <meshStandardMaterial color="#F0C848" emissive="#E8A020" emissiveIntensity={0.8} />
+        <boxGeometry args={[GLOW_SIZE, GLOW_HEIGHT, GLOW_SIZE]} />
+        <meshStandardMaterial color={WORLD_COLORS.LANTERN_GLOW} emissive={WORLD_COLORS.LANTERN_EMISSIVE} emissiveIntensity={EMISSIVE_INTENSITY} />
       </mesh>
     </group>
   )

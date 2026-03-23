@@ -1,7 +1,7 @@
 import { getTaskById } from '../task-manager.js'
-import { type McpToolDefinition, textResult } from './types.js'
+import { type McpToolDefinition, textResult, errorResult } from './types.js'
 
-export const listCommentsTool: McpToolDefinition = {
+export const listCommentsTool: McpToolDefinition<{ taskId: string }> = {
   name: 'list_comments',
   description: 'List all unresolved human review comments for a task',
   inputSchema: {
@@ -12,13 +12,13 @@ export const listCommentsTool: McpToolDefinition = {
     required: ['taskId'],
   },
   async handler(args) {
-    const taskId = args.taskId as string
+    const { taskId } = args
     if (!taskId) {
-      return textResult('Error: taskId is required')
+      return errorResult('taskId is required')
     }
     const task = getTaskById(taskId)
     if (!task) {
-      return textResult(`Error: Task ${taskId} not found`)
+      return errorResult(`Task ${taskId} not found`)
     }
     const comments = (task.humanComments || []).filter(c => !c.resolved)
     if (comments.length === 0) {

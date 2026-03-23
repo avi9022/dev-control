@@ -37,4 +37,5 @@
 
 - **No over-engineering** — don't add abstractions for one-time operations. Three similar lines of code is better than a premature abstraction.
 - **No dead code** — remove unused imports, variables, and functions. Don't comment them out.
+- **No comments** — good code is self-documenting. Use clear naming, small functions, and obvious structure instead of comments. If you need a comment to explain what code does, the code is too complex — refactor it. The only acceptable comments are: (1) TODO markers for known incomplete work, (2) legal/license headers if required, (3) JSDoc on exported public APIs that are consumed by other packages. Inline comments like `// check if user exists`, `// loop through items`, or `// set the value` are never acceptable.
 - **Prefer `const`** — use `let` only when reassignment is needed. Never use `var`.

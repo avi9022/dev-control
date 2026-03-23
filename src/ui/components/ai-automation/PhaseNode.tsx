@@ -1,5 +1,6 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react'
 import { Bot, UserCheck } from 'lucide-react'
+import { PhaseType, DEFAULT_PHASE_COLOR } from '@/shared/constants'
 
 interface PhaseNodeData extends Record<string, unknown> {
   phase: AIPipelinePhase
@@ -10,8 +11,8 @@ export type PhaseNodeType = Node<PhaseNodeData, 'phase'>
 
 export function PhaseNode({ data, selected }: NodeProps<PhaseNodeType>) {
   const { phase, onEdit } = data
-  const color = phase.color || '#7C8894'
-  const isAgent = phase.type === 'agent'
+  const color = phase.color || DEFAULT_PHASE_COLOR
+  const isAgent = phase.type === PhaseType.Agent
 
   return (
     <div

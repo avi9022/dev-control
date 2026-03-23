@@ -11,6 +11,14 @@ import type { Zone, Task3D } from './types'
 import { TallGrass } from './TallGrass'
 import { Boulder } from './Boulder'
 import { MountainSample } from './MountainSample'
+import { WORLD_COLORS } from './colors'
+import { LABEL_FONT_SIZE, LABEL_OUTLINE_WIDTH } from './config'
+
+const TREE_HEIGHTS = [3, 4, 5, 6]
+const WALKER_LABEL_X = 5
+const MOCK_ZONE_PLANNING_COLOR = WORLD_COLORS.ZONE_BLUE
+const MOCK_ZONE_WORKING_COLOR = WORLD_COLORS.ZONE_GOLD
+const MOCK_ZONE_REVIEW_COLOR = WORLD_COLORS.ZONE_GREEN
 
 const BLOCK_TYPES: { type: BlockType; label: string; color?: string }[] = [
   { type: 'grass', label: 'Grass' },
@@ -22,25 +30,60 @@ const BLOCK_TYPES: { type: BlockType; label: string; color?: string }[] = [
   { type: 'darkwood', label: 'Dark Wood' },
   { type: 'cobble', label: 'Cobble' },
   { type: 'sand', label: 'Sand' },
-  { type: 'wool', label: 'Wool (red)', color: '#D46B6B' },
-  { type: 'wool', label: 'Wool (green)', color: '#9BB89E' },
-  { type: 'wool', label: 'Wool (blue)', color: '#6B7FD7' },
+  { type: 'wool', label: 'Wool (red)', color: WORLD_COLORS.STATUS_ATTENTION },
+  { type: 'wool', label: 'Wool (green)', color: WORLD_COLORS.STATUS_RUNNING },
+  { type: 'wool', label: 'Wool (blue)', color: WORLD_COLORS.ZONE_BLUE },
   { type: 'leaf', label: 'Leaf' },
   { type: 'water', label: 'Water' },
   { type: 'bars', label: 'Bars' },
   { type: 'crate', label: 'Crate' },
 ]
 
+const SECTION_FONT_SIZE = 0.5
+const SECTION_OUTLINE_WIDTH = 0.03
+const SECTION_LABEL_Y = 3.5
+const BLOCK_Y = 1.5
+const LABEL_Y = 0.3
+const BLOCK_SPACING = 3
+const ROW_1_Z = 0
+const ROW_2_Z = 12
+const ROW_3_Z = 24
+const SECTION_LABEL_X = -2
+const GROUND_X = 40
+const GROUND_Z = 60
+const GROUND_SIZE = 200
+const CHARACTER_Y = 1.1
+const CHARACTER_SPACING = 2.5
+const WALKER_LEFT_X = -5
+const WALKER_RIGHT_X = 15
+const WALKER_INTERVAL_MS = 5000
+const WALKER_Z_OFFSET = 6
+const TREE_SPACING = 8
+const FLOWER_START_X = 34
+const FLOWER_SPACING = 2
+const GRASS_START_X = 46
+const GRASS_SPACING = 1.5
+const BOULDER_START_X = 54
+const BOULDER_SPACING = 5
+const SIGN_POST_X_OFFSET = 12
+const SIGN_POST_Z_OFFSET = -4
+const LANTERN_X = 18
+const LANTERN_Y = 2
+const MOUNTAIN_X = 30
+const BUILDINGS_Z_OFFSET = 14
+const BUILDINGS_GROUP_Z_OFFSET = 60
+const LANTERN_POSITION_Y = 0.5
+
 function Label({ position, text }: { position: [number, number, number]; text: string }) {
   return (
     <Text
       position={position}
-      fontSize={0.3}
-      color="#FAF9F7"
+      fontSize={LABEL_FONT_SIZE}
+      color={WORLD_COLORS.LABEL_BG}
       anchorX="center"
       anchorY="middle"
-      outlineWidth={0.02}
-      outlineColor="#1C1917"
+      outlineWidth={LABEL_OUTLINE_WIDTH}
+      outlineColor={WORLD_COLORS.LABEL_OUTLINE}
     >
       {text}
     </Text>
@@ -51,12 +94,12 @@ function SectionLabel({ position, text }: { position: [number, number, number]; 
   return (
     <Text
       position={position}
-      fontSize={0.5}
-      color="#E5C287"
+      fontSize={SECTION_FONT_SIZE}
+      color={WORLD_COLORS.GOLD_ACCENT}
       anchorX="center"
       anchorY="middle"
-      outlineWidth={0.03}
-      outlineColor="#1C1917"
+      outlineWidth={SECTION_OUTLINE_WIDTH}
+      outlineColor={WORLD_COLORS.LABEL_OUTLINE}
     >
       {text}
     </Text>
@@ -64,17 +107,12 @@ function SectionLabel({ position, text }: { position: [number, number, number]; 
 }
 
 export const DevShowcase: FC = () => {
-  const spacing = 3
-  const rowZ = 0
-  const row2Z = 12
-  const row3Z = 24
   let cursor = 0
 
-  // Mock zones and tasks for the buildings demo
   const mockZones: Zone[] = [
-    { id: 'planning', label: 'Planning', color: '#6B7FD7' },
-    { id: 'working', label: 'Working', color: '#D4A843' },
-    { id: 'review', label: 'Review', color: '#4DA870' },
+    { id: 'planning', label: 'Planning', color: MOCK_ZONE_PLANNING_COLOR },
+    { id: 'working', label: 'Working', color: MOCK_ZONE_WORKING_COLOR },
+    { id: 'review', label: 'Review', color: MOCK_ZONE_REVIEW_COLOR },
   ]
 
   const mockTasks: Task3D[] = [
@@ -84,90 +122,80 @@ export const DevShowcase: FC = () => {
     { id: 'task-4', title: 'Stuck Task', phase: 'planning', isRunning: false, needsAttention: true },
   ]
 
-  // Walking character — alternates between two positions
   const [walkTick, setWalkTick] = useState(0)
   useEffect(() => {
-    const interval = setInterval(() => setWalkTick(t => t + 1), 5000)
+    const interval = setInterval(() => setWalkTick(t => t + 1), WALKER_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [])
-  const walkerX = walkTick % 2 === 0 ? -5 : 15
-  const walkerZ = row3Z + 6
+  const walkerX = walkTick % 2 === 0 ? WALKER_LEFT_X : WALKER_RIGHT_X
+  const walkerZ = ROW_3_Z + WALKER_Z_OFFSET
 
   return (
     <group>
-      {/* Ground */}
-      <mesh position={[40, 0, 60]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial color="#3a7530" />
+      <mesh position={[GROUND_X, 0, GROUND_Z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[GROUND_SIZE, GROUND_SIZE]} />
+        <meshStandardMaterial color={WORLD_COLORS.GROUND_GREEN} />
       </mesh>
 
-      {/* ── Row 1: Blocks ── */}
-      <SectionLabel position={[-2, 3.5, rowZ]} text="Blocks" />
+      <SectionLabel position={[SECTION_LABEL_X, SECTION_LABEL_Y, ROW_1_Z]} text="Blocks" />
       {BLOCK_TYPES.map((block, i) => {
-        const bx = i * spacing
+        const bx = i * BLOCK_SPACING
         return (
           <group key={`${block.type}-${block.label}`}>
-            <Block type={block.type} position={[bx, 1.5, rowZ]} color={block.color} />
-            <Label position={[bx, 0.3, rowZ]} text={block.label} />
+            <Block type={block.type} position={[bx, BLOCK_Y, ROW_1_Z]} color={block.color} />
+            <Label position={[bx, LABEL_Y, ROW_1_Z]} text={block.label} />
           </group>
         )
       })}
 
-      {/* ── Row 2: Trees, Flowers, Grass, Boulders ── */}
-      <SectionLabel position={[-2, 3.5, row2Z]} text="Nature" />
+      <SectionLabel position={[SECTION_LABEL_X, SECTION_LABEL_Y, ROW_2_Z]} text="Nature" />
 
-      {/* Trees */}
       {(() => {
         cursor = 0
-        return [3, 4, 5, 6].map((height, i) => {
-          const tx = cursor + i * 8
+        return TREE_HEIGHTS.map((height, i) => {
+          const tx = cursor + i * TREE_SPACING
           return (
             <group key={`tree-${height}`}>
-              <Tree position={[tx, 0.5, row2Z]} height={height} />
-              <Label position={[tx, -0.3, row2Z]} text={`Tree H:${height}`} />
+              <Tree position={[tx, LANTERN_POSITION_Y, ROW_2_Z]} height={height} />
+              <Label position={[tx, -LABEL_Y, ROW_2_Z]} text={`Tree H:${height}`} />
             </group>
           )
         })
       })()}
 
-      {/* Flowers */}
       {(() => {
-        cursor = 34
-        const colors = ['#e84040', '#e8d840', '#e8e8e8', '#d040d0', '#40a0e8']
+        cursor = FLOWER_START_X
+        const colors = [WORLD_COLORS.FLOWER_RED, WORLD_COLORS.FLOWER_YELLOW, WORLD_COLORS.FLOWER_WHITE, WORLD_COLORS.FLOWER_PURPLE, WORLD_COLORS.FLOWER_BLUE]
         return colors.map((color, i) => (
           <group key={`flower-${i}`}>
-            <Flower position={[cursor + i * 2, 0.5, row2Z]} color={color} />
-            <Label position={[cursor + i * 2, -0.3, row2Z]} text="Flower" />
+            <Flower position={[cursor + i * FLOWER_SPACING, LANTERN_POSITION_Y, ROW_2_Z]} color={color} />
+            <Label position={[cursor + i * FLOWER_SPACING, -LABEL_Y, ROW_2_Z]} text="Flower" />
           </group>
         ))
       })()}
 
-      {/* Tall Grass */}
       {(() => {
-        cursor = 46
+        cursor = GRASS_START_X
         return [0, 1, 2, 3].map(i => (
           <group key={`grass-${i}`}>
-            <TallGrass position={[cursor + i * 1.5, 0.5, row2Z]} />
-            {i === 0 && <Label position={[cursor + 2, -0.3, row2Z]} text="Tall Grass" />}
+            <TallGrass position={[cursor + i * GRASS_SPACING, LANTERN_POSITION_Y, ROW_2_Z]} />
+            {i === 0 && <Label position={[cursor + FLOWER_SPACING, -LABEL_Y, ROW_2_Z]} text="Tall Grass" />}
           </group>
         ))
       })()}
 
-      {/* Boulders */}
       {(() => {
-        cursor = 54
+        cursor = BOULDER_START_X
         return (['small', 'medium', 'large'] as const).map((size, i) => (
           <group key={`boulder-${size}`}>
-            <Boulder position={[cursor + i * 5, 0.5, row2Z]} size={size} />
-            <Label position={[cursor + i * 5, -0.3, row2Z]} text={`Boulder ${size}`} />
+            <Boulder position={[cursor + i * BOULDER_SPACING, LANTERN_POSITION_Y, ROW_2_Z]} size={size} />
+            <Label position={[cursor + i * BOULDER_SPACING, -LABEL_Y, ROW_2_Z]} text={`Boulder ${size}`} />
           </group>
         ))
       })()}
 
-      {/* ── Row 3: Characters, Sign, Mountain ── */}
-      <SectionLabel position={[-2, 3.5, row3Z]} text="Entities" />
+      <SectionLabel position={[SECTION_LABEL_X, SECTION_LABEL_Y, ROW_3_Z]} text="Entities" />
 
-      {/* Characters — outfits, states, work types */}
       {(() => {
         cursor = 0
         const chars: { title: string; running: boolean; attention: boolean; workType?: 'hammer' | 'read' | 'craft' }[] = [
@@ -184,27 +212,23 @@ export const DevShowcase: FC = () => {
         ]
         return chars.map((c, i) => (
           <group key={c.title}>
-            <TaskCube position={[cursor + i * 2.5, 1.1, row3Z]} title={c.title} isRunning={c.running} needsAttention={c.attention} workType={c.workType} />
+            <TaskCube position={[cursor + i * CHARACTER_SPACING, CHARACTER_Y, ROW_3_Z]} title={c.title} isRunning={c.running} needsAttention={c.attention} workType={c.workType} />
           </group>
         ))
       })()}
 
-      {/* Walking character */}
-      <TaskCube position={[walkerX, 1.1, walkerZ]} title="Walker" isRunning={false} needsAttention={false} />
-      <Label position={[5, -0.3, walkerZ]} text="Walking Demo" />
+      <TaskCube position={[walkerX, CHARACTER_Y, walkerZ]} title="Walker" isRunning={false} needsAttention={false} />
+      <Label position={[WALKER_LABEL_X, -LABEL_Y, walkerZ]} text="Walking Demo" />
 
-      {/* Sign Post */}
-      <SignPost position={[12, row3Z - 4]} label="Sign Post" color="#9BB89E" />
-      <Lantern position={[18, 2, row3Z]} />
-      <Label position={[18, -0.3, row3Z]} text="Lantern" />
+      <SignPost position={[SIGN_POST_X_OFFSET, ROW_3_Z + SIGN_POST_Z_OFFSET]} label="Sign Post" color={WORLD_COLORS.STATUS_RUNNING} />
+      <Lantern position={[LANTERN_X, LANTERN_Y, ROW_3_Z]} />
+      <Label position={[LANTERN_X, -LABEL_Y, ROW_3_Z]} text="Lantern" />
 
-      {/* Mountain Sample */}
-      <MountainSample position={[30, 0.5, row3Z]} />
-      <Label position={[30, -0.3, row3Z]} text="Mountain" />
+      <MountainSample position={[MOUNTAIN_X, LANTERN_POSITION_Y, ROW_3_Z]} />
+      <Label position={[MOUNTAIN_X, -LABEL_Y, ROW_3_Z]} text="Mountain" />
 
-      {/* ── Row 4: Buildings with real Zones logic ── */}
-      <SectionLabel position={[-2, 3.5, row3Z + 14]} text="Buildings (live)" />
-      <group position={[0, 0, row3Z + 60]}>
+      <SectionLabel position={[SECTION_LABEL_X, SECTION_LABEL_Y, ROW_3_Z + BUILDINGS_Z_OFFSET]} text="Buildings (live)" />
+      <group position={[0, 0, ROW_3_Z + BUILDINGS_GROUP_Z_OFFSET]}>
         <Zones zones={mockZones} tasks={mockTasks} />
       </group>
     </group>

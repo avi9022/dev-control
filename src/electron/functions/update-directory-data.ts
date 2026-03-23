@@ -1,6 +1,6 @@
 import { store } from "../storage/store.js"
 
-export const updateDirectoryData = (id: string, data: DataToUpdate) => {
+export const updateDirectoryData = (id: string, data: DataToUpdate): void => {
   const directories = store.get('directories')
   const directoryToUpdateIndex = directories.findIndex(({ id: currId }) => currId === id)
 

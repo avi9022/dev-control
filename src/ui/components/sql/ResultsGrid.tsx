@@ -89,7 +89,7 @@ export const ResultsGrid: FC<ResultsGridProps> = ({ result, executing, className
   const handleResizeStart = useCallback((e: React.MouseEvent, colIdx: number) => {
     e.preventDefault()
     e.stopPropagation()
-    const th = (e.target as HTMLElement).closest('th')
+    const th = e.target instanceof HTMLElement ? e.target.closest('th') : null
     const startWidth = th?.getBoundingClientRect().width ?? 150
     resizingRef.current = { colIdx, startX: e.clientX, startWidth }
 

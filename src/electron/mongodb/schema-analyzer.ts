@@ -84,14 +84,11 @@ function buildSchemaTree(
   const rootFields: MongoSchemaField[] = []
   const sortedPaths = Array.from(fieldMap.keys()).sort()
 
-  const processedPaths = new Set<string>()
-
   for (const path of sortedPaths) {
     const parts = path.split('.')
     if (parts.length === 1) {
       const field = buildFieldFromTracker(path, path, fieldMap, totalDocs, sortedPaths)
       rootFields.push(field)
-      processedPaths.add(path)
     }
   }
 

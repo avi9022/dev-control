@@ -1,32 +1,216 @@
 import * as THREE from 'three'
+import { TEXTURE_SIZE, HASH_FACTOR_A, HASH_FACTOR_B, HASH_SCALE } from './config'
+import { WORLD_COLORS } from './colors'
 
-/**
- * Generate a 16x16 procedural pixel-art texture.
- * Each pixel gets slight random variation from the base color,
- * creating a Minecraft-like noisy texture.
- */
+const DEFAULT_VARIATION = 6
+const RGB_MAX = 255
+const VARIATION_THRESHOLD = 0.6
+const WOOL_VARIATION = 5
+const WOOL_SEED_SCALE = 100
+
+const HASH_PRIME_A = 17
+const HASH_PRIME_B = 31
+
+const BARS_STRIPE_END = 1
+const CRATE_CROSS_THICKNESS = 1
+
+const GRASS_DARK_THRESHOLD = 0.85
+const GRASS_LIGHT_R = 75
+const GRASS_LIGHT_G = 150
+const GRASS_LIGHT_B = 45
+const GRASS_DARK_R = 65
+const GRASS_DARK_G = 130
+const GRASS_DARK_B = 38
+const GRASS_VARIATION_R = 8
+const GRASS_VARIATION_G = 10
+const GRASS_VARIATION_B = 5
+
+const GRASS_SIDE_SEED_OFFSET = 50
+const GRASS_FRINGE_BASE = 3
+const GRASS_FRINGE_VARIATION = 2
+const GRASS_FRINGE_R = 62
+const GRASS_FRINGE_G = 125
+const GRASS_FRINGE_B = 32
+const GRASS_DIRT_R = 115
+const GRASS_DIRT_G = 88
+const GRASS_DIRT_B = 58
+const GRASS_DIRT_VARIATION_R = 8
+const GRASS_DIRT_VARIATION_G = 6
+const GRASS_DIRT_VARIATION_B = 5
+
+const DARK_GRASS_SEED_OFFSET = 33
+const DARK_GRASS_THRESHOLD = 0.7
+const DARK_GRASS_DARK_R = 28
+const DARK_GRASS_DARK_G = 65
+const DARK_GRASS_DARK_B = 18
+const DARK_GRASS_LIGHT_R = 35
+const DARK_GRASS_LIGHT_G = 80
+const DARK_GRASS_LIGHT_B = 22
+const DARK_GRASS_VARIATION_R = 12
+const DARK_GRASS_VARIATION_G = 18
+const DARK_GRASS_VARIATION_B = 8
+
+const DARK_GRASS_SIDE_SEED = 66
+const DARK_GRASS_FRINGE_R = 30
+const DARK_GRASS_FRINGE_G = 65
+const DARK_GRASS_FRINGE_B = 16
+const DARK_GRASS_FRINGE_VARIATION_R = 10
+const DARK_GRASS_FRINGE_VARIATION_G = 15
+const DARK_GRASS_FRINGE_VARIATION_B = 6
+const DARK_GRASS_DIRT_R = 85
+const DARK_GRASS_DIRT_G = 68
+const DARK_GRASS_DIRT_B = 40
+const DARK_GRASS_DIRT_VARIATION_R = 16
+const DARK_GRASS_DIRT_VARIATION_G = 12
+const DARK_GRASS_DIRT_VARIATION_B = 8
+
+const STONE_SEED_OFFSET = 99
+const STONE_CRACK_THRESHOLD = 0.92
+const STONE_CRACK_BASE = 105
+const STONE_BASE = 125
+const STONE_VARIATION = 8
+const STONE_BLUE_TINT = 3
+
+const BRICK_ROW_HEIGHT = 4
+const BRICK_WIDTH = 8
+const BRICK_OFFSET_SIZE = 4
+const BRICK_MORTAR_BASE = 155
+const BRICK_MORTAR_VARIATION = 10
+const BRICK_MORTAR_TINT = 2
+const BRICK_TONE_SCALE = 15
+const BRICK_BASE = 115
+const BRICK_VARIATION = 8
+
+const WOOD_LIGHT_R = 130
+const WOOD_LIGHT_G = 105
+const WOOD_LIGHT_B = 72
+const WOOD_DARK_R = 82
+const WOOD_DARK_G = 52
+const WOOD_DARK_B = 32
+const WOOD_LIGHT_SEED = 150
+const WOOD_DARK_SEED = 200
+const WOOD_GRAIN_SPACING = 4
+const WOOD_GRAIN_DARKEN = -8
+const WOOD_VARIATION_R = 6
+const WOOD_VARIATION_G = 5
+const WOOD_VARIATION_B = 4
+
+const LEAF_SEED_OFFSET = 77
+const LEAF_GAP_THRESHOLD = 0.9
+const LEAF_GAP_R = 28
+const LEAF_GAP_G = 68
+const LEAF_GAP_B = 15
+const LEAF_LIGHT_R = 38
+const LEAF_LIGHT_G = 85
+const LEAF_LIGHT_B = 22
+const LEAF_VARIATION_R = 8
+const LEAF_VARIATION_G = 12
+const LEAF_VARIATION_B = 5
+
+const BARS_SEED_OFFSET = 888
+const BARS_STRIPE_WIDTH = 4
+const BARS_BASE = 50
+const BARS_VARIATION = 20
+const BARS_BLUE_TINT = 5
+
+const LANTERN_SEED_OFFSET = 444
+const LANTERN_BRIGHT_THRESHOLD = 0.7
+const LANTERN_BRIGHT_R = 245
+const LANTERN_BRIGHT_G = 210
+const LANTERN_BRIGHT_B = 100
+const LANTERN_BASE_R = 220
+const LANTERN_BASE_G = 185
+const LANTERN_BASE_B = 70
+const LANTERN_VARIATION = 20
+
+const CRATE_SEED_OFFSET = 555
+const CRATE_LAST_PIXEL = 15
+const CRATE_PLANK_SPACING = 4
+const CRATE_BORDER_R = 85
+const CRATE_BORDER_G = 60
+const CRATE_BORDER_B = 35
+const CRATE_BORDER_VAR_R = 10
+const CRATE_BORDER_VAR_G = 8
+const CRATE_BORDER_VAR_B = 6
+const CRATE_CROSS_R = 110
+const CRATE_CROSS_G = 80
+const CRATE_CROSS_B = 45
+const CRATE_CROSS_VAR_R = 12
+const CRATE_CROSS_VAR_G = 10
+const CRATE_CROSS_VAR_B = 8
+const CRATE_PLANK_R = 130
+const CRATE_PLANK_G = 95
+const CRATE_PLANK_B = 55
+const CRATE_PLANK_VAR_R = 10
+const CRATE_PLANK_VAR_G = 8
+const CRATE_PLANK_VAR_B = 6
+const CRATE_FILL_R = 145
+const CRATE_FILL_G = 110
+const CRATE_FILL_B = 65
+const CRATE_FILL_VAR_R = 15
+const CRATE_FILL_VAR_G = 12
+const CRATE_FILL_VAR_B = 10
+
+const DIRT_R = 110
+const DIRT_G = 85
+const DIRT_B = 55
+const DIRT_VARIATION = 18
+const DIRT_SEED = 1
+const DIRT_SIDE_R = 105
+const DIRT_SIDE_G = 80
+const DIRT_SIDE_B = 50
+const DIRT_SIDE_VARIATION = 15
+const DIRT_SIDE_SEED = 2
+const DIRT_BOTTOM_R = 95
+const DIRT_BOTTOM_G = 72
+const DIRT_BOTTOM_B = 45
+const DIRT_BOTTOM_VARIATION = 12
+const DIRT_BOTTOM_SEED = 3
+
+const COBBLE_R = 150
+const COBBLE_G = 138
+const COBBLE_B = 112
+const COBBLE_VARIATION = 20
+const COBBLE_SEED = 5
+
+const SAND_R = 196
+const SAND_G = 169
+const SAND_B = 125
+const SAND_VARIATION = 14
+const SAND_SEED = 6
+
+const WATER_R = 59
+const WATER_G = 125
+const WATER_B = 176
+const WATER_VARIATION = 12
+const WATER_SEED = 7
+
+const DEFAULT_R = 128
+const DEFAULT_G = 128
+const DEFAULT_B = 128
+const DEFAULT_VARIATION_AMT = 10
+const DEFAULT_SEED = 99
+
 function generateTexture(
   baseR: number, baseG: number, baseB: number,
-  variation: number = 6,
+  variation: number = DEFAULT_VARIATION,
   seed: number = 0,
 ): THREE.CanvasTexture {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      // Deterministic pseudo-random — only some pixels vary
-      const n = Math.sin((x + seed * 17) * 127.1 + (y + seed * 31) * 311.7) * 43758.5453
-      const rand = (n - Math.floor(n)) * 2 - 1 // -1 to 1
-      // Only apply variation to ~40% of pixels for a cleaner look
-      const apply = Math.abs(rand) > 0.6 ? rand : 0
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin((x + seed * HASH_PRIME_A) * HASH_FACTOR_A + (y + seed * HASH_PRIME_B) * HASH_FACTOR_B) * HASH_SCALE
+      const rand = (n - Math.floor(n)) * 2 - 1
+      const apply = Math.abs(rand) > VARIATION_THRESHOLD ? rand : 0
 
-      const r = Math.max(0, Math.min(255, baseR + Math.round(apply * variation)))
-      const g = Math.max(0, Math.min(255, baseG + Math.round(apply * variation)))
-      const b = Math.max(0, Math.min(255, baseB + Math.round(apply * variation)))
+      const r = Math.max(0, Math.min(RGB_MAX, baseR + Math.round(apply * variation)))
+      const g = Math.max(0, Math.min(RGB_MAX, baseG + Math.round(apply * variation)))
+      const b = Math.max(0, Math.min(RGB_MAX, baseB + Math.round(apply * variation)))
 
       ctx.fillStyle = `rgb(${r},${g},${b})`
       ctx.fillRect(x, y, 1, 1)
@@ -39,22 +223,21 @@ function generateTexture(
   return texture
 }
 
-/** Grass top — green with darker spots */
 function grassTop() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B) * HASH_SCALE
       const rand = n - Math.floor(n)
-      const dark = rand > 0.85
-      const r = dark ? 65 : 75 + Math.round(rand * 8)
-      const g = dark ? 130 : 150 + Math.round(rand * 10)
-      const b = dark ? 38 : 45 + Math.round(rand * 5)
+      const dark = rand > GRASS_DARK_THRESHOLD
+      const r = dark ? GRASS_DARK_R : GRASS_LIGHT_R + Math.round(rand * GRASS_VARIATION_R)
+      const g = dark ? GRASS_DARK_G : GRASS_LIGHT_G + Math.round(rand * GRASS_VARIATION_G)
+      const b = dark ? GRASS_DARK_B : GRASS_LIGHT_B + Math.round(rand * GRASS_VARIATION_B)
       ctx.fillStyle = `rgb(${r},${g},${b})`
       ctx.fillRect(x, y, 1, 1)
     }
@@ -66,30 +249,27 @@ function grassTop() {
   return texture
 }
 
-/** Grass side — dirt with green fringe on top rows */
 function grassSide() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7 + 50) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + GRASS_SIDE_SEED_OFFSET) * HASH_SCALE
       const rand = n - Math.floor(n)
 
-      if (y < 3 + Math.round(rand * 2)) {
-        // Green fringe at top
-        const r = 62 + Math.round(rand * 8)
-        const g = 125 + Math.round(rand * 10)
-        const b = 32 + Math.round(rand * 5)
+      if (y < GRASS_FRINGE_BASE + Math.round(rand * GRASS_FRINGE_VARIATION)) {
+        const r = GRASS_FRINGE_R + Math.round(rand * GRASS_VARIATION_R)
+        const g = GRASS_FRINGE_G + Math.round(rand * GRASS_VARIATION_G)
+        const b = GRASS_FRINGE_B + Math.round(rand * GRASS_VARIATION_B)
         ctx.fillStyle = `rgb(${r},${g},${b})`
       } else {
-        // Dirt below
-        const r = 115 + Math.round(rand * 8)
-        const g = 88 + Math.round(rand * 6)
-        const b = 58 + Math.round(rand * 5)
+        const r = GRASS_DIRT_R + Math.round(rand * GRASS_DIRT_VARIATION_R)
+        const g = GRASS_DIRT_G + Math.round(rand * GRASS_DIRT_VARIATION_G)
+        const b = GRASS_DIRT_B + Math.round(rand * GRASS_DIRT_VARIATION_B)
         ctx.fillStyle = `rgb(${r},${g},${b})`
       }
       ctx.fillRect(x, y, 1, 1)
@@ -102,22 +282,21 @@ function grassSide() {
   return texture
 }
 
-/** Dark grass top — deeper green */
 function darkGrassTop() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7 + 33) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + DARK_GRASS_SEED_OFFSET) * HASH_SCALE
       const rand = n - Math.floor(n)
-      const dark = rand > 0.7
-      const r = dark ? 28 : 35 + Math.round(rand * 12)
-      const g = dark ? 65 : 80 + Math.round(rand * 18)
-      const b = dark ? 18 : 22 + Math.round(rand * 8)
+      const dark = rand > DARK_GRASS_THRESHOLD
+      const r = dark ? DARK_GRASS_DARK_R : DARK_GRASS_LIGHT_R + Math.round(rand * DARK_GRASS_VARIATION_R)
+      const g = dark ? DARK_GRASS_DARK_G : DARK_GRASS_LIGHT_G + Math.round(rand * DARK_GRASS_VARIATION_G)
+      const b = dark ? DARK_GRASS_DARK_B : DARK_GRASS_LIGHT_B + Math.round(rand * DARK_GRASS_VARIATION_B)
       ctx.fillStyle = `rgb(${r},${g},${b})`
       ctx.fillRect(x, y, 1, 1)
     }
@@ -129,28 +308,27 @@ function darkGrassTop() {
   return texture
 }
 
-/** Dark grass side — dirt with darker green fringe */
 function darkGrassSide() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7 + 66) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + DARK_GRASS_SIDE_SEED) * HASH_SCALE
       const rand = n - Math.floor(n)
 
-      if (y < 3 + Math.round(rand * 2)) {
-        const r = 30 + Math.round(rand * 10)
-        const g = 65 + Math.round(rand * 15)
-        const b = 16 + Math.round(rand * 6)
+      if (y < GRASS_FRINGE_BASE + Math.round(rand * GRASS_FRINGE_VARIATION)) {
+        const r = DARK_GRASS_FRINGE_R + Math.round(rand * DARK_GRASS_FRINGE_VARIATION_R)
+        const g = DARK_GRASS_FRINGE_G + Math.round(rand * DARK_GRASS_FRINGE_VARIATION_G)
+        const b = DARK_GRASS_FRINGE_B + Math.round(rand * DARK_GRASS_FRINGE_VARIATION_B)
         ctx.fillStyle = `rgb(${r},${g},${b})`
       } else {
-        const r = 85 + Math.round(rand * 16)
-        const g = 68 + Math.round(rand * 12)
-        const b = 40 + Math.round(rand * 8)
+        const r = DARK_GRASS_DIRT_R + Math.round(rand * DARK_GRASS_DIRT_VARIATION_R)
+        const g = DARK_GRASS_DIRT_G + Math.round(rand * DARK_GRASS_DIRT_VARIATION_G)
+        const b = DARK_GRASS_DIRT_B + Math.round(rand * DARK_GRASS_DIRT_VARIATION_B)
         ctx.fillStyle = `rgb(${r},${g},${b})`
       }
       ctx.fillRect(x, y, 1, 1)
@@ -163,21 +341,20 @@ function darkGrassSide() {
   return texture
 }
 
-/** Stone — grey with dark cracks/spots */
 function stoneTexture() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7 + 99) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + STONE_SEED_OFFSET) * HASH_SCALE
       const rand = n - Math.floor(n)
-      const crack = rand > 0.92
-      const base = crack ? 105 : 125 + Math.round(rand * 8)
-      ctx.fillStyle = `rgb(${base},${base},${base + 3})`
+      const crack = rand > STONE_CRACK_THRESHOLD
+      const base = crack ? STONE_CRACK_BASE : STONE_BASE + Math.round(rand * STONE_VARIATION)
+      ctx.fillStyle = `rgb(${base},${base},${base + STONE_BLUE_TINT})`
       ctx.fillRect(x, y, 1, 1)
     }
   }
@@ -188,32 +365,31 @@ function stoneTexture() {
   return texture
 }
 
-/** Brick — masonry pattern with mortar lines */
 function brickTexture() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7 + 99) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + STONE_SEED_OFFSET) * HASH_SCALE
       const rand = n - Math.floor(n)
 
-      const row = Math.floor(y / 4)
-      const offset = (row % 2) * 4
-      const isMortarH = y % 4 === 0
-      const isMortarV = (x + offset) % 8 === 0
+      const row = Math.floor(y / BRICK_ROW_HEIGHT)
+      const offset = (row % 2) * BRICK_OFFSET_SIZE
+      const isMortarH = y % BRICK_ROW_HEIGHT === 0
+      const isMortarV = (x + offset) % BRICK_WIDTH === 0
 
       if (isMortarH || isMortarV) {
-        const v = 155 + Math.round(rand * 10)
-        ctx.fillStyle = `rgb(${v},${v},${v - 2})`
+        const v = BRICK_MORTAR_BASE + Math.round(rand * BRICK_MORTAR_VARIATION)
+        ctx.fillStyle = `rgb(${v},${v},${v - BRICK_MORTAR_TINT})`
       } else {
-        const brickSeed = Math.sin((Math.floor((x + offset) / 8)) * 31 + row * 17) * 43758.5453
-        const brickTone = (brickSeed - Math.floor(brickSeed)) * 15
-        const base = 115 + Math.round(brickTone) + Math.round(rand * 8)
-        ctx.fillStyle = `rgb(${base},${base},${base + 3})`
+        const brickSeed = Math.sin((Math.floor((x + offset) / BRICK_WIDTH)) * HASH_PRIME_B + row * HASH_PRIME_A) * HASH_SCALE
+        const brickTone = (brickSeed - Math.floor(brickSeed)) * BRICK_TONE_SCALE
+        const base = BRICK_BASE + Math.round(brickTone) + Math.round(rand * BRICK_VARIATION)
+        ctx.fillStyle = `rgb(${base},${base},${base + STONE_BLUE_TINT})`
       }
       ctx.fillRect(x, y, 1, 1)
     }
@@ -225,27 +401,25 @@ function brickTexture() {
   return texture
 }
 
-/** Wood plank — brown with grain lines */
 function woodTexture(dark: boolean = false) {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  const baseR = dark ? 82 : 130
-  const baseG = dark ? 52 : 105
-  const baseB = dark ? 32 : 72
+  const baseR = dark ? WOOD_DARK_R : WOOD_LIGHT_R
+  const baseG = dark ? WOOD_DARK_G : WOOD_LIGHT_G
+  const baseB = dark ? WOOD_DARK_B : WOOD_LIGHT_B
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7 + (dark ? 200 : 150)) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + (dark ? WOOD_DARK_SEED : WOOD_LIGHT_SEED)) * HASH_SCALE
       const rand = n - Math.floor(n)
-      // Horizontal grain lines
-      const grain = (y % 4 === 0) ? -8 : 0
-      const r = baseR + Math.round(rand * 6) + grain
-      const g = baseG + Math.round(rand * 5) + grain
-      const b = baseB + Math.round(rand * 4) + grain
+      const grain = (y % WOOD_GRAIN_SPACING === 0) ? WOOD_GRAIN_DARKEN : 0
+      const r = baseR + Math.round(rand * WOOD_VARIATION_R) + grain
+      const g = baseG + Math.round(rand * WOOD_VARIATION_G) + grain
+      const b = baseB + Math.round(rand * WOOD_VARIATION_B) + grain
       ctx.fillStyle = `rgb(${Math.max(0, r)},${Math.max(0, g)},${Math.max(0, b)})`
       ctx.fillRect(x, y, 1, 1)
     }
@@ -257,22 +431,21 @@ function woodTexture(dark: boolean = false) {
   return texture
 }
 
-/** Leaf — varied greens with gaps */
 function leafTexture() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7 + 77) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + LEAF_SEED_OFFSET) * HASH_SCALE
       const rand = n - Math.floor(n)
-      const gap = rand > 0.9
-      const r = gap ? 28 : 38 + Math.round(rand * 8)
-      const g = gap ? 68 : 85 + Math.round(rand * 12)
-      const b = gap ? 15 : 22 + Math.round(rand * 5)
+      const gap = rand > LEAF_GAP_THRESHOLD
+      const r = gap ? LEAF_GAP_R : LEAF_LIGHT_R + Math.round(rand * LEAF_VARIATION_R)
+      const g = gap ? LEAF_GAP_G : LEAF_LIGHT_G + Math.round(rand * LEAF_VARIATION_G)
+      const b = gap ? LEAF_GAP_B : LEAF_LIGHT_B + Math.round(rand * LEAF_VARIATION_B)
       ctx.fillStyle = `rgb(${r},${g},${b})`
       ctx.fillRect(x, y, 1, 1)
     }
@@ -284,34 +457,32 @@ function leafTexture() {
   return texture
 }
 
-/** Wool — base color with subtle pixel variation */
 function woolTexture(hexColor: string) {
   const c = new THREE.Color(hexColor)
-  const r = Math.round(c.r * 255)
-  const g = Math.round(c.g * 255)
-  const b = Math.round(c.b * 255)
-  return generateTexture(r, g, b, 5, Math.round(c.r * 100))
+  const r = Math.round(c.r * RGB_MAX)
+  const g = Math.round(c.g * RGB_MAX)
+  const b = Math.round(c.b * RGB_MAX)
+  return generateTexture(r, g, b, WOOL_VARIATION, Math.round(c.r * WOOL_SEED_SCALE))
 }
 
-/** Bars — vertical dark lines with transparent gaps for windows */
 function barsTexture() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  ctx.clearRect(0, 0, size, size) // start transparent
+  ctx.clearRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const isBar = x % 4 === 0 || x % 4 === 1
-      const isFrame = y === 0 || y === size - 1
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const isBar = x % BARS_STRIPE_WIDTH === 0 || x % BARS_STRIPE_WIDTH === BARS_STRIPE_END
+      const isFrame = y === 0 || y === TEXTURE_SIZE - 1
       if (isBar || isFrame) {
-        const n = Math.sin(x * 127.1 + y * 311.7 + 888) * 43758.5453
+        const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + BARS_SEED_OFFSET) * HASH_SCALE
         const rand = n - Math.floor(n)
-        const v = 50 + Math.round(rand * 20)
-        ctx.fillStyle = `rgb(${v}, ${v}, ${v + 5})`
+        const v = BARS_BASE + Math.round(rand * BARS_VARIATION)
+        ctx.fillStyle = `rgb(${v}, ${v}, ${v + BARS_BLUE_TINT})`
         ctx.fillRect(x, y, 1, 1)
       }
     }
@@ -323,22 +494,21 @@ function barsTexture() {
   return texture
 }
 
-/** Lantern — warm glowing yellow with bright spots */
 function lanternTexture() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7 + 444) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + LANTERN_SEED_OFFSET) * HASH_SCALE
       const rand = n - Math.floor(n)
-      const bright = rand > 0.7
-      const r = bright ? 245 : 220 + Math.round(rand * 20)
-      const g = bright ? 210 : 185 + Math.round(rand * 20)
-      const b = bright ? 100 : 70 + Math.round(rand * 20)
+      const bright = rand > LANTERN_BRIGHT_THRESHOLD
+      const r = bright ? LANTERN_BRIGHT_R : LANTERN_BASE_R + Math.round(rand * LANTERN_VARIATION)
+      const g = bright ? LANTERN_BRIGHT_G : LANTERN_BASE_G + Math.round(rand * LANTERN_VARIATION)
+      const b = bright ? LANTERN_BRIGHT_B : LANTERN_BASE_B + Math.round(rand * LANTERN_VARIATION)
       ctx.fillStyle = `rgb(${r},${g},${b})`
       ctx.fillRect(x, y, 1, 1)
     }
@@ -350,34 +520,30 @@ function lanternTexture() {
   return texture
 }
 
-/** Crate — brown planks with cross pattern */
 function crateTexture() {
-  const size = 16
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
+  canvas.width = TEXTURE_SIZE
+  canvas.height = TEXTURE_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
 
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      const n = Math.sin(x * 127.1 + y * 311.7 + 555) * 43758.5453
+  for (let x = 0; x < TEXTURE_SIZE; x++) {
+    for (let y = 0; y < TEXTURE_SIZE; y++) {
+      const n = Math.sin(x * HASH_FACTOR_A + y * HASH_FACTOR_B + CRATE_SEED_OFFSET) * HASH_SCALE
       const rand = n - Math.floor(n)
 
-      // Border frame
-      const isBorder = x === 0 || x === 15 || y === 0 || y === 15
-      // Cross planks
-      const isCross = Math.abs(x - y) <= 1 || Math.abs(x - (15 - y)) <= 1
-      // Horizontal plank lines
-      const isPlank = y % 4 === 0
+      const isBorder = x === 0 || x === CRATE_LAST_PIXEL || y === 0 || y === CRATE_LAST_PIXEL
+      const isCross = Math.abs(x - y) <= CRATE_CROSS_THICKNESS || Math.abs(x - (CRATE_LAST_PIXEL - y)) <= CRATE_CROSS_THICKNESS
+      const isPlank = y % CRATE_PLANK_SPACING === 0
 
       if (isBorder) {
-        ctx.fillStyle = `rgb(${85 + Math.round(rand * 10)}, ${60 + Math.round(rand * 8)}, ${35 + Math.round(rand * 6)})`
+        ctx.fillStyle = `rgb(${CRATE_BORDER_R + Math.round(rand * CRATE_BORDER_VAR_R)}, ${CRATE_BORDER_G + Math.round(rand * CRATE_BORDER_VAR_G)}, ${CRATE_BORDER_B + Math.round(rand * CRATE_BORDER_VAR_B)})`
       } else if (isCross) {
-        ctx.fillStyle = `rgb(${110 + Math.round(rand * 12)}, ${80 + Math.round(rand * 10)}, ${45 + Math.round(rand * 8)})`
+        ctx.fillStyle = `rgb(${CRATE_CROSS_R + Math.round(rand * CRATE_CROSS_VAR_R)}, ${CRATE_CROSS_G + Math.round(rand * CRATE_CROSS_VAR_G)}, ${CRATE_CROSS_B + Math.round(rand * CRATE_CROSS_VAR_B)})`
       } else if (isPlank) {
-        ctx.fillStyle = `rgb(${130 + Math.round(rand * 10)}, ${95 + Math.round(rand * 8)}, ${55 + Math.round(rand * 6)})`
+        ctx.fillStyle = `rgb(${CRATE_PLANK_R + Math.round(rand * CRATE_PLANK_VAR_R)}, ${CRATE_PLANK_G + Math.round(rand * CRATE_PLANK_VAR_G)}, ${CRATE_PLANK_B + Math.round(rand * CRATE_PLANK_VAR_B)})`
       } else {
-        ctx.fillStyle = `rgb(${145 + Math.round(rand * 15)}, ${110 + Math.round(rand * 12)}, ${65 + Math.round(rand * 10)})`
+        ctx.fillStyle = `rgb(${CRATE_FILL_R + Math.round(rand * CRATE_FILL_VAR_R)}, ${CRATE_FILL_G + Math.round(rand * CRATE_FILL_VAR_G)}, ${CRATE_FILL_B + Math.round(rand * CRATE_FILL_VAR_B)})`
       }
       ctx.fillRect(x, y, 1, 1)
     }
@@ -389,15 +555,16 @@ function crateTexture() {
   return texture
 }
 
-// ─── Texture Cache ───
+// Texture Cache
 
 const textureCache = new Map<string, THREE.CanvasTexture>()
 
 function cached(key: string, factory: () => THREE.CanvasTexture): THREE.CanvasTexture {
-  if (!textureCache.has(key)) {
-    textureCache.set(key, factory())
-  }
-  return textureCache.get(key)!
+  const existing = textureCache.get(key)
+  if (existing) return existing
+  const texture = factory()
+  textureCache.set(key, texture)
+  return texture
 }
 
 export function getBlockTextures(type: string, color?: string): {
@@ -410,19 +577,19 @@ export function getBlockTextures(type: string, color?: string): {
       return {
         top: cached('grass-top', grassTop),
         side: cached('grass-side', grassSide),
-        bottom: cached('dirt-tex', () => generateTexture(110, 85, 55, 18, 1)),
+        bottom: cached('dirt-tex', () => generateTexture(DIRT_R, DIRT_G, DIRT_B, DIRT_VARIATION, DIRT_SEED)),
       }
     case 'darkgrass':
       return {
         top: cached('darkgrass-top', darkGrassTop),
         side: cached('darkgrass-side', darkGrassSide),
-        bottom: cached('dirt-tex', () => generateTexture(110, 85, 55, 18, 1)),
+        bottom: cached('dirt-tex', () => generateTexture(DIRT_R, DIRT_G, DIRT_B, DIRT_VARIATION, DIRT_SEED)),
       }
     case 'dirt':
       return {
-        top: cached('dirt-tex', () => generateTexture(110, 85, 55, 18, 1)),
-        side: cached('dirt-tex-side', () => generateTexture(105, 80, 50, 15, 2)),
-        bottom: cached('dirt-tex-bottom', () => generateTexture(95, 72, 45, 12, 3)),
+        top: cached('dirt-tex', () => generateTexture(DIRT_R, DIRT_G, DIRT_B, DIRT_VARIATION, DIRT_SEED)),
+        side: cached('dirt-tex-side', () => generateTexture(DIRT_SIDE_R, DIRT_SIDE_G, DIRT_SIDE_B, DIRT_SIDE_VARIATION, DIRT_SIDE_SEED)),
+        bottom: cached('dirt-tex-bottom', () => generateTexture(DIRT_BOTTOM_R, DIRT_BOTTOM_G, DIRT_BOTTOM_B, DIRT_BOTTOM_VARIATION, DIRT_BOTTOM_SEED)),
       }
     case 'stone': {
       const tex = cached('stone-tex', stoneTexture)
@@ -437,11 +604,11 @@ export function getBlockTextures(type: string, color?: string): {
       return { top: tex, side: tex, bottom: tex }
     }
     case 'cobble': {
-      const tex = cached('cobble-tex', () => generateTexture(150, 138, 112, 20, 5))
+      const tex = cached('cobble-tex', () => generateTexture(COBBLE_R, COBBLE_G, COBBLE_B, COBBLE_VARIATION, COBBLE_SEED))
       return { top: tex, side: tex, bottom: tex }
     }
     case 'sand': {
-      const tex = cached('sand-tex', () => generateTexture(196, 169, 125, 14, 6))
+      const tex = cached('sand-tex', () => generateTexture(SAND_R, SAND_G, SAND_B, SAND_VARIATION, SAND_SEED))
       return { top: tex, side: tex, bottom: tex }
     }
     case 'leaf': {
@@ -465,16 +632,16 @@ export function getBlockTextures(type: string, color?: string): {
       return { top: tex, side: tex, bottom: tex }
     }
     case 'water': {
-      const tex = cached('water-tex', () => generateTexture(59, 125, 176, 12, 7))
+      const tex = cached('water-tex', () => generateTexture(WATER_R, WATER_G, WATER_B, WATER_VARIATION, WATER_SEED))
       return { top: tex, side: tex, bottom: tex }
     }
     case 'wool': {
-      const c = color || '#B0AAA4'
+      const c = color || WORLD_COLORS.DEFAULT_WOOL
       const tex = cached(`wool-${c}`, () => woolTexture(c))
       return { top: tex, side: tex, bottom: tex }
     }
     default: {
-      const tex = cached('default-tex', () => generateTexture(128, 128, 128, 10, 99))
+      const tex = cached('default-tex', () => generateTexture(DEFAULT_R, DEFAULT_G, DEFAULT_B, DEFAULT_VARIATION_AMT, DEFAULT_SEED))
       return { top: tex, side: tex, bottom: tex }
     }
   }

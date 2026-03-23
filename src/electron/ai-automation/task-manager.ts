@@ -6,10 +6,45 @@ import { cleanupWorktree } from './worktree-manager.js'
 import { getOrCreateTaskDir, cleanupTaskDir, migrateTaskDirStructure } from './task-dir-manager.js'
 import { sendNotification } from './notification-manager.js'
 import { extractLinkedTaskIds } from './cross-reference-parser.js'
+import {
+  FIXED_PHASES,
+  PhaseExitEvent,
+  AttentionReason,
+  PhaseType,
+  DEFAULT_BOARD_COLOR,
+} from '../../shared/constants.js'
+
+// ─── Legacy Types (for migration from pre-pipeline data) ───
+
+interface LegacyAITask extends AITask {
+  worktreePath?: string
+  worktreeDir?: string
+  maxReviewCycles?: number
+  reviewCycleCount?: number
+  gitStrategy?: AIGitStrategy
+  baseBranch?: string
+  customBranchName?: string
+}
+
+interface LegacyAIAutomationSettings extends AIAutomationSettings {
+  pipeline?: AIPipelinePhase[]
+  defaultMaxReviewCycles?: number
+  defaultWorktreeDir?: string
+}
+
+// ─── Legacy Phase ID Map ───
+
+const LEGACY_PHASE_IDS = {
+  TODO: 'TODO',
+  PLANNING: 'PLANNING',
+  IN_PROGRESS: 'IN_PROGRESS',
+  AGENT_REVIEW: 'AGENT_REVIEW',
+  HUMAN_REVIEW: 'HUMAN_REVIEW',
+} as const
 
 let mainWindow: BrowserWindow | null = null
 
-export function setTaskManagerMainWindow(window: BrowserWindow) {
+export function setTaskManagerMainWindow(window: BrowserWindow): void {
   mainWindow = window
 }
 
@@ -44,14 +79,14 @@ export function createTask(
     title,
     description,
     boardId: resolvedBoardId,
-    phase: 'BACKLOG',
+    phase: FIXED_PHASES.BACKLOG,
     createdAt: now,
     updatedAt: now,
     projects,
     taskDirPath: taskDir,
     worktrees: [],
     needsUserInput: false,
-    phaseHistory: [{ phase: 'BACKLOG', enteredAt: now }]
+    phaseHistory: [{ phase: FIXED_PHASES.BACKLOG, enteredAt: now }]
   }
 
   const tasks = store.get('aiTasks')
@@ -62,7 +97,7 @@ export function createTask(
   return task
 }
 
-export function updateTask(id: string, updates: Partial<AITask>) {
+export function updateTask(id: string, updates: Partial<AITask>): void {
   const tasks = store.get('aiTasks')
   const index = tasks.findIndex(t => t.id === id)
   if (index === -1) throw new Error(`Task ${id} not found`)
@@ -76,7 +111,7 @@ export function updateTask(id: string, updates: Partial<AITask>) {
   broadcastTasks()
 }
 
-export function deleteTask(id: string) {
+export function deleteTask(id: string): void {
   const task = store.get('aiTasks').find(t => t.id === id)
   // Cleanup worktrees
   if (task?.worktrees) {
@@ -89,10 +124,10 @@ export function deleteTask(id: string) {
     }
   }
   // Legacy: cleanup single worktree if still present from pre-migration
-  const taskRecord = task as unknown as Record<string, unknown>
-  if (taskRecord?.worktreePath && task?.projectPaths?.[0]) {
+  const legacyTask = task as LegacyAITask | undefined
+  if (legacyTask?.worktreePath && task?.projectPaths?.[0]) {
     try {
-      cleanupWorktree(task.projectPaths[0], taskRecord.worktreePath as string)
+      cleanupWorktree(task.projectPaths[0], legacyTask.worktreePath)
     } catch {
       // Best effort cleanup
     }
@@ -105,22 +140,22 @@ export function deleteTask(id: string) {
 
 function isValidTransition(from: string, to: string, pipeline: AIPipelinePhase[]): boolean {
   const phaseIds = pipeline.map(p => p.id)
-  const allPhases = ['BACKLOG', ...phaseIds, 'DONE']
+  const allPhases = [FIXED_PHASES.BACKLOG, ...phaseIds, FIXED_PHASES.DONE]
   const fromIndex = allPhases.indexOf(from)
   const toIndex = allPhases.indexOf(to)
 
   // BACKLOG can go to first pipeline phase
-  if (from === 'BACKLOG' && toIndex === 1) return true
+  if (from === FIXED_PHASES.BACKLOG && toIndex === 1) return true
   // Any pipeline phase can go back to BACKLOG
-  if (to === 'BACKLOG' && from !== 'DONE') return true
+  if (to === FIXED_PHASES.BACKLOG && from !== FIXED_PHASES.DONE) return true
   // Forward by one step
   if (toIndex === fromIndex + 1) return true
   // Reject routing: any pipeline phase can go to any other pipeline phase
-  if (from !== 'BACKLOG' && from !== 'DONE' && to !== 'BACKLOG' && to !== 'DONE') return true
+  if (from !== FIXED_PHASES.BACKLOG && from !== FIXED_PHASES.DONE && to !== FIXED_PHASES.BACKLOG && to !== FIXED_PHASES.DONE) return true
   // Moving to DONE from any phase
-  if (to === 'DONE' && from !== 'BACKLOG') return true
+  if (to === FIXED_PHASES.DONE && from !== FIXED_PHASES.BACKLOG) return true
   // Amendment routing: DONE can go back to any pipeline phase
-  if (from === 'DONE' && to !== 'BACKLOG' && to !== 'DONE') return true
+  if (from === FIXED_PHASES.DONE && to !== FIXED_PHASES.BACKLOG && to !== FIXED_PHASES.DONE) return true
 
   return false
 }
@@ -164,9 +199,9 @@ export function moveTaskPhase(id: string, targetPhase: string): AITask {
 
   // Notify on phase transitions
   const targetPhaseConfig = pipeline.find(p => p.id === targetPhase)
-  if (targetPhase === 'DONE') {
+  if (targetPhase === FIXED_PHASES.DONE) {
     sendNotification('task_done', id, task.title, 'Task completed')
-  } else if (targetPhaseConfig?.type === 'manual') {
+  } else if (targetPhaseConfig?.type === PhaseType.Manual) {
     sendNotification('manual_phase', id, task.title, `Ready for ${targetPhaseConfig.name}`)
   }
 
@@ -177,16 +212,16 @@ export function getSettings(): AIAutomationSettings {
   return store.get('aiAutomationSettings')
 }
 
-export function updateSettings(updates: Partial<AIAutomationSettings>) {
+export function updateSettings(updates: Partial<AIAutomationSettings>): void {
   const current = store.get('aiAutomationSettings')
   store.set('aiAutomationSettings', { ...current, ...updates })
 }
 
 // --- Migration ---
 
-export function migrateTaskWorkspaces() {
-  const tasks = store.get('aiTasks')
-  const settings = store.get('aiAutomationSettings') as unknown as Record<string, unknown>
+export function migrateTaskWorkspaces(): void {
+  const tasks = store.get('aiTasks') as LegacyAITask[]
+  const settings = store.get('aiAutomationSettings') as LegacyAIAutomationSettings
   let changed = false
 
   for (const task of tasks) {
@@ -194,14 +229,13 @@ export function migrateTaskWorkspaces() {
     migrateTaskDirStructure(task.id)
 
     // Convert worktreePath to worktrees array
-    const taskRec = task as unknown as Record<string, unknown>
-    if (taskRec.worktreePath && !task.worktrees) {
-      const worktreePath = taskRec.worktreePath as string
+    if (task.worktreePath && !task.worktrees) {
+      const worktreePath = task.worktreePath
       const projectPath = task.projectPaths?.[0] || ''
       const branchName = task.branchName || ''
       task.worktrees = [{ projectPath, worktreePath, branchName }]
-      delete taskRec.worktreePath
-      delete taskRec.worktreeDir
+      delete task.worktreePath
+      delete task.worktreeDir
       changed = true
     }
 
@@ -212,24 +246,22 @@ export function migrateTaskWorkspaces() {
     }
 
     // Remove deprecated fields
-    const taskDeprecated = task as unknown as Record<string, unknown>
-    if ('maxReviewCycles' in task || 'reviewCycleCount' in task) {
-      delete taskDeprecated.maxReviewCycles
-      delete taskDeprecated.reviewCycleCount
+    if (task.maxReviewCycles !== undefined || task.reviewCycleCount !== undefined) {
+      delete task.maxReviewCycles
+      delete task.reviewCycleCount
       changed = true
     }
 
     // Migrate projectPaths to projects array
     if (!task.projects && task.projectPaths) {
       const paths = task.projectPaths || []
-      const taskLegacy = task as unknown as Record<string, unknown>
       task.projects = paths.map((p, i) => ({
         path: p,
         label: p.split('/').pop() || p,
-        gitStrategy: ((taskLegacy.gitStrategy as string) || 'worktree') as AIGitStrategy,
+        gitStrategy: (task.gitStrategy || 'worktree') as AIGitStrategy,
         ...(i === 0 ? {
-          baseBranch: (taskLegacy.baseBranch as string) || undefined,
-          customBranchName: (taskLegacy.customBranchName as string) || undefined,
+          baseBranch: task.baseBranch || undefined,
+          customBranchName: task.customBranchName || undefined,
         } : {})
       }))
       changed = true
@@ -243,10 +275,10 @@ export function migrateTaskWorkspaces() {
   }
 
   // Remove deprecated settings fields
-  if ('defaultMaxReviewCycles' in settings || 'defaultWorktreeDir' in settings) {
+  if (settings.defaultMaxReviewCycles !== undefined || settings.defaultWorktreeDir !== undefined) {
     delete settings.defaultMaxReviewCycles
     delete settings.defaultWorktreeDir
-    store.set('aiAutomationSettings', settings as unknown as AIAutomationSettings)
+    store.set('aiAutomationSettings', settings)
   }
 
   if (changed) {
@@ -254,17 +286,17 @@ export function migrateTaskWorkspaces() {
   }
 }
 
-export function migrateSettings() {
-  const settings = store.get('aiAutomationSettings') as unknown as Record<string, unknown>
+export function migrateSettings(): void {
+  const settings = store.get('aiAutomationSettings') as LegacyAIAutomationSettings
 
   // If pipeline already exists (pre-boards migration), skip
-  if (settings.pipeline && (settings.pipeline as unknown as unknown[]).length > 0) return
+  if (settings.pipeline && settings.pipeline.length > 0) return
 
   // Initialize default pipeline
   const pipeline = DEFAULT_PIPELINE.map(p => ({ ...p }))
 
   // Copy existing phase prompts into pipeline
-  const phasePrompts = settings.phasePrompts as AIAutomationSettings['phasePrompts'] | undefined
+  const phasePrompts = settings.phasePrompts
   if (phasePrompts) {
     if (phasePrompts.planning) {
       const planningPhase = pipeline.find(p => p.id === 'planning')
@@ -280,23 +312,23 @@ export function migrateSettings() {
     }
   }
 
-  store.set('aiAutomationSettings', { ...settings, pipeline } as unknown as AIAutomationSettings)
+  store.set('aiAutomationSettings', { ...settings, pipeline })
 }
 
-export function migrateExistingTasks() {
-  const settings = getSettings() as unknown as Record<string, unknown>
-  const legacyPipeline = settings.pipeline as AIPipelinePhase[] | undefined
+export function migrateExistingTasks(): void {
+  const settings = getSettings() as LegacyAIAutomationSettings
+  const legacyPipeline = settings.pipeline
   if (!legacyPipeline || legacyPipeline.length === 0) return
 
   const tasks = store.get('aiTasks')
   let changed = false
 
   const PHASE_MAP: Record<string, string> = {
-    'TODO': legacyPipeline[0]?.id || 'BACKLOG',
-    'PLANNING': 'planning',
-    'IN_PROGRESS': 'in-progress',
-    'AGENT_REVIEW': 'agent-review',
-    'HUMAN_REVIEW': 'human-review',
+    [LEGACY_PHASE_IDS.TODO]: legacyPipeline[0]?.id || 'BACKLOG',
+    [LEGACY_PHASE_IDS.PLANNING]: 'planning',
+    [LEGACY_PHASE_IDS.IN_PROGRESS]: 'in-progress',
+    [LEGACY_PHASE_IDS.AGENT_REVIEW]: 'agent-review',
+    [LEGACY_PHASE_IDS.HUMAN_REVIEW]: 'human-review',
   }
 
   for (const task of tasks) {
@@ -329,20 +361,21 @@ export function migrateToBoards(): void {
   if (settings.boards && settings.boards.length > 0) return
 
   // Create default board from existing pipeline
-  const settingsRecord = settings as unknown as Record<string, unknown>
-  const existingPipeline = (settingsRecord.pipeline as AIPipelinePhase[]) || DEFAULT_PIPELINE
+  const legacySettings = settings as LegacyAIAutomationSettings
+  const existingPipeline = legacySettings.pipeline || DEFAULT_PIPELINE
   const defaultBoard: AIBoard = {
     id: 'default',
     name: 'My Board',
-    color: '#9BB89E',
+    color: DEFAULT_BOARD_COLOR,
     pipeline: existingPipeline,
     createdAt: new Date().toISOString(),
   }
 
-  // Update settings
-  const updated: Record<string, unknown> = { ...settings, boards: [defaultBoard], activeBoardId: 'default' }
-  delete updated.pipeline
-  store.set('aiAutomationSettings', updated as unknown as AIAutomationSettings)
+  // Update settings — remove legacy pipeline field and add boards
+  const updatedSettings = Object.fromEntries(
+    Object.entries(legacySettings).filter(([key]) => key !== 'pipeline')
+  ) as AIAutomationSettings
+  store.set('aiAutomationSettings', { ...updatedSettings, boards: [defaultBoard], activeBoardId: 'default' })
 
   // Add boardId to all existing tasks
   const tasks = store.get('aiTasks')
@@ -384,7 +417,7 @@ export function recoverStaleTasks(): void {
         history[history.length - 1] = {
           ...history[history.length - 1],
           exitedAt: new Date().toISOString(),
-          exitEvent: 'crashed',
+          exitEvent: PhaseExitEvent.Crashed,
         }
       }
       return {
@@ -392,7 +425,7 @@ export function recoverStaleTasks(): void {
         activeProcessPid: undefined,
         currentPhaseName: undefined,
         needsUserInput: true,
-        needsUserInputReason: 'crashed',
+        needsUserInputReason: AttentionReason.Crashed,
         phaseHistory: history,
         updatedAt: new Date().toISOString(),
       }

@@ -60,8 +60,8 @@ class BrokerManager {
     store.set('brokerConfigs', updatedConfigs)
 
     const client = this.clients.get(config.type)
-    if (client && 'updateConfig' in client) {
-      (client as ElasticMQClient | RabbitMQClient).updateConfig(config)
+    if (client) {
+      client.updateConfig(config)
     }
   }
 

@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, X } from 'lucide-react'
 
+const SEARCH_DEBOUNCE_MS = 300
+
 
 /**
  * Search bar UI component — manages its own input state for responsiveness.
@@ -24,7 +26,7 @@ export const SearchBar: FC<{
   const handleChange = useCallback((value: string) => {
     setLocalValue(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => setSearchQuery(value), 300)
+    debounceRef.current = setTimeout(() => setSearchQuery(value), SEARCH_DEBOUNCE_MS)
   }, [setSearchQuery])
 
   const handleClose = useCallback(() => {

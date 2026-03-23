@@ -192,7 +192,6 @@ const FileTreeView: FC<{
 export const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
   const { tasks, settings, updateSettings } = useAIAutomation()
   const task = tasks.find(t => t.id === taskId)
-  const themeClass = ''
   const [agentFiles, setAgentFiles] = useState<string[]>([])
   const [attachments, setAttachments] = useState<string[]>([])
   const [selectedFile, setSelectedFile] = useState<{ name: string; type: 'agent' | 'attachments' } | null>(null)
@@ -305,7 +304,7 @@ export const TaskFilesTab: FC<{ taskId: string }> = ({ taskId }) => {
       {/* File preview dialog */}
       <Dialog open={!!selectedFile && !!content} onOpenChange={(open) => { if (!open) { setSelectedFile(null); setContent('') } }}>
         <DialogContent
-          className={`${themeClass} !max-w-[700px] h-[80vh] flex flex-col`}
+          className={`!max-w-[700px] h-[80vh] flex flex-col`}
           style={{ background: 'var(--ai-surface-1)', borderColor: 'var(--ai-border-subtle)' }}
         >
           <DialogHeader>

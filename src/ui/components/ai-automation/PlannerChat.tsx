@@ -3,22 +3,39 @@ import { Send, Loader2, Wand2, Bug, ChevronRight, ChevronDown, ChevronsUpDown } 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
+const SUMMARY_TRUNCATE_LENGTH = 80
+const INPUT_FOCUS_DELAY_MS = 100
+const DEBUG_JSON_MAX_HEIGHT = 300
+
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
 
-interface DebugEvent {
+interface AssistantContentBlock {
   type: string
-  [key: string]: unknown
+  text?: string
+  name?: string
 }
+
+interface AssistantMessage {
+  content?: AssistantContentBlock[]
+}
+
+type PlannerDebugEvent =
+  | { type: 'system'; subtype?: string }
+  | { type: 'assistant'; message?: AssistantMessage }
+  | { type: 'user' }
+  | { type: 'result' }
+  | { type: 'rate_limit_event' }
+  | { type: string }
 
 interface PlannerChatProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-function DebugEventRow({ event, defaultExpanded }: { event: DebugEvent; defaultExpanded: boolean }) {
+function DebugEventRow({ event, defaultExpanded }: { event: PlannerDebugEvent; defaultExpanded: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
   useEffect(() => {
@@ -26,16 +43,16 @@ function DebugEventRow({ event, defaultExpanded }: { event: DebugEvent; defaultE
   }, [defaultExpanded])
 
   const getLabel = (): { label: string; color: string; summary: string } => {
-    const e = event as Record<string, unknown>
     switch (event.type) {
       case 'system':
-        return { label: 'system', color: 'var(--ai-text-tertiary)', summary: String(e.subtype || '') }
+        return { label: 'system', color: 'var(--ai-text-tertiary)', summary: 'subtype' in event ? String(event.subtype || '') : '' }
       case 'assistant': {
-        const content = (e.message as Record<string, unknown>)?.content as { type: string; text?: string; name?: string }[] | undefined
+        const msg = 'message' in event ? event.message : undefined
+        const content = msg?.content
         const textBlock = content?.find(b => b.type === 'text')
         const toolBlock = content?.find(b => b.type === 'tool_use')
         if (toolBlock) return { label: 'tool_call', color: 'var(--ai-warning)', summary: String(toolBlock.name || '') }
-        return { label: 'response', color: 'var(--ai-accent)', summary: textBlock?.text?.slice(0, 80) || '' }
+        return { label: 'response', color: 'var(--ai-accent)', summary: textBlock?.text?.slice(0, SUMMARY_TRUNCATE_LENGTH) || '' }
       }
       case 'user':
         return { label: 'user', color: 'var(--ai-purple)', summary: '' }
@@ -68,7 +85,7 @@ function DebugEventRow({ event, defaultExpanded }: { event: DebugEvent; defaultE
       {expanded && (
         <pre
           className="px-3 py-2 text-[9px] overflow-x-auto whitespace-pre-wrap break-all"
-          style={{ color: 'var(--ai-text-secondary)', background: 'var(--ai-surface-2)', maxHeight: 300, overflowY: 'auto' }}
+          style={{ color: 'var(--ai-text-secondary)', background: 'var(--ai-surface-2)', maxHeight: DEBUG_JSON_MAX_HEIGHT, overflowY: 'auto' }}
         >
           {JSON.stringify(event, null, 2)}
         </pre>
@@ -82,7 +99,7 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
-  const [debugEvents, setDebugEvents] = useState<DebugEvent[]>([])
+  const [debugEvents, setDebugEvents] = useState<PlannerDebugEvent[]>([])
   const [allExpanded, setAllExpanded] = useState(false)
   const [preserveEvents, setPreserveEvents] = useState(false)
   const sessionIdRef = useRef<string>(Date.now().toString())
@@ -135,7 +152,7 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   // New session when opening with no messages
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), 100)
+      setTimeout(() => inputRef.current?.focus(), INPUT_FOCUS_DELAY_MS)
       if (messagesRef.current.length === 0) {
         sessionIdRef.current = Date.now().toString()
         sendMessageRef.current('Hi, I want to plan some tasks.')
@@ -144,8 +161,10 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   }, [open])
 
   useEffect(() => {
-    const unsubDebug = window.electron.subscribeAIPlannerDebug((event: unknown) => {
-      setDebugEvents(prev => [...prev, event as DebugEvent])
+    const unsubDebug = window.electron.subscribeAIPlannerDebug((event) => {
+      if (typeof event === 'object' && event !== null && 'type' in event) {
+        setDebugEvents(prev => [...prev, event as PlannerDebugEvent])
+      }
     })
     return () => { unsubDebug() }
   }, [])

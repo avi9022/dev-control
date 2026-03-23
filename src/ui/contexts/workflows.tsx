@@ -71,11 +71,9 @@ export const WorkflowsProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   const clearProgress = useCallback((id: string) => {
-    setActiveProgress((prev) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [id]: _, ...rest } = prev
-      return rest
-    })
+    setActiveProgress((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([k]) => k !== id))
+    )
   }, [])
 
   return (

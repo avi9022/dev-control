@@ -2,6 +2,12 @@ import { getSettings, getTasks } from './task-manager.js'
 import { listTaskDirFiles, readTaskDirFile, listAttachments, getAttachmentsDir } from './task-dir-manager.js'
 import fs from 'fs'
 import path from 'path'
+import { GIT_STRATEGY, SHORT_ID_LENGTH } from '../../shared/constants.js'
+
+const DESCRIPTION_TRUNCATE_LENGTH = 200
+const MAX_INLINE_FILE_SIZE = 10_000
+const TRUNCATED_FILE_PREVIEW_SIZE = 5_000
+const BINARY_EXTENSIONS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.svg', '.zip', '.tar', '.gz', '.rar', '.7z', '.exe', '.dll', '.so', '.dylib', '.woff', '.woff2', '.ttf', '.eot', '.mp3', '.mp4', '.wav', '.avi', '.mov'])
 
 function getPhaseRunCount(task: AITask, phaseId: string): number {
   return task.phaseHistory.filter(h => h.phase === phaseId).length
@@ -58,7 +64,7 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
     }
   }
   // Read-only projects
-  const readOnlyProjects = task.projects.filter(p => p.gitStrategy === 'none')
+  const readOnlyProjects = task.projects.filter(p => p.gitStrategy === GIT_STRATEGY.NONE)
   if (readOnlyProjects.length > 0) {
     taskContext += `\n\n**Read-only reference projects:** ${readOnlyProjects.map(p => `${p.label} (${p.path})`).join(', ')}\nYou may read files in these directories but MUST NOT modify them.`
   }
@@ -90,9 +96,9 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
     for (const linkedId of task.linkedTaskIds) {
       const linked = allTasks.find(t => t.id === linkedId)
       if (!linked) continue
-      const shortId = linked.id.slice(0, 8)
-      const truncDesc = linked.description.length > 200
-        ? linked.description.slice(0, 200) + '...'
+      const shortId = linked.id.slice(0, SHORT_ID_LENGTH)
+      const truncDesc = linked.description.length > DESCRIPTION_TRUNCATE_LENGTH
+        ? linked.description.slice(0, DESCRIPTION_TRUNCATE_LENGTH) + '...'
         : linked.description
       const phaseName = linked.currentPhaseName || linked.phase
       let entry = `- #${shortId} — "${linked.title}" [phase: ${phaseName}]\n  ${truncDesc}`
@@ -122,7 +128,7 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
         for (const file of files) {
           dirContext += `- ${file}\n`
           const content = readTaskDirFile(task.id, file)
-          if (content && content.length < 10000) {
+          if (content && content.length < MAX_INLINE_FILE_SIZE) {
             dirContext += `\n\`\`\`\n${content}\n\`\`\`\n`
           }
         }
@@ -143,7 +149,6 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
   if (attachments.length > 0) {
     const attachDir = getAttachmentsDir(task.id)
     let attachContext = `## User Attachments\n\nThe user has attached these files to the task:\n`
-    const BINARY_EXTENSIONS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.svg', '.zip', '.tar', '.gz', '.rar', '.7z', '.exe', '.dll', '.so', '.dylib', '.woff', '.woff2', '.ttf', '.eot', '.mp3', '.mp4', '.wav', '.avi', '.mov'])
     for (const file of attachments) {
       attachContext += `- ${file}\n`
       const ext = path.extname(file).toLowerCase()
@@ -158,10 +163,10 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
           attachContext += `  (binary file — not included in prompt, available at: ${path.join(attachDir, file)})\n`
           continue
         }
-        if (content.length < 10000) {
+        if (content.length < MAX_INLINE_FILE_SIZE) {
           attachContext += `\n\`\`\`\n${content}\n\`\`\`\n`
         } else {
-          attachContext += `\n\`\`\`\n${content.slice(0, 5000)}\n...(truncated, ${content.length} chars total)\n\`\`\`\n`
+          attachContext += `\n\`\`\`\n${content.slice(0, TRUNCATED_FILE_PREVIEW_SIZE)}\n...(truncated, ${content.length} chars total)\n\`\`\`\n`
         }
       } catch {
         attachContext += `  (binary or unreadable)\n`

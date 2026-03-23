@@ -135,7 +135,7 @@ class DynamoDBManager {
       this.activeConnectionId = newActive
       store.set('activeDynamoDBConnection', newActive)
       this.rebuildClients()
-      this.testConnection()
+      this.testConnection().catch(() => {})
     }
   }
 

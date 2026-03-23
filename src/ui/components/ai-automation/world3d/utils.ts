@@ -1,34 +1,38 @@
-/** Deterministic hash from coordinates — stable across re-renders */
+import { HASH_FACTOR_A, HASH_FACTOR_B, HASH_SCALE } from './config'
+
+const DEFAULT_ZONE_RADIUS = 15
+const MAX_PLACEMENT_ATTEMPTS = 200
+const BASE_PLACEMENT_RADIUS = 8
+const PLACEMENT_RADIUS_STEP = 0.6
+const PLACEMENT_RADIUS_JITTER = 5
+const MIN_SPACING_PADDING = 2
+const ANGLE_HASH_SEED_A = 31
+const ANGLE_HASH_SEED_B = 17
+
 export function hash(x: number, z: number) {
-  const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453
+  const n = Math.sin(x * HASH_FACTOR_A + z * HASH_FACTOR_B) * HASH_SCALE
   return n - Math.floor(n)
 }
 
-/**
- * Place zones with guaranteed minimum spacing but irregular, village-like scatter.
- * Uses deterministic pseudo-random placement with collision avoidance.
- * @param radii - per-zone radius for spacing (uses max of both radii for each pair)
- */
 export function getZonePositions(count: number, radii?: number[]): [number, number][] {
   if (count <= 1) return [[0, 0]]
 
-  const defaultRadius = 15
   const positions: [number, number][] = []
 
   for (let i = 0; i < count; i++) {
-    const myRadius = radii?.[i] ?? defaultRadius
+    const myRadius = radii?.[i] ?? DEFAULT_ZONE_RADIUS
     let placed = false
 
-    for (let attempt = 0; attempt < 200; attempt++) {
-      const angle = hash(i * 31, attempt * 17) * Math.PI * 2
-      const baseRadius = 8 + attempt * 0.6 + hash(i, attempt) * 5
+    for (let attempt = 0; attempt < MAX_PLACEMENT_ATTEMPTS; attempt++) {
+      const angle = hash(i * ANGLE_HASH_SEED_A, attempt * ANGLE_HASH_SEED_B) * Math.PI * 2
+      const baseRadius = BASE_PLACEMENT_RADIUS + attempt * PLACEMENT_RADIUS_STEP + hash(i, attempt) * PLACEMENT_RADIUS_JITTER
       const x = Math.round(Math.cos(angle) * baseRadius)
       const z = Math.round(Math.sin(angle) * baseRadius)
 
       let tooClose = false
       for (let j = 0; j < positions.length; j++) {
-        const otherRadius = radii?.[j] ?? defaultRadius
-        const minDist = (myRadius + otherRadius) / 2 + 2
+        const otherRadius = radii?.[j] ?? DEFAULT_ZONE_RADIUS
+        const minDist = (myRadius + otherRadius) / 2 + MIN_SPACING_PADDING
         const [px, pz] = positions[j]
         const dist = Math.sqrt((x - px) ** 2 + (z - pz) ** 2)
         if (dist < minDist) {
@@ -45,7 +49,7 @@ export function getZonePositions(count: number, radii?: number[]): [number, numb
     }
 
     if (!placed) {
-      positions.push([i * defaultRadius, 0])
+      positions.push([i * DEFAULT_ZONE_RADIUS, 0])
     }
   }
 

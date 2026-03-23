@@ -3,6 +3,36 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
+const XTERM_DARK_THEME = {
+  background: '#1C1917',
+  foreground: '#FAF9F7',
+  cursor: '#9BB89E',
+  selectionBackground: 'rgba(155, 184, 158, 0.3)',
+}
+
+const XTERM_LIGHT_THEME = {
+  background: '#F7F5F2',
+  foreground: '#2C2825',
+  cursor: '#4A7A4E',
+  selectionBackground: 'rgba(74, 122, 78, 0.2)',
+  black: '#2C2825',
+  red: '#C4453C',
+  green: '#3A7A3E',
+  yellow: '#8A6A18',
+  blue: '#3465A4',
+  magenta: '#75507B',
+  cyan: '#1A7A7A',
+  white: '#5C5752',
+  brightBlack: '#7A756F',
+  brightRed: '#A03030',
+  brightGreen: '#2E6A32',
+  brightYellow: '#7A5A08',
+  brightBlue: '#2A5594',
+  brightMagenta: '#65406B',
+  brightCyan: '#0A6A6A',
+  brightWhite: '#2C2825',
+}
+
 interface XtermTerminalProps {
   cwd: string
   onExit?: (code: number) => void
@@ -19,38 +49,22 @@ export const XtermTerminal: FC<XtermTerminalProps> = ({ cwd, onExit }) => {
   useEffect(() => {
     if (!containerRef.current) return
 
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light'
+      || document.documentElement.classList.contains('light')
+
     const styles = getComputedStyle(containerRef.current)
     const bg = styles.getPropertyValue('--ai-surface-0').trim()
-    const isLight = bg.startsWith('#F') || bg.startsWith('#E') || bg.startsWith('#f') || bg.startsWith('#e')
 
     const darkTheme = {
-      background: bg || '#1C1917',
-      foreground: styles.getPropertyValue('--ai-text-primary').trim() || '#FAF9F7',
-      cursor: styles.getPropertyValue('--ai-accent').trim() || '#9BB89E',
-      selectionBackground: 'rgba(155, 184, 158, 0.3)',
+      ...XTERM_DARK_THEME,
+      background: bg || XTERM_DARK_THEME.background,
+      foreground: styles.getPropertyValue('--ai-text-primary').trim() || XTERM_DARK_THEME.foreground,
+      cursor: styles.getPropertyValue('--ai-accent').trim() || XTERM_DARK_THEME.cursor,
     }
 
     const lightTheme = {
-      background: bg || '#F7F5F2',
-      foreground: '#2C2825',
-      cursor: '#4A7A4E',
-      selectionBackground: 'rgba(74, 122, 78, 0.2)',
-      black: '#2C2825',
-      red: '#C4453C',
-      green: '#3A7A3E',
-      yellow: '#8A6A18',
-      blue: '#3465A4',
-      magenta: '#75507B',
-      cyan: '#1A7A7A',
-      white: '#5C5752',
-      brightBlack: '#7A756F',
-      brightRed: '#A03030',
-      brightGreen: '#2E6A32',
-      brightYellow: '#7A5A08',
-      brightBlue: '#2A5594',
-      brightMagenta: '#65406B',
-      brightCyan: '#0A6A6A',
-      brightWhite: '#2C2825',
+      ...XTERM_LIGHT_THEME,
+      background: bg || XTERM_LIGHT_THEME.background,
     }
 
     const term = new Terminal({

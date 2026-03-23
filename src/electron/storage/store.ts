@@ -1,10 +1,12 @@
 import Store from 'electron-store';
+import { GIT_STRATEGY } from '../../shared/constants.js';
 
 type Schema = {
   directories: DirectorySettings[];
   workflows: EnhancedWorkflow[]
   workflowHistory: Record<string, WorkflowExecutionRecord[]>
   archivedMessages: QueueMessageMapByQueue
+  sqlConnections: SQLConnectionConfig[]
   updateNotificationSettings: UpdateNotificationSettings
   waitingMessagesCache: Record<string, {
     createdAt: number,
@@ -50,6 +52,9 @@ type Schema = {
     queryTimeout: number
   }
   mongoRecentDatabases: Record<string, string>
+  // SQL settings
+  sqlHistory: SQLHistoryEntry[]
+  sqlSavedQueries: SQLSavedQuery[]
   // AI Automation settings
   aiTasks: AITask[]
   aiAutomationSettings: AIAutomationSettings
@@ -155,6 +160,7 @@ export const store = new Store<Schema>({
     workflows: [],
     workflowHistory: {},
     archivedMessages: {},
+    sqlConnections: [],
     waitingMessagesCache: {},
     updateNotificationSettings: {
       hasUpdates: false,
@@ -199,11 +205,14 @@ export const store = new Store<Schema>({
       queryTimeout: 30000
     },
     mongoRecentDatabases: {},
+    // SQL defaults
+    sqlHistory: [],
+    sqlSavedQueries: [],
     // AI Automation defaults
     aiTasks: [],
     aiAutomationSettings: {
       maxConcurrency: 1,
-      defaultGitStrategy: 'worktree' as AIGitStrategy,
+      defaultGitStrategy: GIT_STRATEGY.WORKTREE,
       defaultBaseBranch: 'main',
       boards: [{
         id: 'default',
@@ -226,7 +235,7 @@ export const store = new Store<Schema>({
       notifyOnTaskDone: true,
       notifyOnPhaseStart: false
     },
-    aiNotifications: [] as AINotification[]
+    aiNotifications: []
   },
 });
 

@@ -26,7 +26,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/contexts/**/*.{ts,tsx}', 'src/components/ui/**/*.{ts,tsx}'],
+    files: ['**/contexts/**/*.{ts,tsx}', 'src/components/ui/**/*.{ts,tsx}', 'src/ui/components/AppSidebar/CollectionTreeItem.tsx', 'src/ui/components/ai-automation/FileTreeSidebar.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

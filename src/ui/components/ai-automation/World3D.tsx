@@ -2,7 +2,7 @@ import { useState, type FC } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Scene } from './world3d/Scene'
 import { DevScene } from './world3d/DevScene'
-import { SKY_COLOR } from './world3d/types'
+import { WORLD_COLORS } from './world3d/colors'
 import type { Zone, Task3D } from './world3d/types'
 
 export type { Zone, Task3D }
@@ -22,7 +22,7 @@ export const World3D: FC<World3DProps> = ({ zones = DEFAULT_ZONES, tasks, onTask
   const [devMode, setDevMode] = useState(false)
 
   return (
-    <div className="h-full w-full relative" style={{ background: SKY_COLOR }}>
+    <div className="h-full w-full relative" style={{ background: WORLD_COLORS.SKY }}>
       <Canvas
         camera={{
           position: devMode ? [15, 12, 30] : [30, 25, 35],

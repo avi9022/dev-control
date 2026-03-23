@@ -350,8 +350,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiRemoveWorktree: (taskId: string) => ipcInvoke('aiRemoveWorktree', taskId),
   aiGetTaskFiles: (taskId: string) => ipcInvoke('aiGetTaskFiles', taskId),
   aiReadTaskFile: (taskId: string, filename: string) => ipcInvoke('aiReadTaskFile', taskId, filename),
-  aiSendPlannerMessage: (conversation: { role: string; content: string }[], cwd: string) => ipcInvoke('aiSendPlannerMessage', conversation, cwd),
-  aiSavePlannerConversation: (sessionId: string, messages: { role: string; content: string }[], debugEvents: unknown[]) => ipcInvoke('aiSavePlannerConversation', sessionId, messages, debugEvents),
+  aiSendPlannerMessage: (conversation: { role: 'user' | 'assistant'; content: string }[], cwd: string) => ipcInvoke('aiSendPlannerMessage', conversation, cwd),
+  aiSavePlannerConversation: (sessionId: string, messages: { role: 'user' | 'assistant'; content: string }[], debugEvents: { type: string; [key: string]: unknown }[]) => ipcInvoke('aiSavePlannerConversation', sessionId, messages, debugEvents),
   aiGetSettings: () => ipcInvoke('aiGetSettings'),
   aiUpdateSettings: (updates: Partial<AIAutomationSettings>) => ipcInvoke('aiUpdateSettings', updates),
   aiGenerateKnowledgeDoc: (projectPath: string) => ipcInvoke('aiGenerateKnowledgeDoc', projectPath),
@@ -403,7 +403,7 @@ function ipcOn<Key extends keyof EventPayloadMapping>(
   key: Key,
   callback: (payload: EventPayloadMapping[Key]['args'][0]) => void
 ) {
-  const cb = (_: Electron.IpcRendererEvent, payload: any) => callback(payload);
+  const cb = (_: Electron.IpcRendererEvent, payload: EventPayloadMapping[Key]['args'][0]) => callback(payload);
   electron.ipcRenderer.on(key, cb);
   return () => electron.ipcRenderer.off(key, cb);
 }

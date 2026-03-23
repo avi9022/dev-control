@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback, type FC } from 'react'
 import { Bell, CheckCircle, AlertTriangle, UserCheck, Play } from 'lucide-react'
 import { toast } from 'sonner'
 
+const MAX_DISPLAYED_NOTIFICATIONS = 20
+
 interface NotificationBellProps {
   onNavigateToTask: (taskId: string) => void
 }
@@ -62,7 +64,7 @@ export const NotificationBell: FC<NotificationBellProps> = ({ onNavigateToTask }
   useEffect(() => {
     if (!showPanel) return
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (containerRef.current && e.target instanceof Node && !containerRef.current.contains(e.target)) {
         setShowPanel(false)
       }
     }
@@ -90,7 +92,7 @@ export const NotificationBell: FC<NotificationBellProps> = ({ onNavigateToTask }
     setShowPanel(false)
   }, [onNavigateToTask])
 
-  const displayedNotifications = notifications.slice(0, 20)
+  const displayedNotifications = notifications.slice(0, MAX_DISPLAYED_NOTIFICATIONS)
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>

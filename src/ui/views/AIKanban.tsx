@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo, lazy, Suspense, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { TaskCard } from '@/ui/components/ai-automation/TaskCard'
 import { AITaskDetail } from './AITaskDetail'
+import { FIXED_PHASES, PhaseType, DEFAULT_PHASE_COLOR, DEFAULT_BOARD_COLOR } from '@/shared/constants'
+
+const KANBAN_COLUMN_WIDTH = 280
 
 const World3DLazy = lazy(() => import('@/ui/components/ai-automation/World3D').then(m => ({ default: m.World3D })))
 
@@ -31,9 +34,9 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
   const activeBoard = settings?.boards?.find(b => b.id === settings.activeBoardId)
   const pipeline = useMemo(() => activeBoard?.pipeline || [], [activeBoard?.pipeline])
   const columns: { id: string; label: string; type?: string }[] = [
-    { id: 'BACKLOG', label: 'Backlog', type: 'fixed' },
+    { id: FIXED_PHASES.BACKLOG, label: 'Backlog', type: 'fixed' },
     ...pipeline.map(p => ({ id: p.id, label: p.name, type: p.type })),
-    { id: 'DONE', label: 'Done', type: 'fixed' },
+    { id: FIXED_PHASES.DONE, label: 'Done', type: 'fixed' },
   ]
 
   const boardTasks = tasks.filter(t => t.boardId === settings?.activeBoardId)
@@ -60,9 +63,9 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
   }
 
   const zones = useMemo(() => {
-    const backlog = { id: 'BACKLOG', label: 'Backlog', color: '#7C8894' }
+    const backlog = { id: FIXED_PHASES.BACKLOG, label: 'Backlog', color: DEFAULT_PHASE_COLOR }
     const pipelineZones = pipeline.map(p => ({ id: p.id, label: p.name, color: p.color }))
-    const done = { id: 'DONE', label: 'Done', color: '#9BB89E' }
+    const done = { id: FIXED_PHASES.DONE, label: 'Done', color: DEFAULT_BOARD_COLOR }
     return [backlog, ...pipelineZones, done]
   }, [pipeline])
 
@@ -101,12 +104,13 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
         <div className="flex gap-3 h-full min-w-max">
           {columns.map(({ id, label, type }) => {
             const phaseTasks = tasksByPhase(id)
-            const isAgent = type === 'agent'
-            const isManual = type === 'manual'
+            const isAgent = type === PhaseType.Agent
+            const isManual = type === PhaseType.Manual
             return (
               <div
                 key={id}
-                className="w-[280px] flex flex-col ai-column"
+                className="flex flex-col ai-column"
+                style={{ width: KANBAN_COLUMN_WIDTH }}
                 onDragOver={e => e.preventDefault()}
                 onDrop={() => handleDrop(id)}
               >
@@ -138,7 +142,7 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
                         onClick={(t) => onSelectTask(t.id)}
                         onDelete={deleteTask}
                         onRetryPhase={(taskId) => moveTaskPhase(taskId, task.phase)}
-                        onMoveToBacklog={(taskId) => moveTaskPhase(taskId, 'BACKLOG')}
+                        onMoveToBacklog={(taskId) => moveTaskPhase(taskId, FIXED_PHASES.BACKLOG)}
                       />
                     </div>
                   ))}

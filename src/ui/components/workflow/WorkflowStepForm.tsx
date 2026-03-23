@@ -194,7 +194,7 @@ export const WorkflowStepForm: FC<WorkflowStepFormProps> = ({
         <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
           <div>
             <Label className="text-xs mb-1.5">Step Type</Label>
-            <Select value={type} onValueChange={(v) => handleTypeChange(v as WorkflowStepType)}>
+            <Select value={type} onValueChange={(v) => { const valid: WorkflowStepType[] = ['command', 'docker', 'service']; if (valid.includes(v as WorkflowStepType)) handleTypeChange(v as WorkflowStepType) }}>
               <SelectTrigger className="h-8">
                 <SelectValue />
               </SelectTrigger>

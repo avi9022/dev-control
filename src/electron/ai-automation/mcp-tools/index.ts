@@ -1,4 +1,4 @@
-import { type McpToolDefinition } from './types.js'
+import { type McpToolBase } from './types.js'
 import { resolveCommentTool } from './resolve-comment.js'
 import { listCommentsTool } from './list-comments.js'
 import { createTaskTool } from './create-task.js'
@@ -8,14 +8,16 @@ import { readKnowledgeDocTool } from './read-knowledge-doc.js'
 import { listProjectsTool } from './list-projects.js'
 import { listBoardsTool } from './list-boards.js'
 
-// Register all MCP tools here — add new tools to this array
-export const mcpTools: McpToolDefinition[] = [
-  resolveCommentTool,
-  listCommentsTool,
-  createTaskTool,
-  createBoardTool,
-  listKnowledgeDocsTool,
-  readKnowledgeDocTool,
-  listProjectsTool,
-  listBoardsTool,
+// Register all MCP tools here — add new tools to this array.
+// McpToolBase uses Record<string, unknown> for the handler arg, which is the
+// actual runtime type from the MCP SDK. Each tool narrows internally.
+export const mcpTools: McpToolBase[] = [
+  resolveCommentTool as McpToolBase,
+  listCommentsTool as McpToolBase,
+  createTaskTool as McpToolBase,
+  createBoardTool as McpToolBase,
+  listKnowledgeDocsTool as McpToolBase,
+  readKnowledgeDocTool as McpToolBase,
+  listProjectsTool as McpToolBase,
+  listBoardsTool as McpToolBase,
 ]

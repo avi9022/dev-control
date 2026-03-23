@@ -44,7 +44,7 @@ export const stopAllProcesses = (): Promise<void[]> => {
 export const runService = (
   id: string,
   mainWindow: BrowserWindow
-) => {
+): void => {
   if (runningProcesses.has(id)) {
     stopProcess(id)
   }
@@ -88,12 +88,12 @@ export const runService = (
   });
 };
 
-export const stopProcess = (id: string) => {
+export const stopProcess = (id: string): void => {
   const process = runningProcesses.get(id);
 
   if (!process || process.pid === undefined) {
-    console.log('Process not found or has no PID. Attempting to kill port 3000');
     const service = getDirectoryById(id)
+    console.log(`Process not found or has no PID. Attempting to kill port ${service?.port}`);
 
     if (!service || !service.port) {
       console.log('Directory not found');
@@ -102,18 +102,22 @@ export const stopProcess = (id: string) => {
 
     exec(`lsof -ti:${service.port} | xargs kill -9`, (err) => {
       if (err) {
-        console.error('Failed to kill process on port 3000:', err.message || err);
+        console.error(`Failed to kill process on port ${service.port}:`, err.message || err);
       } else {
-        console.log('Process on port 3000 killed successfully');
+        console.log(`Process on port ${service.port} killed successfully`);
       }
     });
     updateDirectoryData(id, { isInitializing: false })
     return;
   }
 
-  treeKill(process.pid, 'SIGKILL', (err) => {
+  treeKill(process.pid, 'SIGTERM', (err) => {
     if (err) {
-      console.error(`Failed to kill process ${id}`, err);
+      // Force kill if SIGTERM fails
+      treeKill(process.pid!, 'SIGKILL', () => {
+        updateDirectoryData(id, { isInitializing: false })
+        runningProcesses.delete(id);
+      });
     } else {
       updateDirectoryData(id, { isInitializing: false })
       runningProcesses.delete(id);

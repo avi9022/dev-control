@@ -28,6 +28,7 @@ import {
   FileWarning,
   Inbox,
 } from 'lucide-react'
+import { formatBytes } from '@/ui/utils/format'
 
 interface IndexListProps {
   database: string
@@ -43,12 +44,6 @@ function formatKeyFields(key: Record<string, unknown>): string {
   return Object.entries(key)
     .map(([field, dir]) => `${field}: ${dir}`)
     .join(', ')
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export const IndexList: FC<IndexListProps> = ({ database, collection }) => {
@@ -253,7 +248,7 @@ export const IndexList: FC<IndexListProps> = ({ database, collection }) => {
                   </td>
                   <td className="py-2 px-3 text-right">
                     <span className="text-xs text-muted-foreground">
-                      {formatSize(idx.size)}
+                      {formatBytes(idx.size)}
                     </span>
                   </td>
                   <td className="py-2 px-3 text-right">
@@ -305,9 +300,10 @@ export const IndexList: FC<IndexListProps> = ({ database, collection }) => {
                   />
                   <Select
                     value={kf.direction}
-                    onValueChange={(val) =>
-                      handleUpdateKeyField(i, { direction: val as IndexKeyField['direction'] })
-                    }
+                    onValueChange={(val) => {
+                      const valid: IndexKeyField['direction'][] = ['1', '-1', 'text', '2dsphere', 'hashed']
+                      if (valid.includes(val as IndexKeyField['direction'])) handleUpdateKeyField(i, { direction: val as IndexKeyField['direction'] })
+                    }}
                   >
                     <SelectTrigger className="w-[100px] h-8 text-sm">
                       <SelectValue />

@@ -2,6 +2,8 @@ import { ChildProcess, spawn } from 'child_process'
 import treeKill from 'tree-kill'
 import os from 'os'
 
+const DEFAULT_COMMAND_TIMEOUT_MS = 60_000
+
 const getUserShell = (): string => {
   return process.env.SHELL || os.userInfo().shell || '/bin/zsh'
 }
@@ -23,7 +25,7 @@ export const runCommand = (
   command: string,
   options: RunCommandOptions = {}
 ): Promise<CommandResult> => {
-  const { cwd, timeoutMs = 60000, signal, onOutput } = options
+  const { cwd, timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS, signal, onOutput } = options
 
   return new Promise((resolve, reject) => {
     const userShell = getUserShell()

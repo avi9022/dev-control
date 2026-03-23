@@ -29,8 +29,12 @@ export const RequestBodyEditor: FC<RequestBodyEditorProps> = ({
   body,
   onChange,
 }) => {
-  const handleTypeChange = (type: string) => {
-    onChange({ ...body, type: type as ApiRequestBody['type'] })
+  const validBodyTypes: string[] = BODY_TYPES.map((bt) => bt.value)
+
+  const handleTypeChange = (type: string): void => {
+    if (validBodyTypes.includes(type)) {
+      onChange({ ...body, type: type as ApiRequestBody['type'] })
+    }
   }
 
   const handleContentChange = (content: string) => {

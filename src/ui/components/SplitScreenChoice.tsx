@@ -1,9 +1,9 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Square, Columns2, Columns3 } from "lucide-react";
-import type { FC } from "react";
+import type { FC, ReactNode } from "react";
 import { useViews } from "../contexts/views";
 
-const mapCountToIcon = {
+const mapCountToIcon: Record<number, ReactNode> = {
   1: <Square className="h-3.5 w-3.5" />,
   2: <Columns2 className="h-3.5 w-3.5" />,
   3: <Columns3 className="h-3.5 w-3.5" />
@@ -18,7 +18,6 @@ export const SplitScreenChoice: FC = () => {
         style={{ color: 'var(--ai-text-secondary)', background: 'var(--ai-surface-2)' }}
         title="Split screen"
       >
-        {/* @ts-expect-error keys stuff */}
         {mapCountToIcon[views.length]}
       </button>
     </DropdownMenuTrigger>

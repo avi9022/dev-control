@@ -41,6 +41,7 @@ import {
   LinkIcon,
   GripVertical,
 } from 'lucide-react'
+import { formatBytes, formatDate } from '@/ui/utils/format'
 
 interface FilesTabProps {
   containerId: string
@@ -86,30 +87,6 @@ function getFileIcon(entry: FileEntry) {
   if (['txt', 'md', 'log', 'sh', 'bash'].includes(ext)) return <FileTextIcon className="h-4 w-4 text-slate-400" />
 
   return <FileIcon className="h-4 w-4 text-slate-500" />
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffHours = diffMs / (1000 * 60 * 60)
-
-  if (diffHours < 1) return 'Just now'
-  if (diffHours < 24) return `${Math.floor(diffHours)}h ago`
-  if (diffHours < 48) return 'Yesterday'
-
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-  })
 }
 
 export const FilesTab: FC<FilesTabProps> = ({ containerId, dockerContext }) => {
@@ -516,7 +493,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId, dockerContext }) => {
                         <span className="shrink-0">{getFileIcon(entry)}</span>
                         <span className="flex-1 truncate font-medium">{entry.name}</span>
                         <span className="text-[10px] text-muted-foreground font-mono opacity-0 group-hover:opacity-100 transition-opacity">
-                          {entry.type === 'directory' ? '' : formatSize(entry.size)}
+                          {entry.type === 'directory' ? '' : formatBytes(entry.size)}
                         </span>
                       </div>
                     </ContextMenuTrigger>
@@ -577,7 +554,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId, dockerContext }) => {
                   <span className="font-semibold truncate">{selectedEntry.name}</span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <div>Size: <span className="text-foreground font-mono">{formatSize(selectedEntry.size)}</span></div>
+                  <div>Size: <span className="text-foreground font-mono">{formatBytes(selectedEntry.size)}</span></div>
                   <div>Modified: <span className="text-foreground">{formatDate(selectedEntry.modifiedAt)}</span></div>
                   <div>Permissions: <span className="text-foreground font-mono">{selectedEntry.permissions}</span></div>
                   <div>Owner: <span className="text-foreground font-mono">{selectedEntry.owner}:{selectedEntry.group}</span></div>
@@ -605,7 +582,7 @@ export const FilesTab: FC<FilesTabProps> = ({ containerId, dockerContext }) => {
                       <>
                         {preview.truncated && (
                           <div className="mb-2 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded text-xs text-amber-600 dark:text-amber-400">
-                            File truncated (showing first {formatSize(preview.content.length)})
+                            File truncated (showing first {formatBytes(preview.content.length)})
                           </div>
                         )}
                         <pre className="text-xs font-mono leading-relaxed whitespace-pre-wrap break-all text-foreground/90 bg-background/50 rounded-lg p-3 border">

@@ -6,7 +6,25 @@ import { getBlockTextures } from './textures'
 
 const EDGE_START = 75
 const MAX_HEIGHT = 25
-const STEP = 2 // each mountain block is 2x2 units
+const STEP = 2
+const WORLD_EXTENT = 99
+const EDGE_OUTER = 100
+const NOISE_SCALE_SMALL = 8
+const NOISE_SCALE_LARGE = 14
+const NOISE_SMALL_WEIGHT = 0.6
+const NOISE_LARGE_WEIGHT = 0.4
+const NOISE_SEED_SMALL = 50
+const NOISE_SEED_LARGE = 100
+const PEAK_NOISE_SCALE = 5
+const PEAK_NOISE_SEED = 300
+const PEAK_NOISE_ANGULAR_SCALE = 1
+const VALLEY_MASK_BASE = 0.3
+const VALLEY_MASK_RANGE = 0.7
+const SURFACE_NOISE_BASE = 0.4
+const SURFACE_NOISE_RANGE = 0.6
+const BLEND_START_HEIGHT = 4
+const BLEND_END_HEIGHT = 12
+const HASH_OFFSET = 999
 
 function smoothNoise(wx: number, wz: number, scale: number, seed: number): number {
   const sx = wx / scale
@@ -32,14 +50,14 @@ function getHeight(wx: number, wz: number): number {
   const distFromCenter = Math.sqrt(wx * wx + wz * wz)
   if (distFromCenter < EDGE_START) return 0
 
-  const edgeFactor = Math.max(0, (distFromCenter - EDGE_START) / (100 - EDGE_START))
-  const surfaceNoise = smoothNoise(wx, wz, 8, 50) * 0.6 + smoothNoise(wx, wz, 14, 100) * 0.4
+  const edgeFactor = Math.max(0, (distFromCenter - EDGE_START) / (EDGE_OUTER - EDGE_START))
+  const surfaceNoise = smoothNoise(wx, wz, NOISE_SCALE_SMALL, NOISE_SEED_SMALL) * NOISE_SMALL_WEIGHT + smoothNoise(wx, wz, NOISE_SCALE_LARGE, NOISE_SEED_LARGE) * NOISE_LARGE_WEIGHT
   const angle = Math.atan2(wz, wx)
-  const peakNoise = smoothNoise(angle * 5, 0, 1, 300)
-  const valleyMask = 0.3 + peakNoise * 0.7
+  const peakNoise = smoothNoise(angle * PEAK_NOISE_SCALE, 0, PEAK_NOISE_ANGULAR_SCALE, PEAK_NOISE_SEED)
+  const valleyMask = VALLEY_MASK_BASE + peakNoise * VALLEY_MASK_RANGE
   const curve = edgeFactor * edgeFactor * edgeFactor
 
-  return Math.round(MAX_HEIGHT * curve * (0.4 + surfaceNoise * 0.6) * valleyMask)
+  return Math.round(MAX_HEIGHT * curve * (SURFACE_NOISE_BASE + surfaceNoise * SURFACE_NOISE_RANGE) * valleyMask)
 }
 
 type LayerType = 'stone' | 'dirt' | 'darkgrass' | 'grass'
@@ -49,8 +67,8 @@ interface BlockPos { x: number; y: number; z: number }
 function generateMountainBlocks(): Record<LayerType, BlockPos[]> {
   const layers: Record<LayerType, BlockPos[]> = { stone: [], dirt: [], darkgrass: [], grass: [] }
 
-  for (let wx = -99; wx <= 99; wx += STEP) {
-    for (let wz = -99; wz <= 99; wz += STEP) {
+  for (let wx = -WORLD_EXTENT; wx <= WORLD_EXTENT; wx += STEP) {
+    for (let wz = -WORLD_EXTENT; wz <= WORLD_EXTENT; wz += STEP) {
       const distFromCenter = Math.sqrt(wx * wx + wz * wz)
       if (distFromCenter < EDGE_START) continue
 
@@ -63,10 +81,8 @@ function generateMountainBlocks(): Record<LayerType, BlockPos[]> {
         const block = { x: wx, y: y + STEP / 2, z: wz }
 
         if (isTop) {
-          const blendStart = 4
-          const blendEnd = 12
-          const blend = Math.max(0, Math.min(1, (height - blendStart) / (blendEnd - blendStart)))
-          const roll = hash(wx + 999, wz + 999)
+          const blend = Math.max(0, Math.min(1, (height - BLEND_START_HEIGHT) / (BLEND_END_HEIGHT - BLEND_START_HEIGHT)))
+          const roll = hash(wx + HASH_OFFSET, wz + HASH_OFFSET)
           if (roll < blend) layers.grass.push(block)
           else layers.darkgrass.push(block)
         } else if (isNearTop) {

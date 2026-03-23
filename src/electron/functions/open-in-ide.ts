@@ -49,7 +49,7 @@ export async function getAvailableIDEs(): Promise<AvailableIDE[]> {
   return results.filter((ide): ide is AvailableIDE => ide !== null);
 }
 
-export function openInIDE(id: string, cliCommand: string) {
+export function openInIDE(id: string, cliCommand: string): void {
   if (!ALLOWED_COMMANDS.has(cliCommand)) {
     return;
   }

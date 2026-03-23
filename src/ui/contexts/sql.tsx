@@ -1,17 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type FC, type PropsWithChildren } from 'react'
 import { useViews } from '@/ui/contexts/views'
 import { toast } from 'sonner'
-
-function createEmptyWorksheetState(): SQLWorksheetState {
-  return {
-    executing: false,
-    lastResult: null,
-    scriptResult: null,
-    explainResult: null,
-    messages: [],
-    dbmsOutput: [],
-  }
-}
+import { useWorksheetManager, defaultWorksheet } from './sql-worksheet'
 
 interface SQLContextValue {
   connections: SQLConnectionConfig[]
@@ -82,15 +72,6 @@ interface SQLContextValue {
   setEditorSql: (sql: string) => void
   patchResultCell: (rowIdx: number, colIdx: number, newValue: unknown) => void
   isWorksheetExecuting: (id: string) => boolean
-}
-
-const defaultWorksheet: SQLWorksheet = {
-  id: crypto.randomUUID(),
-  name: 'Sheet 1',
-  sql: '',
-  connectionId: '',
-  createdAt: Date.now(),
-  updatedAt: Date.now(),
 }
 
 export const SQLContext = createContext<SQLContextValue>({
@@ -180,11 +161,6 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
   const [functions, setFunctions] = useState<SQLFunctionInfo[]>([])
   const [packages, setPackages] = useState<SQLPackageInfo[]>([])
   const [triggersList, setTriggersList] = useState<SQLTriggerInfo[]>([])
-  const [worksheets, setWorksheets] = useState<SQLWorksheet[]>([defaultWorksheet])
-  const [activeWorksheetId, setActiveWorksheetId] = useState<string | null>(defaultWorksheet.id)
-  const [worksheetStates, setWorksheetStates] = useState<Record<string, SQLWorksheetState>>({
-    [defaultWorksheet.id]: createEmptyWorksheetState(),
-  })
   const [queryHistory, setQueryHistory] = useState<SQLHistoryEntry[]>([])
   const [savedQueries, setSavedQueries] = useState<SQLSavedQuery[]>([])
   const [columnMap, setColumnMap] = useState<Record<string, string[]>>({})
@@ -193,10 +169,23 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
 
   const isConnected = connectionState?.status === 'connected'
 
-  // Derive active worksheet state
-  const activeWsState = activeWorksheetId
-    ? worksheetStates[activeWorksheetId] ?? createEmptyWorksheetState()
-    : createEmptyWorksheetState()
+  // Worksheet management via custom hook
+  const {
+    worksheets,
+    setWorksheets,
+    activeWorksheetId,
+    activeWorksheetIdRef,
+    activeWsState,
+    updateWsState,
+    addWorksheet,
+    removeWorksheet,
+    removeOtherWorksheets,
+    removeAllWorksheets,
+    setActiveWorksheet: setActiveWorksheetFn,
+    updateWorksheetSql,
+    renameWorksheet,
+    isWorksheetExecuting,
+  } = useWorksheetManager(activeConnectionId)
 
   const executing = activeWsState.executing
   const lastResult = activeWsState.lastResult
@@ -204,20 +193,6 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
   const explainResult = activeWsState.explainResult
   const messages = activeWsState.messages
   const dbmsOutput = activeWsState.dbmsOutput
-
-  // Per-worksheet state updater
-  const updateWsState = useCallback(
-    (wsId: string, updater: (prev: SQLWorksheetState) => SQLWorksheetState) => {
-      setWorksheetStates((prev) => ({
-        ...prev,
-        [wsId]: updater(prev[wsId] ?? createEmptyWorksheetState()),
-      }))
-    }, []
-  )
-
-  // Ref to track activeWorksheetId in closures
-  const activeWorksheetIdRef = useRef(activeWorksheetId)
-  activeWorksheetIdRef.current = activeWorksheetId
 
   const loadConnections = useCallback(async () => {
     const conns = await window.electron.sqlGetConnections()
@@ -315,7 +290,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
       ...prev,
       messages: [...prev.messages, message],
     }))
-  }, [updateWsState])
+  }, [updateWsState, activeWorksheetIdRef])
 
   const clearMessages = useCallback(() => {
     const wsId = activeWorksheetIdRef.current
@@ -324,7 +299,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
       ...prev,
       messages: [],
     }))
-  }, [updateWsState])
+  }, [updateWsState, activeWorksheetIdRef])
 
   const executeQuery = useCallback(async (sql: string, params?: unknown[]) => {
     const wsId = activeWorksheetIdRef.current
@@ -365,7 +340,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
       // Safety net: ensure executing is always reset even if error propagation fails
       updateWsState(wsId, (prev) => (prev.executing ? { ...prev, executing: false } : prev))
     }
-  }, [updateWsState])
+  }, [updateWsState, activeWorksheetIdRef, setWorksheets])
 
   const executeScript = useCallback(async (sql: string) => {
     const wsId = activeWorksheetIdRef.current
@@ -406,7 +381,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
       }))
       throw err
     }
-  }, [updateWsState])
+  }, [updateWsState, activeWorksheetIdRef, setWorksheets])
 
   const cancelQuery = useCallback(async (queryId: string) => {
     const wsId = activeWorksheetIdRef.current
@@ -423,7 +398,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
         }],
       }))
     }
-  }, [updateWsState])
+  }, [updateWsState, activeWorksheetIdRef])
 
   const explainPlan = useCallback(async (sql: string) => {
     return await window.electron.sqlExplainPlan(sql)
@@ -451,7 +426,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
       }))
       throw err
     }
-  }, [updateWsState])
+  }, [updateWsState, activeWorksheetIdRef])
 
   const enableDbmsOutput = useCallback(async () => {
     await window.electron.sqlEnableDbmsOutput()
@@ -467,7 +442,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
       }))
     }
     return output
-  }, [updateWsState])
+  }, [updateWsState, activeWorksheetIdRef])
 
   const commit = useCallback(async () => {
     await window.electron.sqlExecuteQuery('COMMIT')
@@ -550,103 +525,14 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
     await loadSavedQueries()
   }, [loadSavedQueries])
 
-  const addWorksheet = useCallback(() => {
-    const count = worksheets.length + 1
-    const ws: SQLWorksheet = {
-      id: crypto.randomUUID(),
-      name: `Sheet ${count}`,
-      sql: '',
-      connectionId: activeConnectionId ?? '',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }
-    setWorksheets((prev) => [...prev, ws])
-    setWorksheetStates((prev) => ({
-      ...prev,
-      [ws.id]: createEmptyWorksheetState(),
-    }))
-    setActiveWorksheetId(ws.id)
-  }, [worksheets.length, activeConnectionId])
-
-  const removeWorksheet = useCallback((id: string) => {
-    setWorksheetStates((prev) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [id]: _, ...rest } = prev
-      return rest
-    })
-    setWorksheets((prev) => {
-      const filtered = prev.filter((w) => w.id !== id)
-      if (filtered.length === 0) {
-        const ws: SQLWorksheet = {
-          id: crypto.randomUUID(),
-          name: 'Sheet 1',
-          sql: '',
-          connectionId: activeConnectionId ?? '',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        }
-        setWorksheetStates((prevStates) => ({
-          ...prevStates,
-          [ws.id]: createEmptyWorksheetState(),
-        }))
-        setActiveWorksheetId(ws.id)
-        return [ws]
-      }
-      if (activeWorksheetIdRef.current === id) {
-        setActiveWorksheetId(filtered[0].id)
-      }
-      return filtered
-    })
-  }, [activeConnectionId])
-
-  const removeOtherWorksheets = useCallback((keepId: string) => {
-    setWorksheetStates((prev) => {
-      const next: typeof prev = {}
-      next[keepId] = prev[keepId] ?? createEmptyWorksheetState()
-      return next
-    })
-    setWorksheets((prev) => prev.filter((w) => w.id === keepId))
-    setActiveWorksheetId(keepId)
-  }, [])
-
-  const removeAllWorksheets = useCallback(() => {
-    const ws: SQLWorksheet = {
-      id: crypto.randomUUID(),
-      name: 'Sheet 1',
-      sql: '',
-      connectionId: activeConnectionId ?? '',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }
-    setWorksheetStates({ [ws.id]: createEmptyWorksheetState() })
-    setWorksheets([ws])
-    setActiveWorksheetId(ws.id)
-  }, [activeConnectionId])
-
-  const setActiveWorksheetFn = useCallback((id: string) => {
-    setActiveWorksheetId(id)
-  }, [])
-
-  const updateWorksheetSql = useCallback((id: string, sql: string) => {
-    setWorksheets((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, sql, updatedAt: Date.now() } : w))
-    )
-  }, [])
-
-  const renameWorksheet = useCallback((id: string, name: string) => {
-    setWorksheets((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, name, updatedAt: Date.now() } : w))
-    )
-  }, [])
-
   const setEditorSql = useCallback((sql: string) => {
     if (activeWorksheetId) {
       setWorksheets((prev) =>
         prev.map((w) => (w.id === activeWorksheetId ? { ...w, sql, updatedAt: Date.now() } : w))
       )
     }
-    updateView('sql' as never, null)
-  }, [activeWorksheetId, updateView])
+    updateView('sql', null)
+  }, [activeWorksheetId, updateView, setWorksheets])
 
   const setEditorSqlAndExecute = useCallback((sql: string) => {
     const wsId = activeWorksheetIdRef.current
@@ -685,7 +571,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
         }))
       }
     }, 50)
-  }, [setEditorSql, updateWsState])
+  }, [setEditorSql, updateWsState, activeWorksheetIdRef, setWorksheets])
 
   const patchResultCell = useCallback((rowIdx: number, colIdx: number, newValue: unknown) => {
     const wsId = activeWorksheetIdRef.current
@@ -702,11 +588,7 @@ export const SQLProvider: FC<PropsWithChildren> = ({ children }) => {
         },
       }
     })
-  }, [updateWsState])
-
-  const isWorksheetExecuting = useCallback((id: string) => {
-    return worksheetStates[id]?.executing ?? false
-  }, [worksheetStates])
+  }, [updateWsState, activeWorksheetIdRef])
 
   const connectionsRef = useRef(connections)
   connectionsRef.current = connections

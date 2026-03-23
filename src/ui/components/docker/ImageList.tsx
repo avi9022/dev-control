@@ -21,23 +21,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Download, Trash2, RefreshCw, Search, Eraser } from 'lucide-react'
+import { formatBytes, formatDate } from '@/ui/utils/format'
 
 type SortKey = 'name' | 'size' | 'date'
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
-}
-
-function formatDate(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 function getDisplayTag(image: DockerImage): string {
   if (image.repoTags.length === 0) return '<none>:<none>'
@@ -180,7 +166,7 @@ export const ImageList: FC = () => {
             className="pl-9 h-8"
           />
         </div>
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+        <Select value={sortBy} onValueChange={(v) => { const valid: SortKey[] = ['name', 'size', 'date']; if (valid.includes(v as SortKey)) setSortBy(v as SortKey) }}>
           <SelectTrigger className="w-[100px] h-8">
             <SelectValue />
           </SelectTrigger>
@@ -227,7 +213,7 @@ export const ImageList: FC = () => {
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground">{formatSize(image.size)}</span>
+                <span className="text-xs text-muted-foreground">{formatBytes(image.size)}</span>
                 <span className="text-xs text-muted-foreground">{formatDate(image.created)}</span>
                 <span className="text-xs text-muted-foreground font-mono">{image.id.slice(7, 19)}</span>
                 <span className="text-xs text-blue-400 truncate">{image.dockerContext || ''}</span>

@@ -206,7 +206,7 @@ export const InlineCellEditor: FC<InlineCellEditorProps> = ({
 
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Type</label>
-            <Select value={attrType} onValueChange={(v) => handleTypeChange(v as AttributeType)}>
+            <Select value={attrType} onValueChange={(v) => { const valid = Object.keys(TYPE_LABELS); if (valid.includes(v)) handleTypeChange(v as AttributeType) }}>
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>

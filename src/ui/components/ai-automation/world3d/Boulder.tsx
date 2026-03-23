@@ -2,6 +2,45 @@ import type { FC, JSX } from 'react'
 import { Block } from './blocks'
 import { hash } from './utils'
 
+const SEED_HASH_X = 11
+const SEED_HASH_Z = 17
+const CORNER_SKIP_THRESHOLD = 0.4
+const EDGE_SKIP_THRESHOLD = 0.3
+const TOP_EXTRA_THRESHOLD = 0.5
+const TOP_EXTRA_MEDIUM_THRESHOLD = 0.3
+const TOP_EXTRA_LARGE_THRESHOLD = 0.4
+const NEAR_CORNER_LARGE_THRESHOLD = 0.3
+const OUTER_LARGE_SKIP_THRESHOLD = 0.5
+
+const SMALL_GRID = 3
+const MEDIUM_GRID = 5
+const LARGE_GRID = 7
+
+const HASH_SLOT_SMALL_EXTRA = 10
+const HASH_SLOT_MEDIUM_EXTRA_A = 5
+const HASH_SLOT_MEDIUM_EXTRA_B = 6
+const HASH_SLOT_LARGE_EXTRA_A = 7
+const HASH_SLOT_LARGE_EXTRA_B = 8
+const HASH_SLOT_LARGE_EXTRA_C = 9
+const HASH_OFFSET_MEDIUM = 20
+const HASH_OFFSET_LARGE_NEAR = 30
+const HASH_OFFSET_LARGE_OUTER = 10
+const HASH_OFFSET_LARGE_L2 = 40
+
+const SMALL_CENTER = 1
+const MEDIUM_CENTER = 2
+const MEDIUM_INNER_START = 1
+const MEDIUM_INNER_END = 4
+const LARGE_CENTER = 3
+const LARGE_INNER_START = 1
+const LARGE_INNER_END = 6
+const LARGE_CORE_START = 2
+const LARGE_CORE_END = 5
+
+const LAYER_Y2 = 2
+const LAYER_Y3 = 3
+const LAYER_Y4 = 4
+
 interface BoulderProps {
   position: [number, number, number]
   size?: 'small' | 'medium' | 'large'
@@ -9,7 +48,7 @@ interface BoulderProps {
 
 export const Boulder: FC<BoulderProps> = ({ position, size = 'medium' }) => {
   const [x, y, z] = position
-  const seed = Math.abs(Math.round(x * 11 + z * 17))
+  const seed = Math.abs(Math.round(x * SEED_HASH_X + z * SEED_HASH_Z))
   const blocks: JSX.Element[] = []
   let key = 0
 
@@ -18,72 +57,67 @@ export const Boulder: FC<BoulderProps> = ({ position, size = 'medium' }) => {
   }
 
   if (size === 'small') {
-    // 3x3 base, 2 layers
-    for (let bx = 0; bx < 3; bx++)
-      for (let bz = 0; bz < 3; bz++)
+    for (let bx = 0; bx < SMALL_GRID; bx++)
+      for (let bz = 0; bz < SMALL_GRID; bz++)
         b(bx, 0, bz)
-    for (let bx = 0; bx < 3; bx++)
-      for (let bz = 0; bz < 3; bz++) {
-        if (Math.abs(bx - 1) === 1 && Math.abs(bz - 1) === 1 && hash(seed + bx, bz) < 0.4) continue
+    for (let bx = 0; bx < SMALL_GRID; bx++)
+      for (let bz = 0; bz < SMALL_GRID; bz++) {
+        if (Math.abs(bx - SMALL_CENTER) === 1 && Math.abs(bz - SMALL_CENTER) === 1 && hash(seed + bx, bz) < CORNER_SKIP_THRESHOLD) continue
         b(bx, 1, bz)
       }
-    b(1, 2, 1)
-    if (hash(seed, 10) > 0.5) b(0, 2, 1)
+    b(SMALL_CENTER, LAYER_Y2, SMALL_CENTER)
+    if (hash(seed, HASH_SLOT_SMALL_EXTRA) > TOP_EXTRA_THRESHOLD) b(0, LAYER_Y2, SMALL_CENTER)
 
   } else if (size === 'medium') {
-    // 5x5 base, 4 layers
-    for (let bx = 0; bx < 5; bx++)
-      for (let bz = 0; bz < 5; bz++) {
-        if ((bx === 0 || bx === 4) && (bz === 0 || bz === 4)) continue // round corners
+    const last = MEDIUM_GRID - 1
+    for (let bx = 0; bx < MEDIUM_GRID; bx++)
+      for (let bz = 0; bz < MEDIUM_GRID; bz++) {
+        if ((bx === 0 || bx === last) && (bz === 0 || bz === last)) continue
         b(bx, 0, bz)
       }
-    for (let bx = 0; bx < 5; bx++)
-      for (let bz = 0; bz < 5; bz++) {
-        if ((bx === 0 || bx === 4) && (bz === 0 || bz === 4)) continue
-        if ((bx === 0 || bx === 4 || bz === 0 || bz === 4) && hash(seed + bx, bz + 20) < 0.3) continue
+    for (let bx = 0; bx < MEDIUM_GRID; bx++)
+      for (let bz = 0; bz < MEDIUM_GRID; bz++) {
+        if ((bx === 0 || bx === last) && (bz === 0 || bz === last)) continue
+        if ((bx === 0 || bx === last || bz === 0 || bz === last) && hash(seed + bx, bz + HASH_OFFSET_MEDIUM) < EDGE_SKIP_THRESHOLD) continue
         b(bx, 1, bz)
       }
-    for (let bx = 1; bx < 4; bx++)
-      for (let bz = 1; bz < 4; bz++)
-        b(bx, 2, bz)
-    b(2, 3, 2)
-    if (hash(seed, 5) > 0.3) b(1, 3, 2)
-    if (hash(seed, 6) > 0.3) b(2, 3, 1)
+    for (let bx = MEDIUM_INNER_START; bx < MEDIUM_INNER_END; bx++)
+      for (let bz = MEDIUM_INNER_START; bz < MEDIUM_INNER_END; bz++)
+        b(bx, LAYER_Y2, bz)
+    b(MEDIUM_CENTER, LAYER_Y3, MEDIUM_CENTER)
+    if (hash(seed, HASH_SLOT_MEDIUM_EXTRA_A) > TOP_EXTRA_MEDIUM_THRESHOLD) b(MEDIUM_INNER_START, LAYER_Y3, MEDIUM_CENTER)
+    if (hash(seed, HASH_SLOT_MEDIUM_EXTRA_B) > TOP_EXTRA_MEDIUM_THRESHOLD) b(MEDIUM_CENTER, LAYER_Y3, MEDIUM_INNER_START)
 
   } else {
-    // 7x7 base, 5 layers
-    for (let bx = 0; bx < 7; bx++)
-      for (let bz = 0; bz < 7; bz++) {
-        const corner = (bx === 0 || bx === 6) && (bz === 0 || bz === 6)
-        const nearCorner = (bx <= 1 || bx >= 5) && (bz <= 1 || bz >= 5) && (bx === 0 || bx === 6 || bz === 0 || bz === 6)
+    const last = LARGE_GRID - 1
+    for (let bx = 0; bx < LARGE_GRID; bx++)
+      for (let bz = 0; bz < LARGE_GRID; bz++) {
+        const corner = (bx === 0 || bx === last) && (bz === 0 || bz === last)
+        const nearCorner = (bx <= LARGE_INNER_START || bx >= LARGE_INNER_END) && (bz <= LARGE_INNER_START || bz >= LARGE_INNER_END) && (bx === 0 || bx === last || bz === 0 || bz === last)
         if (corner) continue
-        if (nearCorner && hash(seed + bx, bz + 30) < 0.3) continue
+        if (nearCorner && hash(seed + bx, bz + HASH_OFFSET_LARGE_NEAR) < NEAR_CORNER_LARGE_THRESHOLD) continue
         b(bx, 0, bz)
       }
-    // Layer 2 — 6x6ish
-    for (let bx = 0; bx < 7; bx++)
-      for (let bz = 0; bz < 7; bz++) {
-        if ((bx === 0 || bx === 6) || (bz === 0 || bz === 6)) {
-          if (hash(seed + bx + 10, bz + 10) < 0.5) continue
+    for (let bx = 0; bx < LARGE_GRID; bx++)
+      for (let bz = 0; bz < LARGE_GRID; bz++) {
+        if ((bx === 0 || bx === last) || (bz === 0 || bz === last)) {
+          if (hash(seed + bx + HASH_OFFSET_LARGE_OUTER, bz + HASH_OFFSET_LARGE_OUTER) < OUTER_LARGE_SKIP_THRESHOLD) continue
         }
-        if ((bx === 0 || bx === 6) && (bz === 0 || bz === 6)) continue
+        if ((bx === 0 || bx === last) && (bz === 0 || bz === last)) continue
         b(bx, 1, bz)
       }
-    // Layer 3 — 5x5
-    for (let bx = 1; bx < 6; bx++)
-      for (let bz = 1; bz < 6; bz++) {
-        if ((bx === 1 || bx === 5) && (bz === 1 || bz === 5) && hash(seed + bx, bz + 40) < 0.4) continue
-        b(bx, 2, bz)
+    for (let bx = LARGE_INNER_START; bx < LARGE_INNER_END; bx++)
+      for (let bz = LARGE_INNER_START; bz < LARGE_INNER_END; bz++) {
+        if ((bx === LARGE_INNER_START || bx === LARGE_INNER_END - 1) && (bz === LARGE_INNER_START || bz === LARGE_INNER_END - 1) && hash(seed + bx, bz + HASH_OFFSET_LARGE_L2) < CORNER_SKIP_THRESHOLD) continue
+        b(bx, LAYER_Y2, bz)
       }
-    // Layer 4 — 3x3
-    for (let bx = 2; bx < 5; bx++)
-      for (let bz = 2; bz < 5; bz++)
-        b(bx, 3, bz)
-    // Top
-    b(3, 4, 3)
-    if (hash(seed, 7) > 0.3) b(2, 4, 3)
-    if (hash(seed, 8) > 0.3) b(3, 4, 2)
-    if (hash(seed, 9) > 0.4) b(3, 4, 4)
+    for (let bx = LARGE_CORE_START; bx < LARGE_CORE_END; bx++)
+      for (let bz = LARGE_CORE_START; bz < LARGE_CORE_END; bz++)
+        b(bx, LAYER_Y3, bz)
+    b(LARGE_CENTER, LAYER_Y4, LARGE_CENTER)
+    if (hash(seed, HASH_SLOT_LARGE_EXTRA_A) > TOP_EXTRA_MEDIUM_THRESHOLD) b(LARGE_CORE_START, LAYER_Y4, LARGE_CENTER)
+    if (hash(seed, HASH_SLOT_LARGE_EXTRA_B) > TOP_EXTRA_MEDIUM_THRESHOLD) b(LARGE_CENTER, LAYER_Y4, LARGE_CORE_START)
+    if (hash(seed, HASH_SLOT_LARGE_EXTRA_C) > TOP_EXTRA_LARGE_THRESHOLD) b(LARGE_CENTER, LAYER_Y4, LARGE_CORE_END - 1)
   }
 
   return <group>{blocks}</group>

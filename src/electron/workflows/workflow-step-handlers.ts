@@ -3,6 +3,9 @@ import { runService, stopProcess } from '../functions/run-service.js'
 import { getDirectoryById } from '../storage/get-directory-by-id.js'
 import { dockerManager } from '../docker/docker-manager.js'
 import type { BrowserWindow } from 'electron'
+import { DEFAULT_STEP_TIMEOUT_MS, WORKFLOW_RETRY_DELAY_MS } from '../../shared/constants.js'
+
+const MAX_ERROR_MESSAGE_LENGTH = 500
 
 interface StepHandlerOptions {
   signal: AbortSignal
@@ -24,7 +27,7 @@ export const executeCommandStep = async (
 
   if (result.exitCode !== 0) {
     throw new Error(
-      `Command exited with code ${result.exitCode}: ${result.stderr || result.stdout}`.slice(0, 500)
+      `Command exited with code ${result.exitCode}: ${result.stderr || result.stdout}`.slice(0, MAX_ERROR_MESSAGE_LENGTH)
     )
   }
 }
@@ -67,7 +70,7 @@ export const executeDockerStep = async (
           onOutput?.(`Container ${name} ${action}ed successfully (resolved by name)\n`)
         } catch (nameError) {
           const msg = nameError instanceof Error ? nameError.message : String(nameError)
-          throw new Error(`Failed to ${action} container '${name}': ${msg}`.slice(0, 300))
+          throw new Error(`Failed to ${action} container '${name}': ${msg}`.slice(0, MAX_ERROR_MESSAGE_LENGTH))
         }
       }
     })
@@ -116,7 +119,7 @@ export const executeServiceStep = async (
         if (service.port) {
           const isPortReachable = (await import('is-port-reachable')).default
           const pollStart = Date.now()
-          const pollTimeout = Math.min(step.timeoutMs, 120000)
+          const pollTimeout = Math.min(step.timeoutMs, DEFAULT_STEP_TIMEOUT_MS)
 
           while (Date.now() - pollStart < pollTimeout) {
             if (signal.aborted) throw new Error('Aborted')
@@ -125,7 +128,7 @@ export const executeServiceStep = async (
               onOutput?.(`Service ${service.name} is now running on port ${service.port}\n`)
               return
             }
-            await new Promise((r) => setTimeout(r, 1000))
+            await new Promise((r) => setTimeout(r, WORKFLOW_RETRY_DELAY_MS))
           }
           onOutput?.(`Warning: Service ${service.name} port ${service.port} not reachable within timeout, continuing...\n`)
         }

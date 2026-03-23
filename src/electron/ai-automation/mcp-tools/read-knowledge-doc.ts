@@ -1,7 +1,7 @@
 import { getSettings } from '../task-manager.js'
 import { type McpToolDefinition, textResult, errorResult } from './types.js'
 
-export const readKnowledgeDocTool: McpToolDefinition = {
+export const readKnowledgeDocTool: McpToolDefinition<{ docId: string }> = {
   name: 'read_knowledge_doc',
   description: 'Read the full content of a knowledge document by its ID.',
   inputSchema: {
@@ -12,7 +12,7 @@ export const readKnowledgeDocTool: McpToolDefinition = {
     required: ['docId'],
   },
   async handler(args) {
-    const docId = args.docId as string
+    const { docId } = args
     if (!docId) return errorResult('docId is required')
 
     const settings = getSettings()

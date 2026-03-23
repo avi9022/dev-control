@@ -2,11 +2,13 @@ import { useState, useEffect, type FC } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Activity, Cpu, DollarSign, Clock, Wrench } from 'lucide-react'
 
+const CONTEXT_HIGH_PCT = 80
+const CONTEXT_WARN_PCT = 60
+
 interface AgentStatsModalProps {
   taskId: string
   open: boolean
   onOpenChange: (open: boolean) => void
-  themeClass: string
 }
 
 function formatTokens(n: number): string {
@@ -26,7 +28,7 @@ function formatDuration(startedAt: string): string {
   return `${h}h ${m % 60}m`
 }
 
-export const AgentStatsModal: FC<AgentStatsModalProps> = ({ taskId, open, onOpenChange, themeClass }) => {
+export const AgentStatsModal: FC<AgentStatsModalProps> = ({ taskId, open, onOpenChange }) => {
   const [stats, setStats] = useState<AIAgentStats | null>(null)
 
   // Fetch initial stats on open
@@ -49,11 +51,11 @@ export const AgentStatsModal: FC<AgentStatsModalProps> = ({ taskId, open, onOpen
   // inputTokens now stores total context (input + cache read + cache creation)
   const totalContext = stats ? stats.inputTokens : 0
   const contextPercent = stats ? Math.min(100, Math.round((totalContext / stats.contextWindowMax) * 100)) : 0
-  const barColor = contextPercent > 80 ? 'var(--ai-pink)' : contextPercent > 60 ? 'var(--ai-warning)' : 'var(--ai-success)'
+  const barColor = contextPercent > CONTEXT_HIGH_PCT ? 'var(--ai-pink)' : contextPercent > CONTEXT_WARN_PCT ? 'var(--ai-warning)' : 'var(--ai-success)'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${themeClass} !max-w-[480px]`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
+      <DialogContent className="!max-w-[480px]" style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Activity className="h-4 w-4" style={{ color: 'var(--ai-accent)' }} />

@@ -3,6 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { FileText, MessageSquare, Code, ChevronDown, ChevronRight, Wrench, Bot, User } from 'lucide-react'
+
+const TOOL_INPUT_TRUNCATE_LENGTH = 2000
+const TOOL_RESULT_TRUNCATE_LENGTH = 5000
 import { MarkdownViewer } from './MarkdownViewer'
 import { useSearchOverlay } from './useSearchOverlay'
 import { SearchBar, SearchOverlayLayer } from './SearchOverlay'
@@ -12,7 +15,6 @@ interface ContextHistoryModalProps {
   phaseName: string
   open: boolean
   onOpenChange: (open: boolean) => void
-  themeClass: string
 }
 
 interface ConversationEvent {
@@ -63,7 +65,7 @@ const ToolCallBlock: FC<{ name: string; input?: Record<string, unknown> }> = ({ 
           className="px-3 py-2 text-[11px] font-mono overflow-x-auto border-t"
           style={{ color: 'var(--ai-text-tertiary)', borderColor: 'var(--ai-border-subtle)' }}
         >
-          {truncateText(inputStr, 2000)}
+          {truncateText(inputStr, TOOL_INPUT_TRUNCATE_LENGTH)}
         </pre>
       )}
     </div>
@@ -92,7 +94,7 @@ const ToolResultBlock: FC<{ content: string }> = ({ content }) => {
           className="px-3 py-2 text-[11px] font-mono overflow-x-auto border-t max-h-[300px] overflow-y-auto"
           style={{ color: 'var(--ai-text-tertiary)', borderColor: 'var(--ai-border-subtle)' }}
         >
-          {truncateText(content, 5000)}
+          {truncateText(content, TOOL_RESULT_TRUNCATE_LENGTH)}
         </pre>
       )}
     </div>
@@ -202,7 +204,7 @@ const ChatView: FC<{ events: ConversationEvent[]; searchQuery?: string }> = ({ e
 }
 
 export const ContextHistoryModal: FC<ContextHistoryModalProps> = ({
-  contextHistoryPath, phaseName, open, onOpenChange, themeClass
+  contextHistoryPath, phaseName, open, onOpenChange,
 }) => {
   const [prompt, setPrompt] = useState('')
   const [events, setEvents] = useState<ConversationEvent[]>([])
@@ -231,7 +233,7 @@ export const ContextHistoryModal: FC<ContextHistoryModalProps> = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`${themeClass} !max-w-[95vw] h-[85vh] flex flex-col !p-0`}
+        className="!max-w-[95vw] h-[85vh] flex flex-col !p-0"
         style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}
       >
         <DialogHeader className="px-6 pt-5 pb-0 shrink-0">

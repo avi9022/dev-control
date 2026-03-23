@@ -39,8 +39,7 @@ export const Service: FC<ServiceProps> = ({
     </div>
     <Tabs defaultValue="terminal" className={`w-full`}>
       <TabsList className={`w-full flex gap-2 h-[${tabsListHeight}]`}>
-        <TabsTrigger onChange={(ev) => console.log(ev)
-        } value="terminal">Terminal</TabsTrigger>
+        <TabsTrigger value="terminal">Terminal</TabsTrigger>
         <TabsTrigger value="settings">Settings</TabsTrigger>
       </TabsList>
       <TabsContent value="terminal">

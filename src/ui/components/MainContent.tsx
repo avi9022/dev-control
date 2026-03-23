@@ -141,7 +141,7 @@ export const MainContent: FC<MainContentProps> = ({ selectedTaskId = null, onSel
   return (
     <div className={`flex flex-row w-full h-full ${views.length > 1 ? 'px-3' : ''} gap-2 flex-1`}>
       {views.map(({ type, itemId }, index) => (
-        <div key={`${itemId}-${type}-${index}`} onClick={() => setCurrentViewIndex(index)} className={`relative h-full flex-1 basis-1/${views.length} flex flex-col overflow-hidden ${views.length > 1 ? `border rounded-md ${currentViewIndex === index ? 'border-status-green' : ''}` : 'w-full'}`}>
+        <div key={`${itemId}-${type}-${index}`} onClick={() => setCurrentViewIndex(index)} className={`relative h-full flex-1 flex flex-col overflow-hidden ${views.length > 1 ? `border rounded-md ${currentViewIndex === index ? 'border-status-green' : ''}` : 'w-full'}`} style={{ flexBasis: `${100 / views.length}%` }}>
           {views.length > 1 && <div className="flex-shrink-0 flex justify-between px-5 bg-card rounded-t-md items-center py-2">
             <p className="font-bold">View: {index + 1}</p>
             <Button className="h-5" onClick={(ev) => {

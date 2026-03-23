@@ -1,16 +1,14 @@
-import { spawn, execFileSync } from 'child_process'
+import { spawn } from 'child_process'
+import { getClaudePath } from './claude-path.js'
+import {
+  type ClaudeStreamEvent,
+  isAssistantEvent,
+  isResultEvent,
+  isSystemEvent,
+  isToolUseBlock,
+} from './stream-types.js'
 
-let resolvedClaudePath: string | null = null
-
-function getClaudePath(): string {
-  if (resolvedClaudePath) return resolvedClaudePath
-  try {
-    resolvedClaudePath = execFileSync('which', ['claude'], { encoding: 'utf-8' }).trim()
-  } catch {
-    resolvedClaudePath = 'claude'
-  }
-  return resolvedClaudePath
-}
+const STDERR_TRUNCATE_LENGTH = 500
 
 const KNOWLEDGE_SYSTEM_PROMPT = `You are a codebase analyst. Your job is to explore this project and produce a comprehensive knowledge document in markdown.
 
@@ -33,19 +31,20 @@ Be specific and reference actual file paths. Keep it concise — aim for a docum
 
 Output ONLY the markdown document, no preamble or explanation.`
 
-function formatToolName(event: Record<string, unknown>): string | null {
-  if (event.type === 'assistant') {
-    const content = (event.message as Record<string, unknown>)?.content
-    if (Array.isArray(content)) {
+const COMMAND_PREVIEW_LENGTH = 50
+
+function formatToolName(event: ClaudeStreamEvent): string | null {
+  if (isAssistantEvent(event)) {
+    const content = event.message.content
+    if (content) {
       for (const block of content) {
-        if (block.type === 'tool_use') {
-          const name = block.name as string
-          const input = block.input as Record<string, unknown> | undefined
-          if (name === 'Read' && input?.file_path) return `Reading ${(input.file_path as string).split('/').pop()}`
-          if (name === 'Glob' && input?.pattern) return `Searching ${input.pattern}`
-          if (name === 'Grep' && input?.pattern) return `Grepping "${input.pattern}"`
-          if ((name === 'Bash' || name === 'bash') && input?.command) return `Running ${(input.command as string).slice(0, 50)}`
-          return `Using ${name}`
+        if (isToolUseBlock(block)) {
+          const input = block.input
+          if (block.name === 'Read' && input?.file_path) return `Reading ${input.file_path.split('/').pop()}`
+          if (block.name === 'Glob' && input?.pattern) return `Searching ${input.pattern}`
+          if (block.name === 'Grep' && input?.pattern) return `Grepping "${input.pattern}"`
+          if ((block.name === 'Bash' || block.name === 'bash') && input?.command) return `Running ${input.command.slice(0, COMMAND_PREVIEW_LENGTH)}`
+          return `Using ${block.name}`
         }
       }
     }
@@ -82,17 +81,17 @@ export function generateKnowledgeDoc(projectPath: string, onProgress?: (status: 
     let stdoutBuffer = ''
     let toolCount = 0
 
-    function processEvent(event: Record<string, unknown>) {
-      if (event.type === 'assistant') {
-        const content = (event.message as Record<string, unknown>)?.content
-        if (Array.isArray(content)) {
+    function processEvent(event: ClaudeStreamEvent): void {
+      if (isAssistantEvent(event)) {
+        const content = event.message.content
+        if (content) {
           for (const block of content) {
-            if (block.type === 'text' && block.text) {
+            if (block.type === 'text') {
               fullOutput += block.text
             }
           }
         }
-      } else if (event.type === 'result' && event.result) {
+      } else if (isResultEvent(event) && event.result) {
         fullOutput += event.result
       }
 
@@ -102,7 +101,7 @@ export function generateKnowledgeDoc(projectPath: string, onProgress?: (status: 
         onProgress?.(`${toolStatus} (${toolCount} operations)`)
       }
 
-      if (event.type === 'system' && (event.subtype as string) === 'init') {
+      if (isSystemEvent(event) && event.subtype === 'init') {
         onProgress?.('Exploring codebase...')
       }
     }
@@ -137,7 +136,7 @@ export function generateKnowledgeDoc(projectPath: string, onProgress?: (status: 
       }
 
       if (code !== 0 && !fullOutput.trim()) {
-        reject(new Error(`Claude exited with code ${code}: ${stderrOutput.slice(0, 500)}`))
+        reject(new Error(`Claude exited with code ${code}: ${stderrOutput.slice(0, STDERR_TRUNCATE_LENGTH)}`))
       } else {
         resolve(fullOutput.trim())
       }

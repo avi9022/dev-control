@@ -2,9 +2,14 @@ import { execFileSync } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import { getWorktreesDir } from './task-dir-manager.js'
+import { SHORT_ID_LENGTH } from '../../shared/constants.js'
+
+const GIT_COMMAND_TIMEOUT_MS = 30_000
+const BRANCH_SLUG_MAX_LENGTH = 40
+const MAX_DIFF_FILE_SIZE = 500_000
 
 function git(args: string[], cwd: string): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf-8', timeout: 30000 }).trim()
+  return execFileSync('git', args, { cwd, encoding: 'utf-8', timeout: GIT_COMMAND_TIMEOUT_MS }).trim()
 }
 
 function resolveBaseBranch(projectPath: string, baseBranch?: string): string {
@@ -61,7 +66,7 @@ function ensureBaseBranchUpToDate(projectPath: string, base: string): void {
       // Local branch might not exist or no remote tracking — that's fine
     }
   } catch (err) {
-    console.warn(`[worktree] Could not fetch ${base} from origin (offline or no remote):`, (err as Error).message)
+    console.warn(`[worktree] Could not fetch ${base} from origin (offline or no remote):`, err instanceof Error ? err.message : String(err))
   }
 }
 
@@ -85,7 +90,7 @@ export function createWorktree(taskId: string, projectPath: string, branchName: 
     try {
       git(['worktree', 'add', worktreePath, branchName], projectPath)
     } catch (err) {
-      console.error(`[worktree] Failed to create worktree for ${branchName}:`, err)
+      console.error(`[worktree] Failed to create worktree for ${branchName}:`, err instanceof Error ? err.message : String(err))
       throw err
     }
   }
@@ -99,7 +104,7 @@ export function cleanupWorktree(projectPath: string, worktreePath: string): void
       git(['worktree', 'remove', worktreePath, '--force'], projectPath)
     }
   } catch (err) {
-    console.error(`[worktree] Failed to cleanup worktree ${worktreePath}:`, err)
+    console.error(`[worktree] Failed to cleanup worktree ${worktreePath}:`, err instanceof Error ? err.message : String(err))
     // Try manual removal as fallback
     try {
       fs.rmSync(worktreePath, { recursive: true, force: true })
@@ -155,7 +160,7 @@ export function getDiff(projectPath: string, branchName?: string, baseBranch?: s
         try {
           const filePath = path.join(projectPath, file)
           const stat = fs.statSync(filePath)
-          if (stat.size > 500000) continue // skip large files
+          if (stat.size > MAX_DIFF_FILE_SIZE) continue // skip large files
           const content = fs.readFileSync(filePath, 'utf-8')
           if (content.includes('\0')) continue // skip binary
           allDiff += `\ndiff --git a/${file} b/${file}\nnew file mode 100644\n--- /dev/null\n+++ b/${file}\n`
@@ -179,7 +184,7 @@ export function generateBranchName(taskId: string, taskTitle: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-    .slice(0, 40)
-  const shortId = taskId.slice(0, 8)
+    .slice(0, BRANCH_SLUG_MAX_LENGTH)
+  const shortId = taskId.slice(0, SHORT_ID_LENGTH)
   return `ai/${shortId}-${slug}`
 }

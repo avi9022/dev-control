@@ -1,7 +1,8 @@
 import { getTaskById, updateTask } from '../task-manager.js'
-import { type McpToolDefinition, textResult } from './types.js'
+import { type McpToolDefinition, textResult, errorResult } from './types.js'
+import { RESOLVER } from '../../../shared/constants.js'
 
-export const resolveCommentTool: McpToolDefinition = {
+export const resolveCommentTool: McpToolDefinition<{ taskId: string; commentId: string }> = {
   name: 'resolve_comment',
   description: 'Mark a human review comment as resolved by the agent. Use the comment ID from the prompt.',
   inputSchema: {
@@ -13,25 +14,24 @@ export const resolveCommentTool: McpToolDefinition = {
     required: ['taskId', 'commentId'],
   },
   async handler(args) {
-    const taskId = args.taskId as string
-    const commentId = args.commentId as string
+    const { taskId, commentId } = args
     if (!taskId || !commentId) {
-      return textResult('Error: taskId and commentId are required')
+      return errorResult('taskId and commentId are required')
     }
     const task = getTaskById(taskId)
     if (!task) {
-      return textResult(`Error: Task ${taskId} not found`)
+      return errorResult(`Task ${taskId} not found`)
     }
     const comments = task.humanComments || []
     const comment = comments.find(c => c.id === commentId)
     if (!comment) {
-      return textResult(`Error: Comment ${commentId} not found`)
+      return errorResult(`Comment ${commentId} not found`)
     }
-    if (comment.resolvedBy?.includes('agent')) {
+    if (comment.resolvedBy?.includes(RESOLVER.AGENT)) {
       return textResult('Comment already resolved by agent')
     }
     const updated = comments.map(c =>
-      c.id === commentId ? { ...c, resolvedBy: [...(c.resolvedBy || []), 'agent' as const] } : c
+      c.id === commentId ? { ...c, resolvedBy: [...(c.resolvedBy || []), RESOLVER.AGENT] } : c
     )
     updateTask(taskId, { humanComments: updated })
     return textResult('Comment resolved successfully')

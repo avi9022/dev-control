@@ -88,8 +88,9 @@ function buildSchemaSpec(
   }
 
   if (schemaName) {
+    const schemaObj: Record<string, Record<string, readonly string[]>> = { [schemaName]: tableSpec }
     return {
-      schema: { [schemaName]: tableSpec } as Record<string, Record<string, readonly string[]>>,
+      schema: schemaObj,
       defaultSchema: schemaName,
     }
   }
@@ -207,6 +208,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({
   const onExecuteRef = useRef(onExecute)
   const onExecuteScriptRef = useRef(onExecuteScript)
   const onChangeRef = useRef(onChange)
+  const initialValueRef = useRef(value)
 
   onExecuteRef.current = onExecute
   onExecuteScriptRef.current = onExecuteScript
@@ -247,7 +249,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({
     const { schema, defaultSchema } = buildSchemaSpec(tables, columnMap, selectedSchema)
 
     const state = EditorState.create({
-      doc: value,
+      doc: initialValueRef.current,
       extensions: [
         lineNumbers(),
         highlightActiveLine(),
@@ -285,8 +287,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({
       view.destroy()
       viewRef.current = null
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [tables, columnMap, selectedSchema, executeKeybinding])
 
   // Dynamically update SQL schema + column completions without recreating editor
   useEffect(() => {

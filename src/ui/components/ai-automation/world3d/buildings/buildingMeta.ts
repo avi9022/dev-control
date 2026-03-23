@@ -1,69 +1,96 @@
 import type { BuildingMetadata } from './types'
 
+const COTTAGE_RADIUS = 22
+const COTTAGE_GATHER_X = 0
+const COTTAGE_GATHER_Z = 10
+const COTTAGE_GATHER_SPREAD = 1.5
+const COTTAGE_ENTRY_Z = 7
+const COTTAGE_WORK_READ1_X = -2
+const COTTAGE_WORK_READ1_Z = 4
+const COTTAGE_WORK_CRAFT_X = 2
+const COTTAGE_WORK_CRAFT_Z = 6
+const COTTAGE_WORK_READ2_X = -4
+const COTTAGE_WORK_READ2_Z = -1
+
 export const COTTAGE_META: BuildingMetadata = {
-  radius: 22,
-  gatherPoint: { x: 0, z: 10 },
-  gatherSpread: 1.5,
+  radius: COTTAGE_RADIUS,
+  gatherPoint: { x: COTTAGE_GATHER_X, z: COTTAGE_GATHER_Z },
+  gatherSpread: COTTAGE_GATHER_SPREAD,
   workSpots: [
-    { x: -2, z: 4, type: 'read' },    // bench on porch
-    { x: 2, z: 6, type: 'craft' },    // front yard near gate
-    { x: -4, z: -1, type: 'read' },   // side of house
+    { x: COTTAGE_WORK_READ1_X, z: COTTAGE_WORK_READ1_Z, type: 'read' },
+    { x: COTTAGE_WORK_CRAFT_X, z: COTTAGE_WORK_CRAFT_Z, type: 'craft' },
+    { x: COTTAGE_WORK_READ2_X, z: COTTAGE_WORK_READ2_Z, type: 'read' },
   ],
-  entryPoint: { x: 0, z: 7 },         // front gate
+  entryPoint: { x: COTTAGE_GATHER_X, z: COTTAGE_ENTRY_Z },
   internalPaths: new Map([
-    // spot 0 (porch -2,4) -> spot 1 (yard 2,6): walk out front of porch then right
     ['0-1', [[-2, 6], [2, 6]]],
     ['1-0', [[2, 6], [-2, 6], [-2, 4]]],
-    // spot 0 (porch -2,4) -> spot 2 (side -4,-1): out front, around left
     ['0-2', [[-2, 6], [-5, 6], [-5, -1]]],
     ['2-0', [[-5, -1], [-5, 6], [-2, 6], [-2, 4]]],
-    // spot 1 (yard 2,6) -> spot 2 (side -4,-1): around right side, then back
     ['1-2', [[5, 6], [5, -1], [5, -4], [-5, -4], [-5, -1]]],
     ['2-1', [[-5, -1], [-5, -4], [5, -4], [5, -1], [5, 6], [2, 6]]],
   ]),
 }
 
+const TOWER_RADIUS = 24
+const TOWER_GATHER_X = 0
+const TOWER_GATHER_Z = 12
+const TOWER_GATHER_SPREAD = 1.5
+const TOWER_ENTRY_Z = 8
+const TOWER_WORK_CRAFT_X = -4
+const TOWER_WORK_CRAFT_Z = 2
+const TOWER_WORK_HAMMER_X = 4
+const TOWER_WORK_HAMMER_Z = -1
+const TOWER_WORK_READ_X = 0
+const TOWER_WORK_READ_Z = 7
+
 export const TOWER_META: BuildingMetadata = {
-  radius: 24,
-  gatherPoint: { x: 0, z: 12 },
-  gatherSpread: 1.5,
+  radius: TOWER_RADIUS,
+  gatherPoint: { x: TOWER_GATHER_X, z: TOWER_GATHER_Z },
+  gatherSpread: TOWER_GATHER_SPREAD,
   workSpots: [
-    { x: -4, z: 2, type: 'craft' },    // workstation
-    { x: 4, z: -1, type: 'hammer' },   // near campfire
-    { x: 0, z: 7, type: 'read' },      // outside gate
+    { x: TOWER_WORK_CRAFT_X, z: TOWER_WORK_CRAFT_Z, type: 'craft' },
+    { x: TOWER_WORK_HAMMER_X, z: TOWER_WORK_HAMMER_Z, type: 'hammer' },
+    { x: TOWER_WORK_READ_X, z: TOWER_WORK_READ_Z, type: 'read' },
   ],
-  entryPoint: { x: 0, z: 8 },          // front gate
+  entryPoint: { x: TOWER_GATHER_X, z: TOWER_ENTRY_Z },
   internalPaths: new Map([
-    // spot 0 (workstation -4,2) -> spot 1 (campfire 4,-1): walk around back
     ['0-1', [[-6, 2], [-6, -4], [6, -4], [6, -1], [4, -1]]],
     ['1-0', [[6, -1], [6, -4], [-6, -4], [-6, 2], [-4, 2]]],
-    // spot 0 (workstation) -> spot 2 (gate 0,7): walk around left to front
     ['0-2', [[-6, 2], [-6, 6], [0, 7]]],
     ['2-0', [[-6, 6], [-6, 2], [-4, 2]]],
-    // spot 1 (campfire) -> spot 2 (gate): walk around right to front
     ['1-2', [[6, -1], [6, 6], [0, 7]]],
     ['2-1', [[6, 6], [6, -1], [4, -1]]],
   ]),
 }
 
+const WORKSHOP_RADIUS = 22
+const WORKSHOP_GATHER_X = 0
+const WORKSHOP_GATHER_Z = 12
+const WORKSHOP_GATHER_SPREAD = 1.5
+const WORKSHOP_ENTRY_Z = 8
+const WORKSHOP_WORK_CRAFT_X = 0
+const WORKSHOP_WORK_CRAFT_Z = 6
+const WORKSHOP_WORK_HAMMER1_X = 6
+const WORKSHOP_WORK_HAMMER1_Z = 0
+const WORKSHOP_WORK_HAMMER2_X = -6
+const WORKSHOP_WORK_HAMMER2_Z = 1
+
 export const WORKSHOP_META: BuildingMetadata = {
-  radius: 22,
-  gatherPoint: { x: 0, z: 12 },
-  gatherSpread: 1.5,
+  radius: WORKSHOP_RADIUS,
+  gatherPoint: { x: WORKSHOP_GATHER_X, z: WORKSHOP_GATHER_Z },
+  gatherSpread: WORKSHOP_GATHER_SPREAD,
   workSpots: [
-    { x: 0, z: 6, type: 'craft' },     // work table under awning
-    { x: 6, z: 0, type: 'hammer' },    // next to anvil
-    { x: -6, z: 1, type: 'hammer' },   // next to furnace
+    { x: WORKSHOP_WORK_CRAFT_X, z: WORKSHOP_WORK_CRAFT_Z, type: 'craft' },
+    { x: WORKSHOP_WORK_HAMMER1_X, z: WORKSHOP_WORK_HAMMER1_Z, type: 'hammer' },
+    { x: WORKSHOP_WORK_HAMMER2_X, z: WORKSHOP_WORK_HAMMER2_Z, type: 'hammer' },
   ],
-  entryPoint: { x: 0, z: 8 },          // front of awning
+  entryPoint: { x: WORKSHOP_GATHER_X, z: WORKSHOP_ENTRY_Z },
   internalPaths: new Map([
-    // spot 0 (table 0,6) -> spot 1 (anvil 6,0): walk around right side
     ['0-1', [[5, 6], [7, 4], [7, 0], [6, 0]]],
     ['1-0', [[7, 0], [7, 4], [5, 6], [0, 6]]],
-    // spot 0 (table) -> spot 2 (furnace -6,1): walk around left side
     ['0-2', [[-5, 6], [-7, 4], [-7, 1], [-6, 1]]],
     ['2-0', [[-7, 1], [-7, 4], [-5, 6], [0, 6]]],
-    // spot 1 (anvil) -> spot 2 (furnace): walk around back
     ['1-2', [[7, 0], [7, -4], [-7, -4], [-7, 1], [-6, 1]]],
     ['2-1', [[-7, 1], [-7, -4], [7, -4], [7, 0], [6, 0]]],
   ]),

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Trash2 } from 'lucide-react'
 import { ROLE_DEFINITIONS } from './pipeline-constants'
+import { PhaseType, DEFAULT_PHASE_COLOR } from '@/shared/constants'
 
 const COLOR_SWATCHES = [
   '#6B7FD7', '#4DA870', '#D4A843', '#9B6DC6',
@@ -21,7 +22,6 @@ interface PhaseEditDialogProps {
   onOpenChange: (open: boolean) => void
   onUpdate: (id: string, updates: Partial<AIPipelinePhase>) => void
   onDelete: (id: string) => void
-  themeClass: string
 }
 
 export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
@@ -31,7 +31,6 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
   onOpenChange,
   onUpdate,
   onDelete,
-  themeClass,
 }) => {
   const [localName, setLocalName] = useState('')
   const [localPrompt, setLocalPrompt] = useState('')
@@ -66,7 +65,7 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${themeClass} !max-w-[600px] max-h-[85vh] flex flex-col`} style={{ background: 'var(--ai-surface-1)', border: '1px solid var(--ai-border-subtle)', color: 'var(--ai-text-primary)' }}>
+      <DialogContent className="!max-w-[600px] max-h-[85vh] flex flex-col" style={{ background: 'var(--ai-surface-1)', border: '1px solid var(--ai-border-subtle)', color: 'var(--ai-text-primary)' }}>
         <DialogHeader className="flex flex-row items-center justify-between pr-8">
           <DialogTitle className="text-lg font-semibold" style={{ color: 'var(--ai-text-primary)' }}>
             {phase.name}
@@ -99,13 +98,15 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
           {/* Type */}
           <div>
             <Label style={{ color: 'var(--ai-text-secondary)' }}>Type</Label>
-            <Select value={phase.type} onValueChange={v => onUpdate(phase.id, { type: v as 'agent' | 'manual' })}>
+            <Select value={phase.type} onValueChange={v => {
+              if (v === PhaseType.Agent || v === PhaseType.Manual) onUpdate(phase.id, { type: v })
+            }}>
               <SelectTrigger className="mt-1 w-40" style={{ background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border-subtle)', color: 'var(--ai-text-primary)' }}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="agent">Agent</SelectItem>
-                <SelectItem value="manual">Manual</SelectItem>
+                <SelectItem value={PhaseType.Agent}>Agent</SelectItem>
+                <SelectItem value={PhaseType.Manual}>Manual</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -121,7 +122,7 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
                   className="w-6 h-6 rounded-full transition-all shrink-0"
                   style={{
                     background: color,
-                    outline: (phase.color || '#7C8894') === color ? `2px solid ${color}` : 'none',
+                    outline: (phase.color || DEFAULT_PHASE_COLOR) === color ? `2px solid ${color}` : 'none',
                     outlineOffset: '2px',
                   }}
                 />
@@ -130,7 +131,7 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
           </div>
 
           {/* Agent-only fields */}
-          {phase.type === 'agent' && (
+          {phase.type === PhaseType.Agent && (
             <>
               {/* System Prompt */}
               <div>
@@ -233,7 +234,7 @@ export const PhaseEditDialog: FC<PhaseEditDialogProps> = ({
                   max={30}
                   value={localStallTimeout}
                   onChange={e => setLocalStallTimeout(e.target.value)}
-                  onBlur={() => onUpdate(phase!.id, { stallTimeout: localStallTimeout ? parseInt(localStallTimeout) || undefined : undefined })}
+                  onBlur={() => { if (phase) onUpdate(phase.id, { stallTimeout: localStallTimeout ? parseInt(localStallTimeout) || undefined : undefined }) }}
                   placeholder="Use global default"
                   className="w-32 mt-1"
                 />

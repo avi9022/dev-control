@@ -1,5 +1,5 @@
 import type { BrokerClient, BrokerConfig, BrokerConnectionState } from "../types.js"
-import { store } from "../../storage/store.js"
+import { archiveMessage, getArchivedMessages } from "../message-archive.js"
 
 export class RabbitMQClient implements BrokerClient {
   readonly type = 'rabbitmq' as const
@@ -206,24 +206,11 @@ export class RabbitMQClient implements BrokerClient {
       })
 
       if (response.ok) {
-        this.archiveMessage(queueUrl, message)
+        archiveMessage(queueUrl, message)
       }
     } catch (error) {
       console.error("RabbitMQ: Failed to send message:", error)
     }
-  }
-
-  private archiveMessage(queueUrl: string, message: string): void {
-    const archived = store.get('archivedMessages') || {}
-    const queueMessages = archived[queueUrl] || []
-    const newMessage: QueueMessage = {
-      id: crypto.randomUUID(),
-      queueUrl,
-      createdAt: Date.now(),
-      message
-    }
-    archived[queueUrl] = [newMessage, ...queueMessages].slice(0, 5)
-    store.set('archivedMessages', archived)
   }
 
   async getQueueData(queueUrl: string): Promise<QueueData> {
@@ -237,7 +224,7 @@ export class RabbitMQClient implements BrokerClient {
     return {
       queueAttributes: this.mapToSQSAttributes(queueInfo),
       waitingMessages,
-      lastFiveMessages: this.getArchivedMessages(queueUrl)
+      lastFiveMessages: getArchivedMessages(queueUrl)
     }
   }
 
@@ -290,10 +277,5 @@ export class RabbitMQClient implements BrokerClient {
       console.error("RabbitMQ: Failed to get waiting messages:", error)
       return []
     }
-  }
-
-  private getArchivedMessages(queueUrl: string): QueueMessage[] {
-    const archived = store.get('archivedMessages') || {}
-    return archived[queueUrl] || []
   }
 }

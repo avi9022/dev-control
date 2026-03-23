@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MentionEditor, type MentionEditorHandle } from './MentionEditor'
 import { Send, FolderOpen, X, GitBranch, Eye, Lock } from 'lucide-react'
+import { FIXED_PHASES, GIT_STRATEGY } from '@/shared/constants'
 
 interface AmendmentFormProps {
   pipeline: AIPipelinePhase[]
@@ -28,7 +29,7 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
   const [taggedProjects, setTaggedProjects] = useState<DirectorySettings[]>([])
   const [projectConfigs, setProjectConfigs] = useState<Record<string, { gitStrategy: AIGitStrategy; branchName: string; baseBranch: string }>>({})
 
-  const phases = pipeline.filter(p => p.id !== 'BACKLOG' && p.id !== 'DONE')
+  const phases = pipeline.filter(p => p.id !== FIXED_PHASES.BACKLOG && p.id !== FIXED_PHASES.DONE)
   const worktreePaths = new Set(existingWorktrees.map(w => w.projectPath))
 
   const handleProjectTagged = (dir: DirectorySettings) => {
@@ -39,7 +40,7 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
       setProjectConfigs(prev => ({
         ...prev,
         [dir.id]: {
-          gitStrategy: defaultGitStrategy === 'none' ? 'none' : 'worktree',
+          gitStrategy: defaultGitStrategy === GIT_STRATEGY.NONE ? GIT_STRATEGY.NONE : GIT_STRATEGY.WORKTREE,
           branchName: '',
           baseBranch: defaultBaseBranch ?? 'main'
         }
@@ -74,12 +75,12 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
       const newProjects: AITaskProject[] = taggedProjects
         .filter(p => !worktreePaths.has(p.path))
         .map(p => {
-          const config = projectConfigs[p.id] || { gitStrategy: 'worktree', branchName: '', baseBranch: 'main' }
+          const config = projectConfigs[p.id] || { gitStrategy: GIT_STRATEGY.WORKTREE, branchName: '', baseBranch: 'main' }
           return {
             path: p.path,
             label: p.customLabel || p.name,
             gitStrategy: config.gitStrategy,
-            ...(config.gitStrategy === 'worktree' ? {
+            ...(config.gitStrategy === GIT_STRATEGY.WORKTREE ? {
               baseBranch: config.baseBranch.trim() || 'main',
               customBranchName: config.branchName.trim() || undefined
             } : {})
@@ -148,11 +149,11 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
                       <span
                         className="text-[10px] px-1.5 py-0.5 rounded"
                         style={{
-                          background: existingProject.gitStrategy === 'worktree' ? 'var(--ai-accent-subtle)' : 'var(--ai-surface-3)',
-                          color: existingProject.gitStrategy === 'worktree' ? 'var(--ai-accent)' : 'var(--ai-text-tertiary)',
+                          background: existingProject.gitStrategy === GIT_STRATEGY.WORKTREE ? 'var(--ai-accent-subtle)' : 'var(--ai-surface-3)',
+                          color: existingProject.gitStrategy === GIT_STRATEGY.WORKTREE ? 'var(--ai-accent)' : 'var(--ai-text-tertiary)',
                         }}
                       >
-                        {existingProject.gitStrategy === 'worktree' ? 'worktree' : 'read only'}
+                        {existingProject.gitStrategy === GIT_STRATEGY.WORKTREE ? 'worktree' : 'read only'}
                       </span>
                       {existingProject.baseBranch && (
                         <span className="text-[10px]" style={{ color: 'var(--ai-text-tertiary)' }}>
@@ -168,7 +169,7 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
               }
 
               // New project — editable config
-              const config = projectConfigs[p.id] || { gitStrategy: 'worktree', branchName: '', baseBranch: 'main' }
+              const config = projectConfigs[p.id] || { gitStrategy: GIT_STRATEGY.WORKTREE, branchName: '', baseBranch: 'main' }
               return (
                 <div key={p.id} className="rounded-md border p-2.5" style={{ borderColor: 'var(--ai-border-subtle)', background: 'var(--ai-surface-2)' }}>
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -187,21 +188,23 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
                     <div className="flex items-end gap-2">
                       <div className="flex-shrink-0">
                         <span className="text-[10px] font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>Strategy</span>
-                        <Select value={config.gitStrategy} onValueChange={v => updateProjectConfig(p.id, { gitStrategy: v as AIGitStrategy })}>
+                        <Select value={config.gitStrategy} onValueChange={v => {
+                          if (v === GIT_STRATEGY.WORKTREE || v === GIT_STRATEGY.NONE) updateProjectConfig(p.id, { gitStrategy: v })
+                        }}>
                           <SelectTrigger className="h-7 w-[130px] text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="worktree">
+                            <SelectItem value={GIT_STRATEGY.WORKTREE}>
                               <span className="flex items-center gap-1"><GitBranch className="h-3 w-3" /> Worktree</span>
                             </SelectItem>
-                            <SelectItem value="none">
+                            <SelectItem value={GIT_STRATEGY.NONE}>
                               <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> Read Only</span>
                             </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      {config.gitStrategy === 'worktree' && (
+                      {config.gitStrategy === GIT_STRATEGY.WORKTREE && (
                         <div className="flex-1 min-w-0">
                           <span className="text-[10px] font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>Base Branch</span>
                           <Input
@@ -212,11 +215,11 @@ export const AmendmentForm: FC<AmendmentFormProps> = ({
                           />
                         </div>
                       )}
-                      {config.gitStrategy === 'none' && (
+                      {config.gitStrategy === GIT_STRATEGY.NONE && (
                         <span className="text-[11px] italic" style={{ color: 'var(--ai-text-tertiary)' }}>Agent can read but not modify this project</span>
                       )}
                     </div>
-                    {config.gitStrategy === 'worktree' && (
+                    {config.gitStrategy === GIT_STRATEGY.WORKTREE && (
                       <div>
                         <span className="text-[10px] font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>Branch Name</span>
                         <Input

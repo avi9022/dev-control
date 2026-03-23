@@ -330,7 +330,7 @@ export const QueryBuilder: FC<QueryBuilderProps> = ({
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{currentIndex.skName}</Label>
                 <div className="flex items-center gap-2">
-                  <Select value={skOperator} onValueChange={(v) => setSkOperator(v as DynamoDBSKOperator)}>
+                  <Select value={skOperator} onValueChange={(v) => { const valid = SK_OPERATORS.map((o) => o.value); if (valid.includes(v as DynamoDBSKOperator)) setSkOperator(v as DynamoDBSKOperator) }}>
                     <SelectTrigger className="h-8 w-[140px] text-xs">
                       <SelectValue />
                     </SelectTrigger>

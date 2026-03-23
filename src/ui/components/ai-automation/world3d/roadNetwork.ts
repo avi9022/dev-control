@@ -1,32 +1,28 @@
 import { hash } from './utils'
 import type { BuildingMetadata } from './buildings/types'
+import { ROAD_PATH_MID, WAYPOINT_SPACING, MIN_WAYPOINTS, CURVE_AMPLITUDE, CURVE_FALLOFF } from './config'
 
 export interface RoadNode {
   x: number
   z: number
-  /** Which building this node belongs to (-1 for road waypoints) */
   buildingIndex: number
 }
 
 export interface RoadNetwork {
   nodes: RoadNode[]
-  /** Adjacency list — edges[i] = list of node indices connected to node i */
   edges: number[][]
-  /** Precomputed routes: key = "fromBuilding-toBuilding", value = array of [x,z] waypoints */
   routes: Map<string, [number, number][]>
 }
 
-/** Sample waypoints along the curved path between two points (same curve as Path.tsx) */
 function samplePathWaypoints(from: [number, number], to: [number, number], count: number): [number, number][] {
   const [x1, z1] = from
   const [x2, z2] = to
   const points: [number, number][] = []
-  const curve = (hash(Math.round(x1), Math.round(z1)) - 0.5) * 2
+  const curve = (hash(Math.round(x1), Math.round(z1)) - ROAD_PATH_MID) * CURVE_AMPLITUDE
 
   for (let i = 1; i < count; i++) {
     const t = i / count
-    const mid = 0.5
-    const cx = Math.sin(t * Math.PI) * curve * (1 - Math.abs(t - mid) * 2)
+    const cx = Math.sin(t * Math.PI) * curve * (1 - Math.abs(t - ROAD_PATH_MID) * CURVE_FALLOFF)
     const x = x1 + (x2 - x1) * t + cx
     const z = z1 + (z2 - z1) * t
     points.push([x, z])
@@ -35,14 +31,15 @@ function samplePathWaypoints(from: [number, number], to: [number, number], count
   return points
 }
 
-/** Find shortest path between two nodes using BFS */
 function bfs(edges: number[][], from: number, to: number): number[] {
   if (from === to) return [from]
   const visited = new Set<number>([from])
   const queue: { node: number; path: number[] }[] = [{ node: from, path: [from] }]
 
   while (queue.length > 0) {
-    const { node, path } = queue.shift()!
+    const current = queue.shift()
+    if (!current) break
+    const { node, path } = current
     for (const neighbor of edges[node]) {
       if (visited.has(neighbor)) continue
       const newPath = [...path, neighbor]
@@ -52,14 +49,9 @@ function bfs(edges: number[][], from: number, to: number): number[] {
     }
   }
 
-  // No path found — return direct
   return [from, to]
 }
 
-/**
- * Build the road network from building positions and metadata.
- * The path connections follow the same order as the zones (zone 0→1, 1→2, etc.)
- */
 export function buildRoadNetwork(
   buildingPositions: [number, number][],
   buildingMetas: BuildingMetadata[],
@@ -67,7 +59,6 @@ export function buildRoadNetwork(
   const nodes: RoadNode[] = []
   const edges: number[][] = []
 
-  // Add entry point nodes for each building
   const entryNodeIndices: number[] = []
   for (let i = 0; i < buildingPositions.length; i++) {
     const [bx, bz] = buildingPositions[i]
@@ -78,25 +69,21 @@ export function buildRoadNetwork(
     entryNodeIndices.push(nodeIndex)
   }
 
-  // Add road waypoints between consecutive buildings
   for (let i = 0; i < buildingPositions.length - 1; i++) {
     const fromEntry = entryNodeIndices[i]
     const toEntry = entryNodeIndices[i + 1]
     const from: [number, number] = [nodes[fromEntry].x, nodes[fromEntry].z]
     const to: [number, number] = [nodes[toEntry].x, nodes[toEntry].z]
 
-    // Sample waypoints along the path
     const dist = Math.sqrt((to[0] - from[0]) ** 2 + (to[1] - from[1]) ** 2)
-    const waypointCount = Math.max(2, Math.floor(dist / 5))
+    const waypointCount = Math.max(MIN_WAYPOINTS, Math.floor(dist / WAYPOINT_SPACING))
     const waypoints = samplePathWaypoints(from, to, waypointCount)
 
-    // Chain: fromEntry → wp0 → wp1 → ... → toEntry
     let prevNode = fromEntry
     for (const [wx, wz] of waypoints) {
       const wpIndex = nodes.length
       nodes.push({ x: wx, z: wz, buildingIndex: -1 })
       edges.push([])
-      // Connect both directions
       edges[prevNode].push(wpIndex)
       edges[wpIndex].push(prevNode)
       prevNode = wpIndex
@@ -105,7 +92,6 @@ export function buildRoadNetwork(
     edges[toEntry].push(prevNode)
   }
 
-  // Precompute routes between all pairs of buildings
   const routes = new Map<string, [number, number][]>()
   for (let i = 0; i < buildingPositions.length; i++) {
     for (let j = 0; j < buildingPositions.length; j++) {
@@ -119,10 +105,6 @@ export function buildRoadNetwork(
   return { nodes, edges, routes }
 }
 
-/**
- * Get the full route for a character moving between buildings.
- * Returns array of [x, z] waypoints including entry/exit from work spots.
- */
 export function getRoute(
   network: RoadNetwork,
   fromBuildingIndex: number,
@@ -131,7 +113,6 @@ export function getRoute(
   toSpot: [number, number],
 ): [number, number][] {
   if (fromBuildingIndex === toBuildingIndex) {
-    // Same building — walk directly
     return [fromSpot, toSpot]
   }
 
@@ -140,6 +121,5 @@ export function getRoute(
     return [fromSpot, toSpot]
   }
 
-  // fromSpot → entry → road waypoints → entry → toSpot
   return [fromSpot, ...roadRoute, toSpot]
 }

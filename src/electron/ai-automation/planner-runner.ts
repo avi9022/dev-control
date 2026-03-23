@@ -1,30 +1,53 @@
-import { spawn } from 'child_process'
+import { type ChildProcess, spawn } from 'child_process'
 import { BrowserWindow, app } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import treeKill from 'tree-kill'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 import { PLANNER_SYSTEM_PROMPT } from './planner-prompt.js'
 import { getMcpPort } from './mcp-server.js'
+import { mcpTools } from './mcp-tools/index.js'
+import { getClaudePath } from './claude-path.js'
+
+const HUMAN_ROLE_PREFIX = 'Human: '
+const ASSISTANT_ROLE_PREFIX = 'Assistant: '
+const ASSISTANT_SUFFIX = '\n\nAssistant:'
+const MCP_SERVER_NAME = 'devcontrol'
 
 let mainWindow: BrowserWindow | null = null
 
-export function setPlannerMainWindow(window: BrowserWindow) {
-  mainWindow = window
-}
+/** Active planner processes keyed by a unique call ID */
+const activePlannerProcesses = new Map<string, ChildProcess>()
 
-interface ChatMessage {
+export interface PlannerChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
 
-function getClaudePath(): string {
-  const paths = ['/usr/local/bin/claude', '/opt/homebrew/bin/claude']
-  for (const p of paths) {
-    try {
-      if (fs.existsSync(p)) return p
-    } catch { /* ignore */ }
-  }
-  return 'claude'
+export interface PlannerDebugEvent {
+  type: string
+  [key: string]: unknown
+}
+
+interface PlannerStreamAssistantBlock {
+  type: 'text'
+  text: string
+}
+
+interface PlannerStreamAssistantEvent {
+  type: 'assistant'
+  message?: { content?: PlannerStreamAssistantBlock[] }
+}
+
+interface PlannerStreamDeltaEvent {
+  type: 'content_block_delta'
+  delta?: { text?: string }
+}
+
+type PlannerStreamEvent = PlannerStreamAssistantEvent | PlannerStreamDeltaEvent | PlannerDebugEvent
+
+export function setPlannerMainWindow(window: BrowserWindow): void {
+  mainWindow = window
 }
 
 function getMcpConfigPath(): string | null {
@@ -34,7 +57,7 @@ function getMcpConfigPath(): string | null {
   const configPath = path.join(app.getPath('userData'), 'planner-mcp-config.json')
   fs.writeFileSync(configPath, JSON.stringify({
     mcpServers: {
-      devcontrol: {
+      [MCP_SERVER_NAME]: {
         type: 'http',
         url: `http://127.0.0.1:${port}/mcp`,
       }
@@ -44,19 +67,42 @@ function getMcpConfigPath(): string | null {
 }
 
 /**
+ * Kill a planner process by its call ID.
+ */
+export function killPlannerProcess(callId: string): void {
+  const child = activePlannerProcesses.get(callId)
+  if (!child || !child.pid) return
+  treeKill(child.pid, 'SIGTERM', (err) => {
+    if (err && child.pid) {
+      treeKill(child.pid, 'SIGKILL')
+    }
+  })
+  activePlannerProcesses.delete(callId)
+}
+
+/**
+ * Kill all active planner processes. Called on app quit.
+ */
+export function killAllPlannerProcesses(): void {
+  for (const [callId] of activePlannerProcesses) {
+    killPlannerProcess(callId)
+  }
+}
+
+/**
  * Send a message to the planner agent and get a streamed response.
  * Each call includes the full conversation history.
  */
 export async function sendPlannerMessage(
-  conversation: ChatMessage[],
+  conversation: PlannerChatMessage[],
   cwd: string,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const conversationText = conversation.map(msg =>
-      msg.role === 'user' ? `Human: ${msg.content}` : `Assistant: ${msg.content}`
+      msg.role === 'user' ? `${HUMAN_ROLE_PREFIX}${msg.content}` : `${ASSISTANT_ROLE_PREFIX}${msg.content}`
     ).join('\n\n')
 
-    const fullPrompt = `${conversationText}\n\nAssistant:`
+    const fullPrompt = `${conversationText}${ASSISTANT_SUFFIX}`
 
     const args = [
       '--print',
@@ -69,15 +115,18 @@ export async function sendPlannerMessage(
     const mcpConfig = getMcpConfigPath()
     if (mcpConfig) {
       args.push('--mcp-config', mcpConfig)
-      args.push('--allowedTools', 'mcp__devcontrol__create_task,mcp__devcontrol__create_board,mcp__devcontrol__list_boards,mcp__devcontrol__list_knowledge_docs,mcp__devcontrol__read_knowledge_doc,mcp__devcontrol__list_projects,mcp__devcontrol__list_comments,mcp__devcontrol__resolve_comment')
+      const allowedTools = mcpTools.map(t => `mcp__${MCP_SERVER_NAME}__${t.name}`).join(',')
+      args.push('--allowedTools', allowedTools)
     }
 
     const claudePath = getClaudePath()
     const child = spawn(claudePath, args, {
       cwd,
-      env: { ...process.env },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
+
+    const callId = `planner-${Date.now()}`
+    activePlannerProcesses.set(callId, child)
 
     let assistantText = ''
     let error = ''
@@ -92,7 +141,7 @@ export async function sendPlannerMessage(
       for (const line of lines) {
         if (!line.trim()) continue
         try {
-          const event = JSON.parse(line)
+          const event: PlannerStreamEvent = JSON.parse(line)
 
           // Send all events to debug panel
           if (mainWindow && !mainWindow.isDestroyed()) {
@@ -100,22 +149,28 @@ export async function sendPlannerMessage(
           }
 
           // Extract assistant text for the chat
-          if (event.type === 'assistant' && event.message?.content) {
-            for (const block of event.message.content) {
-              if (block.type === 'text') {
-                assistantText = block.text
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                  ipcWebContentsSend('aiPlannerChunk', mainWindow.webContents, block.text)
+          if (event.type === 'assistant') {
+            const assistantEvent = event as PlannerStreamAssistantEvent
+            if (assistantEvent.message?.content) {
+              for (const block of assistantEvent.message.content) {
+                if (block.type === 'text') {
+                  assistantText = block.text
+                  if (mainWindow && !mainWindow.isDestroyed()) {
+                    ipcWebContentsSend('aiPlannerChunk', mainWindow.webContents, block.text)
+                  }
                 }
               }
             }
           }
 
           // Content block delta — streaming text
-          if (event.type === 'content_block_delta' && event.delta?.text) {
-            assistantText += event.delta.text
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              ipcWebContentsSend('aiPlannerChunk', mainWindow.webContents, event.delta.text)
+          if (event.type === 'content_block_delta') {
+            const deltaEvent = event as PlannerStreamDeltaEvent
+            if (deltaEvent.delta?.text) {
+              assistantText += deltaEvent.delta.text
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                ipcWebContentsSend('aiPlannerChunk', mainWindow.webContents, deltaEvent.delta.text)
+              }
             }
           }
         } catch {
@@ -133,6 +188,7 @@ export async function sendPlannerMessage(
     })
 
     child.on('close', (code) => {
+      activePlannerProcesses.delete(callId)
       if (code === 0 || assistantText.length > 0) {
         resolve(assistantText.trim())
       } else {
@@ -141,6 +197,7 @@ export async function sendPlannerMessage(
     })
 
     child.on('error', (err) => {
+      activePlannerProcesses.delete(callId)
       reject(err)
     })
   })

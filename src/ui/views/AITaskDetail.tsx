@@ -7,6 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Pencil, FilePlus, TerminalSquare, ChevronDown, Cpu, FileText, AlertTriangle } from 'lucide-react'
+import { FIXED_PHASES, PhaseType, PhaseExitEvent, AttentionReason, SHORT_ID_LENGTH } from '@/shared/constants'
+
+const CONTEXT_HIGH_PCT = 80
+const CONTEXT_WARN_PCT = 60
 import { AgentStatsModal } from '@/ui/components/ai-automation/AgentStatsModal'
 import { ContextHistoryModal } from '@/ui/components/ai-automation/ContextHistoryModal'
 import { XtermTerminal } from '@/ui/components/ai-automation/XtermTerminal'
@@ -27,7 +31,6 @@ interface AITaskDetailProps {
 
 export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTask }) => {
   const { tasks, stopTask, moveTaskPhase, updateTask, settings, updateSettings } = useAIAutomation()
-  const themeClass = ''
   const task = tasks.find(t => t.id === taskId)
   const [reviewComments, setReviewCommentsLocal] = useState<AIHumanComment[]>([])
 
@@ -47,8 +50,8 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
   const taskBoard = settings?.boards?.find(b => b.id === task?.boardId)
   const pipeline = taskBoard?.pipeline || []
   const currentPhaseConfig = pipeline.find(p => p.id === task?.phase)
-  const isManualPhase = currentPhaseConfig?.type === 'manual'
-  const canEdit = task?.phase === 'BACKLOG'
+  const isManualPhase = currentPhaseConfig?.type === PhaseType.Manual
+  const canEdit = task?.phase === FIXED_PHASES.BACKLOG
 
   const startEditing = () => {
     if (!task) return
@@ -59,7 +62,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
     const labels = new Set((task.projects || []).map(p => p.label))
     const taskMap = new Map<string, string>()
     for (const t of tasks) {
-      if (t.id !== task.id) taskMap.set(t.id.slice(0, 8), t.title)
+      if (t.id !== task.id) taskMap.set(t.id.slice(0, SHORT_ID_LENGTH), t.title)
     }
     setTimeout(() => {
       editDescRef.current?.hydrateText(task.description, labels, taskMap)
@@ -68,7 +71,8 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
 
   const saveEdit = async () => {
     const description = editDescRef.current?.getPlainText().trim() || ''
-    await updateTask(task!.id, {
+    if (!task) return
+    await updateTask(task.id, {
       title: editTitle.trim(),
       description,
       projects: editProjects
@@ -175,7 +179,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
     if (reviewComments.length > 0) {
       await updateTask(task.id, { humanComments: reviewComments })
     }
-    const phase = targetPhase || settings?.defaultApprovePhase || 'DONE'
+    const phase = targetPhase || settings?.defaultApprovePhase || FIXED_PHASES.DONE
     await moveTaskPhase(task.id, phase)
     setShowApproveTarget(false)
   }
@@ -221,7 +225,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
                 style={{ color: 'var(--ai-text-tertiary)', opacity: 0.7 }}
                 title="Click to copy task ID"
               >
-                {task.id.slice(0, 8)}
+                {task.id.slice(0, SHORT_ID_LENGTH)}
               </button>
               <button
                 onClick={() => window.electron.aiOpenTaskDir(task.id)}
@@ -251,7 +255,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
                 <FilePlus className="h-3 w-3 mr-1" /> Amend
               </Button>
             </DialogTrigger>
-            <DialogContent className={`${themeClass} !max-w-[95vw] h-[85vh] flex flex-col`} style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
+            <DialogContent className="!max-w-[95vw] h-[85vh] flex flex-col" style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}>
               <DialogHeader className="flex-shrink-0">
                 <DialogTitle>Add Amendment</DialogTitle>
               </DialogHeader>
@@ -286,7 +290,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
             <>
               {agentStats && (() => {
                 const pct = Math.min(100, Math.round((agentStats.inputTokens / agentStats.contextWindowMax) * 100))
-                const color = pct > 80 ? 'var(--ai-pink)' : pct > 60 ? 'var(--ai-warning)' : 'var(--ai-success)'
+                const color = pct > CONTEXT_HIGH_PCT ? 'var(--ai-pink)' : pct > CONTEXT_WARN_PCT ? 'var(--ai-warning)' : 'var(--ai-success)'
                 return (
                   <button
                     onClick={() => setShowStatsModal(true)}
@@ -313,7 +317,6 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
               taskId={task.id}
               open={showStatsModal}
               onOpenChange={setShowStatsModal}
-              themeClass={themeClass}
             />
           )}
           {isManualPhase && (
@@ -331,7 +334,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
                         const currentIndex = pipeline.findIndex(p => p.id === task.phase)
                         let fallback = pipeline[0]?.id || ''
                         for (let i = currentIndex - 1; i >= 0; i--) {
-                          if (pipeline[i].type === 'agent') {
+                          if (pipeline[i].type === PhaseType.Agent) {
                             fallback = pipeline[i].id
                             break
                           }
@@ -413,7 +416,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
                     } else {
                       setShowApproveTarget(prev => {
                         if (!prev) {
-                          setApprovePhase(settings?.defaultApprovePhase || 'DONE')
+                          setApprovePhase(settings?.defaultApprovePhase || FIXED_PHASES.DONE)
                         }
                         return !prev
                       })
@@ -428,7 +431,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
                   className="rounded-l-none px-1.5"
                   style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)', borderLeft: '1px solid var(--ai-surface-0)', opacity: 0.9 }}
                   onClick={() => setShowApproveTarget(prev => {
-                    if (!prev) setApprovePhase(settings?.defaultApprovePhase || 'DONE')
+                    if (!prev) setApprovePhase(settings?.defaultApprovePhase || FIXED_PHASES.DONE)
                     return !prev
                   })}
                 >
@@ -449,7 +452,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
                           {pipeline.map(p => (
                             <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                           ))}
-                          <SelectItem value="DONE">Done</SelectItem>
+                          <SelectItem value={FIXED_PHASES.DONE}>Done</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -509,9 +512,9 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
         >
           <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: 'var(--ai-warning)' }} />
           <span className="text-sm flex-1" style={{ color: 'var(--ai-warning)' }}>
-            {task.needsUserInputReason === 'crashed' && 'This agent was interrupted when the app closed'}
-            {task.needsUserInputReason === 'max_retries' && 'This agent stalled repeatedly and stopped after 3 retries'}
-            {task.needsUserInputReason === 'error' && 'This agent exited with an error'}
+            {task.needsUserInputReason === AttentionReason.Crashed && 'This agent was interrupted when the app closed'}
+            {task.needsUserInputReason === AttentionReason.MaxRetries && 'This agent stalled repeatedly and stopped after 3 retries'}
+            {task.needsUserInputReason === AttentionReason.Error && 'This agent exited with an error'}
             {!task.needsUserInputReason && 'This task needs attention'}
           </span>
           <Button
@@ -526,7 +529,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
             size="sm"
             variant="outline"
             className="h-7 text-xs"
-            onClick={() => moveTaskPhase(task.id, 'BACKLOG')}
+            onClick={() => moveTaskPhase(task.id, FIXED_PHASES.BACKLOG)}
           >
             Move to Backlog
           </Button>
@@ -556,12 +559,12 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="amendments" className="relative">
             Amendments
-            {(task.amendments?.length || 0) > 0 && (
+            {(task.amendments?.length ?? 0) > 0 && (
               <span
                 className="ml-1 text-[10px] min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full"
                 style={{ backgroundColor: 'var(--ai-accent-subtle)', color: 'var(--ai-accent)' }}
               >
-                {task.amendments!.length}
+                {task.amendments?.length}
               </span>
             )}
           </TabsTrigger>
@@ -651,18 +654,18 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
                       exited {new Date(entry.exitedAt).toLocaleString()}
                     </span>
                   )}
-                  {entry.exitEvent && entry.exitEvent !== 'completed' && (
+                  {entry.exitEvent && entry.exitEvent !== PhaseExitEvent.Completed && (
                     <span
                       className="text-[10px] px-1.5 py-0.5 rounded"
                       style={{
-                        backgroundColor: entry.exitEvent === 'stopped' ? 'var(--ai-surface-3)' : 'var(--ai-warning-subtle)',
-                        color: entry.exitEvent === 'stopped' ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)',
+                        backgroundColor: entry.exitEvent === PhaseExitEvent.Stopped ? 'var(--ai-surface-3)' : 'var(--ai-warning-subtle)',
+                        color: entry.exitEvent === PhaseExitEvent.Stopped ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)',
                       }}
                     >
-                      {entry.exitEvent === 'stopped' && 'manually stopped'}
-                      {entry.exitEvent === 'crashed' && 'app crashed'}
-                      {entry.exitEvent === 'stalled' && 'stalled'}
-                      {entry.exitEvent === 'error' && 'error'}
+                      {entry.exitEvent === PhaseExitEvent.Stopped && 'manually stopped'}
+                      {entry.exitEvent === PhaseExitEvent.Crashed && 'app crashed'}
+                      {entry.exitEvent === PhaseExitEvent.Stalled && 'stalled'}
+                      {entry.exitEvent === PhaseExitEvent.Error && 'error'}
                     </span>
                   )}
                   {entry.contextHistoryPath && (
@@ -686,7 +689,6 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
               phaseName={contextHistoryEntry.phaseName}
               open={!!contextHistoryEntry}
               onOpenChange={(open) => { if (!open) setContextHistoryEntry(null) }}
-              themeClass={themeClass}
             />
           )}
         </TabsContent>
@@ -699,7 +701,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
       {/* Terminal dialog */}
       <Dialog open={showTerminal} onOpenChange={(open) => { if (!open) setShowTerminal(false) }}>
         <DialogContent
-          className={`${themeClass} !max-w-[800px] h-[70vh] flex flex-col !p-0`}
+          className="!max-w-[800px] h-[70vh] flex flex-col !p-0"
           style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}
           onOpenAutoFocus={(e) => e.preventDefault()}
           onCloseAutoFocus={(e) => e.preventDefault()}

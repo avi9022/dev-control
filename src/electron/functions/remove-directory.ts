@@ -1,13 +1,14 @@
 import { store } from "../storage/store.js"
 import { deleteLogFile } from "../utils/log-file-manager.js"
 
-export const removeDirectory = async (id?: string) => {
+export const removeDirectory = async (id?: string): Promise<void> => {
   if (id) {
     // Clean up log file for this directory
     await deleteLogFile(id)
     
     const directories = store.get('directories')
     const indexToRemove = directories.findIndex(({ id: currId }) => currId === id)
+    if (indexToRemove === -1) return
     directories.splice(indexToRemove, 1)
     store.set('directories', directories)
   } else {

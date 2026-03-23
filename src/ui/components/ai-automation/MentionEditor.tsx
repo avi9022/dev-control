@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react'
 import { FolderOpen, Hash } from 'lucide-react'
+import { SHORT_ID_LENGTH } from '@/shared/constants'
 
 const MENTION_ATTR = 'data-mention-id'
 const TASK_MENTION_ATTR = 'data-task-id'
@@ -34,7 +35,7 @@ function getPlainText(el: HTMLElement): string {
         text += `@${node.textContent || ''}`
       } else if (node.hasAttribute(TASK_MENTION_ATTR)) {
         const taskId = node.getAttribute(TASK_MENTION_ATTR) || ''
-        text += `#${taskId.slice(0, 8)}`
+        text += `#${taskId.slice(0, SHORT_ID_LENGTH)}`
       } else if (node.tagName === 'BR') {
         text += '\n'
       } else {
@@ -62,9 +63,9 @@ function createTaskChipElement(taskId: string, title: string): HTMLSpanElement {
   chip.setAttribute(TASK_MENTION_ATTR, taskId)
   chip.setAttribute('contenteditable', 'false')
   chip.className = 'inline-flex items-center gap-0.5 px-1.5 py-0 rounded border text-xs mx-0.5 align-baseline cursor-default select-none'
-  chip.style.background = 'var(--ai-warning-subtle, #fef3c7)'
-  chip.style.borderColor = 'var(--ai-warning, #f59e0b)'
-  chip.style.color = 'var(--ai-warning, #d97706)'
+  chip.style.background = 'var(--ai-warning-subtle)'
+  chip.style.borderColor = 'var(--ai-warning)'
+  chip.style.color = 'var(--ai-warning)'
   chip.textContent = title
   return chip
 }
@@ -96,14 +97,14 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
 
     useEffect(() => {
       if (!showMention || !menuRef.current) return
-      const activeItem = menuRef.current.children[mentionIndex] as HTMLElement | undefined
-      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' })
+      const activeItem = menuRef.current.children[mentionIndex]
+      if (activeItem instanceof HTMLElement) activeItem.scrollIntoView({ block: 'nearest' })
     }, [mentionIndex, showMention])
 
     useEffect(() => {
       if (!showTaskMention || !taskMenuRef.current) return
-      const activeItem = taskMenuRef.current.children[taskMentionIndex] as HTMLElement | undefined
-      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' })
+      const activeItem = taskMenuRef.current.children[taskMentionIndex]
+      if (activeItem instanceof HTMLElement) activeItem.scrollIntoView({ block: 'nearest' })
     }, [taskMentionIndex, showTaskMention])
 
     const filteredDirs = directories.filter(d => {
@@ -114,7 +115,7 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
 
     const filteredTasks = allTasks.filter(t => {
       if (excludeTaskIds?.has(t.id)) return false
-      const shortId = t.id.slice(0, 8)
+      const shortId = t.id.slice(0, SHORT_ID_LENGTH)
       const query = taskMentionFilter.toLowerCase()
       return t.title.toLowerCase().includes(query) || shortId.includes(query)
     })
@@ -479,7 +480,7 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
                 <div className="min-w-0">
                   <p className="truncate font-medium">{task.title}</p>
                   <p className="truncate text-[11px]" style={{ color: 'var(--ai-text-tertiary)' }}>
-                    #{task.id.slice(0, 8)} · {task.currentPhaseName || task.phase}
+                    #{task.id.slice(0, SHORT_ID_LENGTH)} · {task.currentPhaseName || task.phase}
                   </p>
                 </div>
               </button>

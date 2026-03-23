@@ -3,13 +3,15 @@ import { randomUUID } from 'crypto'
 import { store } from '../storage/store.js'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 
+const MAX_STORED_NOTIFICATIONS = 50
+
 let mainWindow: BrowserWindow | null = null
 
-export function setNotificationMainWindow(window: BrowserWindow) {
+export function setNotificationMainWindow(window: BrowserWindow): void {
   mainWindow = window
 }
 
-function getSettings() {
+function getSettings(): AIAutomationSettings {
   return store.get('aiAutomationSettings')
 }
 
@@ -37,10 +39,10 @@ export function sendNotification(
     read: false,
   }
 
-  // Store notification (cap at 50)
-  const stored = store.get('aiNotifications') as AINotification[] || []
+  // Store notification (cap at MAX_STORED_NOTIFICATIONS)
+  const stored = store.get('aiNotifications')
   stored.unshift(notification)
-  if (stored.length > 50) stored.length = 50
+  if (stored.length > MAX_STORED_NOTIFICATIONS) stored.length = MAX_STORED_NOTIFICATIONS
   store.set('aiNotifications', stored)
 
   // Push to UI
@@ -59,11 +61,11 @@ export function sendNotification(
 }
 
 export function getNotifications(): AINotification[] {
-  return (store.get('aiNotifications') as AINotification[]) || []
+  return store.get('aiNotifications')
 }
 
 export function markAllRead(): void {
-  const stored = (store.get('aiNotifications') as AINotification[]) || []
+  const stored = store.get('aiNotifications')
   const updated = stored.map(n => ({ ...n, read: true }))
   store.set('aiNotifications', updated)
   if (mainWindow && !mainWindow.isDestroyed()) {

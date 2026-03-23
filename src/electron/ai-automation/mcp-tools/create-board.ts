@@ -2,8 +2,9 @@ import { randomUUID } from 'crypto'
 import { getSettings, updateSettings } from '../task-manager.js'
 import { DEFAULT_PIPELINE } from '../../storage/store.js'
 import { type McpToolDefinition, textResult, errorResult } from './types.js'
+import { DEFAULT_BOARD_COLOR } from '../../../shared/constants.js'
 
-export const createBoardTool: McpToolDefinition = {
+export const createBoardTool: McpToolDefinition<{ name: string; color?: string }> = {
   name: 'create_board',
   description: 'Create a new kanban board with a default pipeline. Returns the new board ID.',
   inputSchema: {
@@ -15,8 +16,8 @@ export const createBoardTool: McpToolDefinition = {
     required: ['name'],
   },
   async handler(args) {
-    const name = args.name as string
-    const color = (args.color as string) || '#9BB89E'
+    const { name } = args
+    const color = args.color || DEFAULT_BOARD_COLOR
 
     if (!name) {
       return errorResult('name is required')
@@ -41,7 +42,7 @@ export const createBoardTool: McpToolDefinition = {
 
       return textResult(`Board created successfully. ID: ${newBoard.id}, Name: ${newBoard.name}`)
     } catch (err) {
-      return errorResult(`Failed to create board: ${err}`)
+      return errorResult(`Failed to create board: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   },
 }

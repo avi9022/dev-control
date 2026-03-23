@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { getBlockTextures } from '../textures'
 import type { BlockType } from '../blocks'
+import { WORLD_COLORS } from '../colors'
+import { BARS_ALPHA_TEST, BLOCK_SIZE, DEFAULT_ALPHA_TEST, DEFAULT_OPACITY, LEAF_OPACITY, WATER_SIDE_OPACITY } from '../config'
 
 interface PlacedBlock {
   type: BlockType
@@ -11,25 +13,21 @@ interface PlacedBlock {
   color?: string
 }
 
-/**
- * Merge all blocks of the same type into single meshes.
- * Returns an array of Three.js meshes ready to render via <primitive>.
- * Transparent blocks (bars, leaf, water) are kept separate.
- */
 export function buildMergedMeshes(blocks: PlacedBlock[]): THREE.Mesh[] {
-  // Group by type+color key
   const groups = new Map<string, { type: BlockType; positions: [number, number, number][]; color?: string }>()
 
   for (const block of blocks) {
-    const key = block.type === 'wool' ? `wool-${block.color || '#B0AAA4'}` : block.type
-    if (!groups.has(key)) {
-      groups.set(key, { type: block.type, positions: [], color: block.color })
+    const key = block.type === 'wool' ? `wool-${block.color || WORLD_COLORS.DEFAULT_WOOL}` : block.type
+    let group = groups.get(key)
+    if (!group) {
+      group = { type: block.type, positions: [], color: block.color }
+      groups.set(key, group)
     }
-    groups.get(key)!.positions.push([block.x, block.y, block.z])
+    group.positions.push([block.x, block.y, block.z])
   }
 
   const meshes: THREE.Mesh[] = []
-  const box = new THREE.BoxGeometry(1, 1, 1)
+  const box = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
 
   for (const [, group] of groups) {
     if (group.positions.length === 0) continue
@@ -50,8 +48,8 @@ export function buildMergedMeshes(blocks: PlacedBlock[]): THREE.Mesh[] {
     const material = new THREE.MeshStandardMaterial({
       map: textures.top,
       transparent: isTransparent,
-      alphaTest: group.type === 'bars' ? 0.1 : 0,
-      opacity: group.type === 'leaf' ? 0.85 : group.type === 'water' ? 0.6 : 1,
+      alphaTest: group.type === 'bars' ? BARS_ALPHA_TEST : DEFAULT_ALPHA_TEST,
+      opacity: group.type === 'leaf' ? LEAF_OPACITY : group.type === 'water' ? WATER_SIDE_OPACITY : DEFAULT_OPACITY,
     })
 
     meshes.push(new THREE.Mesh(merged, material))

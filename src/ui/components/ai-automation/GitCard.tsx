@@ -42,7 +42,7 @@ export const GitCard: FC<GitCardProps> = ({ taskId }) => {
       setEditingBranch(null)
       load()
     } catch (err) {
-      setError((err as Error).message)
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setOperating(false)
     }
@@ -57,7 +57,7 @@ export const GitCard: FC<GitCardProps> = ({ taskId }) => {
       setEditingCommit(null)
       load()
     } catch (err) {
-      setError((err as Error).message)
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setOperating(false)
     }
@@ -72,7 +72,7 @@ export const GitCard: FC<GitCardProps> = ({ taskId }) => {
       setSquashingWorktree(null)
       load()
     } catch (err) {
-      setError((err as Error).message)
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setOperating(false)
     }

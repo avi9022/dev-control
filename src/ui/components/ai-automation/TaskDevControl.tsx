@@ -5,6 +5,8 @@ import { Layers, FolderOpen } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { ServiceRow } from '@/ui/components/ServiceRow'
 
+import { WORKTREE_ID_PREFIX } from '@/shared/constants'
+
 interface TaskDevControlProps {
   taskId: string
 }
@@ -31,14 +33,14 @@ export const TaskDevControl: FC<TaskDevControlProps> = ({ taskId }) => {
   useEffect(() => {
     if (serviceDirsRef.current.length === 0) return
     const dirMap = new Map(directories.map(d => [d.id, d]))
-    const updated = serviceDirsRef.current.map(d => dirMap.get(d.id)).filter(Boolean) as DirectorySettings[]
+    const updated = serviceDirsRef.current.map(d => dirMap.get(d.id)).filter((d): d is DirectorySettings => d !== undefined)
     if (updated.length > 0) setServiceDirs(updated)
   }, [directories])
 
   // Other services: non-worktree, non-task services with a runCommand
   const otherServices = useMemo(() => {
     if (!showAll) return []
-    return directories.filter(d => !d.id.startsWith('wt-') && d.runCommand)
+    return directories.filter(d => !d.id.startsWith(WORKTREE_ID_PREFIX) && d.runCommand)
   }, [showAll, directories])
 
   if (loading) {

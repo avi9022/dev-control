@@ -32,6 +32,25 @@ import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import '@xterm/xterm/css/xterm.css'
 import { FilesTab } from './files/FilesTab'
+import { formatBytes, formatDate } from '@/ui/utils/format'
+
+const LOG_SCROLLBACK = 10_000
+const LOG_POLL_INTERVAL_MS = 2_000
+
+const XTERM_DARK_THEME = {
+  background: '#0d1117',
+  foreground: '#c9d1d9',
+  cursor: '#0d1117',
+  selectionBackground: '#264f78',
+  black: '#0d1117',
+  red: '#ff7b72',
+  green: '#3fb950',
+  yellow: '#d29922',
+  blue: '#58a6ff',
+  magenta: '#bc8cff',
+  cyan: '#39c5cf',
+  white: '#c9d1d9',
+}
 
 interface ContainerDetailProps {
   container: DockerContainer
@@ -44,23 +63,6 @@ const STATE_BADGE_VARIANTS: Record<string, 'default' | 'secondary' | 'destructiv
   dead: 'destructive',
   created: 'outline',
   restarting: 'secondary',
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
-}
-
-function formatDate(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 function ResourceBar({ label, percent, detail }: { label: string; percent: number; detail: string }) {
@@ -260,22 +262,9 @@ function LogsTab({ containerId, dockerContext }: { containerId: string; dockerCo
       disableStdin: true,
       fontSize: 12,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      scrollback: 10000,
+      scrollback: LOG_SCROLLBACK,
       convertEol: true,
-      theme: {
-        background: '#0d1117',
-        foreground: '#c9d1d9',
-        cursor: '#0d1117',
-        selectionBackground: '#264f78',
-        black: '#0d1117',
-        red: '#ff7b72',
-        green: '#3fb950',
-        yellow: '#d29922',
-        blue: '#58a6ff',
-        magenta: '#bc8cff',
-        cyan: '#39c5cf',
-        white: '#c9d1d9',
-      },
+      theme: XTERM_DARK_THEME,
     })
 
     const fitAddon = new FitAddon()
@@ -340,7 +329,7 @@ function LogsTab({ containerId, dockerContext }: { containerId: string; dockerCo
   // Follow mode polling
   useEffect(() => {
     if (!follow) return
-    const interval = setInterval(fetchLogs, 2000)
+    const interval = setInterval(fetchLogs, LOG_POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [follow, fetchLogs])
 
@@ -443,20 +432,7 @@ function ExecTab({ containerId, dockerContext }: { containerId: string; dockerCo
       cursorBlink: true,
       fontSize: 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      theme: {
-        background: '#0d1117',
-        foreground: '#c9d1d9',
-        cursor: '#58a6ff',
-        selectionBackground: '#264f78',
-        black: '#0d1117',
-        red: '#ff7b72',
-        green: '#3fb950',
-        yellow: '#d29922',
-        blue: '#58a6ff',
-        magenta: '#bc8cff',
-        cyan: '#39c5cf',
-        white: '#c9d1d9',
-      },
+      theme: { ...XTERM_DARK_THEME, cursor: '#58a6ff' },
     })
 
     const fitAddon = new FitAddon()
@@ -586,10 +562,10 @@ function ExecTab({ containerId, dockerContext }: { containerId: string; dockerCo
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#0d1117]">
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#30363d] bg-[#161b22]">
+    <div className="flex flex-col h-full" style={{ background: 'var(--ai-surface-0)' }}>
+      <div className="flex items-center gap-2 px-3 py-1.5" style={{ borderBottom: '1px solid var(--ai-border)', background: 'var(--ai-surface-1)' }}>
         <Terminal className="h-4 w-4 text-green-500" />
-        <span className="text-sm font-medium text-[#c9d1d9]">Terminal</span>
+        <span className="text-sm font-medium" style={{ color: 'var(--ai-text-primary)' }}>Terminal</span>
         {connecting && (
           <span className="text-xs text-yellow-500 animate-pulse">Connecting...</span>
         )}
@@ -610,25 +586,23 @@ function ExecTab({ containerId, dockerContext }: { containerId: string; dockerCo
               key={sh.value}
               onClick={() => switchShell(sh.value)}
               disabled={connecting}
-              className={`
-                px-2 py-0.5 text-xs rounded transition-colors
-                ${selectedShell === sh.value
-                  ? 'bg-[#58a6ff] text-white'
-                  : 'bg-[#21262d] text-[#8b949e] hover:bg-[#30363d] hover:text-[#c9d1d9]'
-                }
-                ${connecting ? 'opacity-50 cursor-not-allowed' : ''}
-              `}
+              className={`px-2 py-0.5 text-xs rounded transition-colors ${connecting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              style={selectedShell === sh.value
+                ? { background: 'var(--ai-accent)', color: 'white' }
+                : { background: 'var(--ai-surface-2)', color: 'var(--ai-text-secondary)' }
+              }
             >
               {sh.label}
             </button>
           ))}
         </div>
-        <div className="w-px h-4 bg-[#30363d] mx-1" />
+        <div className="w-px h-4 mx-1" style={{ background: 'var(--ai-border)' }} />
         {!sessionId && !connecting && (
           <Button
             variant="outline"
             size="sm"
-            className="h-6 text-xs bg-[#21262d] border-[#30363d] text-[#c9d1d9] hover:bg-[#30363d]"
+            className="h-6 text-xs"
+            style={{ background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border)', color: 'var(--ai-text-primary)' }}
             onClick={reconnect}
           >
             Reconnect
@@ -638,7 +612,8 @@ function ExecTab({ containerId, dockerContext }: { containerId: string; dockerCo
           <Button
             variant="outline"
             size="sm"
-            className="h-6 text-xs bg-[#21262d] border-[#30363d] text-[#c9d1d9] hover:bg-[#30363d]"
+            className="h-6 text-xs"
+            style={{ background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border)', color: 'var(--ai-text-primary)' }}
             onClick={() => {
               if (sessionId) {
                 window.electron.dockerExecClose(sessionId)

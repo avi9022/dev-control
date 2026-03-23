@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type FC } from 'react'
 import { AlertCircle, Trash2, Loader2 } from 'lucide-react'
 import { renderMentions } from './mention-utils'
+import { AttentionReason } from '@/shared/constants'
 
 interface TaskCardProps {
   task: AITask
@@ -12,9 +13,9 @@ interface TaskCardProps {
 
 const warningReasonLabel = (reason?: string): string => {
   switch (reason) {
-    case 'crashed': return 'Agent interrupted'
-    case 'max_retries': return 'Stall retries exhausted'
-    case 'error': return 'Agent error'
+    case AttentionReason.Crashed: return 'Agent interrupted'
+    case AttentionReason.MaxRetries: return 'Stall retries exhausted'
+    case AttentionReason.Error: return 'Agent error'
     default: return 'Needs attention'
   }
 }
@@ -29,7 +30,7 @@ export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete, onRetryPh
   useEffect(() => {
     if (!showWarningMenu) return
     const handler = (e: MouseEvent) => {
-      if (warningRef.current && !warningRef.current.contains(e.target as Node)) {
+      if (warningRef.current && e.target instanceof Node && !warningRef.current.contains(e.target)) {
         setShowWarningMenu(false)
       }
     }

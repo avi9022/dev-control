@@ -38,8 +38,12 @@ export const RequestAuthEditor: FC<RequestAuthEditorProps> = ({
   resolvedAuthInfo,
   onNavigateToSource,
 }) => {
+  const validAuthTypes: ApiAuthType[] = AUTH_TYPES.map((t) => t.value)
+
   const handleTypeChange = (type: string) => {
-    onChange({ ...auth, type: type as ApiAuthType })
+    if (validAuthTypes.includes(type as ApiAuthType)) {
+      onChange({ ...auth, type: type as ApiAuthType })
+    }
   }
 
   const handleBasicChange = (field: 'username' | 'password', value: string) => {

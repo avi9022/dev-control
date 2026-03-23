@@ -1,6 +1,7 @@
 import { useState, type FC } from 'react'
 import { CheckCircle, CircleCheck, EyeOff, Eye, Trash2, ArrowUpDown } from 'lucide-react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
+import { RESOLVER } from '@/shared/constants'
 
 interface ReviewCommentsCardProps {
   task: AITask
@@ -39,8 +40,8 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
         ...c,
         resolved: !c.resolved,
         resolvedBy: c.resolved
-          ? (c.resolvedBy || []).filter(r => r !== 'human')
-          : [...(c.resolvedBy || []).filter(r => r !== 'human'), 'human' as const]
+          ? (c.resolvedBy || []).filter(r => r !== RESOLVER.HUMAN)
+          : [...(c.resolvedBy || []).filter(r => r !== RESOLVER.HUMAN), RESOLVER.HUMAN]
       } : c
     )
     await updateTask(task.id, { humanComments: updated })
@@ -52,7 +53,7 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
   }
 
   const handleResolveAll = async () => {
-    const updated = comments.map(c => c.resolved ? c : { ...c, resolved: true, resolvedBy: [...(c.resolvedBy || []).filter(r => r !== 'human'), 'human' as const] })
+    const updated = comments.map(c => c.resolved ? c : { ...c, resolved: true, resolvedBy: [...(c.resolvedBy || []).filter(r => r !== RESOLVER.HUMAN), RESOLVER.HUMAN] })
     await updateTask(task.id, { humanComments: updated })
   }
 
@@ -132,7 +133,7 @@ export const ReviewCommentsCard: FC<ReviewCommentsCardProps> = ({ task, pipeline
                         {new Date(c.createdAt).toLocaleDateString('en-GB')}
                       </span>
                     )}
-                    {c.resolvedBy?.includes('agent') && !c.resolved && (
+                    {c.resolvedBy?.includes(RESOLVER.AGENT) && !c.resolved && (
                       <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: 'var(--ai-purple-subtle)', color: 'var(--ai-purple)' }}>
                         agent resolved
                       </span>

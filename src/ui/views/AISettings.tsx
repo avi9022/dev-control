@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ArrowLeft, Plus, Trash2, Folder, Wand2, Loader2, Sun, Moon } from 'lucide-react'
 import { PipelineDiagram } from '@/ui/components/ai-automation/PipelineDiagram'
 import { NAV_ITEMS, DEFAULT_VISIBLE_VIEWS } from '@/ui/components/AppNavbarConfig'
+import { FIXED_PHASES, GIT_STRATEGY } from '@/shared/constants'
 
 interface AISettingsProps {
   defaultTab?: string
@@ -102,7 +103,6 @@ export const AISettings: FC<AISettingsProps> = ({ defaultTab }) => {
           <PipelineDiagram
             settings={settings}
             updateSettings={updateSettings}
-            themeClass=""
           />
         </TabsContent>
 
@@ -397,13 +397,15 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
       <div>
         <Label>Default Git Strategy</Label>
         <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>How the agent manages code changes for new tasks.</p>
-        <Select value={settings.defaultGitStrategy === 'none' ? 'none' : 'worktree'} onValueChange={v => updateSettings({ defaultGitStrategy: v as AIGitStrategy })}>
+        <Select value={settings.defaultGitStrategy === GIT_STRATEGY.NONE ? GIT_STRATEGY.NONE : GIT_STRATEGY.WORKTREE} onValueChange={v => {
+          if (v === GIT_STRATEGY.WORKTREE || v === GIT_STRATEGY.NONE) updateSettings({ defaultGitStrategy: v })
+        }}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="worktree">Worktree</SelectItem>
-            <SelectItem value="none">None</SelectItem>
+            <SelectItem value={GIT_STRATEGY.WORKTREE}>Worktree</SelectItem>
+            <SelectItem value={GIT_STRATEGY.NONE}>None</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -478,7 +480,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
         <Label>Default Approve Phase</Label>
         <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>Where tasks go when you click Approve. Can be overridden per approval via the dropdown arrow.</p>
         <Select
-          value={settings.defaultApprovePhase || 'DONE'}
+          value={settings.defaultApprovePhase || FIXED_PHASES.DONE}
           onValueChange={v => updateSettings({ defaultApprovePhase: v })}
         >
           <SelectTrigger className="w-64">
@@ -488,7 +490,7 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
             {(settings.boards?.find(b => b.id === settings.activeBoardId)?.pipeline || []).map(p => (
               <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
             ))}
-            <SelectItem value="DONE">Done</SelectItem>
+            <SelectItem value={FIXED_PHASES.DONE}>Done</SelectItem>
           </SelectContent>
         </Select>
         <label className="flex items-center gap-2 mt-2 cursor-pointer">

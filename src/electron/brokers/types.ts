@@ -19,6 +19,8 @@ export interface BrokerConnectionState {
 export interface BrokerClient {
   readonly type: BrokerType
 
+  updateConfig(config: BrokerConfig): void
+
   testConnection(): Promise<BrokerConnectionState>
 
   listQueues(): Promise<string[]>

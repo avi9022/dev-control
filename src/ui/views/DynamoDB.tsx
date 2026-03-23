@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { RefreshCw, ChevronLeft, ChevronRight, Database, Key, Hash, Plus, MoreHorizontal, Pencil, Eye, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatBytes } from '@/ui/utils/format'
 import { QueryBuilder } from '@/ui/components/dynamodb/QueryBuilder'
 import { ItemEditor } from '@/ui/components/dynamodb/ItemEditor'
 import { InlineCellEditor } from '@/ui/components/dynamodb/InlineCellEditor'
@@ -486,10 +487,3 @@ function formatValue(value: unknown): string {
   return String(value)
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-}
