@@ -1018,6 +1018,18 @@ type EventPayloadMapping = {
     return: string;
     args: [string, { role: 'user' | 'assistant'; content: string }[], { type: string; [key: string]: unknown }[]];
   }
+  aiListPlannerConversations: {
+    return: { sessionId: string; firstMessage: string; updatedAt: string }[];
+    args: [];
+  }
+  aiLoadPlannerConversation: {
+    return: { messages: { role: 'user' | 'assistant'; content: string }[]; debugEvents: { type: string; [key: string]: unknown }[] } | null;
+    args: [string];
+  }
+  aiDeletePlannerConversation: {
+    return: boolean;
+    args: [string];
+  }
   aiGetSettings: {
     return: AIAutomationSettings;
     args: [];
@@ -1412,6 +1424,9 @@ interface Window {
     aiRemoveWorktree: (taskId: string) => Promise<void>
     aiSendPlannerMessage: (conversation: { role: 'user' | 'assistant'; content: string }[], cwd: string) => Promise<string>
     aiSavePlannerConversation: (sessionId: string, messages: { role: 'user' | 'assistant'; content: string }[], debugEvents: { type: string; [key: string]: unknown }[]) => Promise<string>
+    aiListPlannerConversations: () => Promise<{ sessionId: string; firstMessage: string; updatedAt: string }[]>
+    aiLoadPlannerConversation: (filename: string) => Promise<{ messages: { role: 'user' | 'assistant'; content: string }[]; debugEvents: { type: string; [key: string]: unknown }[] } | null>
+    aiDeletePlannerConversation: (filename: string) => Promise<boolean>
     subscribeAIPlannerChunk: (callback: (chunk: string) => void) => () => void
     subscribeAIPlannerDebug: (callback: (event: unknown) => void) => () => void
     aiGetSettings: () => Promise<AIAutomationSettings>

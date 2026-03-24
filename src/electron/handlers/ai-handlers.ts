@@ -13,7 +13,7 @@ import { generateKnowledgeDoc } from '../ai-automation/knowledge-generator.js'
 import { getBranchInfo, renameBranch, editCommitMessage, editMultipleCommitMessages, squashCommits } from '../ai-automation/git-operations.js'
 import { getNotifications, markAllRead } from '../ai-automation/notification-manager.js'
 import { sendPlannerMessage } from '../ai-automation/planner-runner.js'
-import { savePlannerConversation } from '../ai-automation/mcp-tools/save-planner-conversation.js'
+import { savePlannerConversation, listPlannerConversations, readPlannerConversation, deletePlannerConversation } from '../ai-automation/mcp-tools/save-planner-conversation.js'
 import { resolveProjectCreation } from '../ai-automation/mcp-tools/request-project-creation.js'
 import { resolveTaskCreationStepper, resetTaskStepperTimeout } from '../ai-automation/mcp-tools/create-tasks.js'
 
@@ -263,6 +263,18 @@ export function registerAIHandlers(): void {
 
   ipcMainHandle('aiSavePlannerConversation', async (_event, sessionId, messages, debugEvents) => {
     return savePlannerConversation(sessionId, messages, debugEvents)
+  })
+
+  ipcMainHandle('aiListPlannerConversations', async () => {
+    return listPlannerConversations()
+  })
+
+  ipcMainHandle('aiLoadPlannerConversation', async (_event, filename) => {
+    return readPlannerConversation(filename)
+  })
+
+  ipcMainHandle('aiDeletePlannerConversation', async (_event, filename) => {
+    return deletePlannerConversation(filename)
   })
 
   ipcMainHandle('aiGetSettings', async () => {

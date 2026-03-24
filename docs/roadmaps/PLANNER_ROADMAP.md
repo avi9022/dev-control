@@ -15,7 +15,7 @@ The planner is a conversational agent that helps users break down goals into act
 
 ## Planned
 
-- [ ] **P8**: Conversation Management — "New Conversation" button in the planner chat, sidebar or dropdown listing saved conversations with timestamps and summaries, click to load a previous conversation and continue from where it left off
+- [x] **P8**: Conversation Management — "New" button + history popover with past conversations, click to load, first user message as summary with relative timestamps
 - [ ] **P9**: Task Cross-References — planner links related tasks using `#shortId` syntax so agents can explore sibling task directories
 - [ ] **P10**: Task Dependencies — planner marks task ordering (e.g., "create skeleton" blocks "add first feature") using F48 dependency system
 - [ ] **P11**: Template Scaffolding — after creating a project, planner can run scaffold commands (`npm init`, `create-react-app`, etc.) via a new MCP tool

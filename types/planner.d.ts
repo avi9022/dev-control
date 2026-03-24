@@ -52,3 +52,34 @@ interface TaskStepperResponse {
   timedOut?: boolean
   tasks?: TaskStepperApprovedTask[]
 }
+
+interface PlannerChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+interface PlannerAssistantContentBlock {
+  type: string
+  text?: string
+  name?: string
+}
+
+interface PlannerAssistantMessage {
+  content?: PlannerAssistantContentBlock[]
+}
+
+type PlannerDebugEvent =
+  | { type: 'system'; subtype?: string }
+  | { type: 'assistant'; message?: PlannerAssistantMessage }
+  | { type: 'user' }
+  | { type: 'result' }
+  | { type: 'rate_limit_event' }
+  | { type: string }
+
+interface PlannerConversationListItem {
+  sessionId: string
+  firstMessage: string
+  updatedAt: string
+}
+
+type PlannerSidebarTab = 'conversations' | 'debug'

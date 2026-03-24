@@ -51,18 +51,43 @@ export function savePlannerConversation(
   return filepath
 }
 
-export function listPlannerConversations(): { filename: string; timestamp: string }[] {
+export interface PlannerConversationListItem {
+  sessionId: string
+  firstMessage: string
+  updatedAt: string
+}
+
+const FIRST_MESSAGE_TRUNCATE_LENGTH = 120
+
+export function listPlannerConversations(): PlannerConversationListItem[] {
   const dir = ensurePlannerDir()
   const files = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort().reverse()
   return files.map(f => {
     try {
       const raw = fs.readFileSync(path.join(dir, f), 'utf-8')
       const data = JSON.parse(raw) as PlannerConversationFile
-      return { filename: f, timestamp: data.updatedAt || f }
+      const firstUserMessage = data.messages.find(m => m.role === 'user')
+      const firstMessage = firstUserMessage
+        ? firstUserMessage.content.slice(0, FIRST_MESSAGE_TRUNCATE_LENGTH)
+        : 'Empty conversation'
+      const sessionId = f.replace('planner-', '').replace('.json', '')
+      return { sessionId, firstMessage, updatedAt: data.updatedAt || new Date().toISOString() }
     } catch {
-      return { filename: f, timestamp: f }
+      const sessionId = f.replace('planner-', '').replace('.json', '')
+      return { sessionId, firstMessage: 'Empty conversation', updatedAt: new Date().toISOString() }
     }
   })
+}
+
+export function deletePlannerConversation(filename: string): boolean {
+  const dir = ensurePlannerDir()
+  const filepath = path.join(dir, filename)
+  try {
+    fs.unlinkSync(filepath)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function readPlannerConversation(
