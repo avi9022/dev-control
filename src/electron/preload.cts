@@ -397,6 +397,14 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('aiShowProjectCreationModal', (request) => callback(request)),
   subscribeAICloseProjectCreationModal: (callback: (data: { requestId: string }) => void) =>
     ipcOn('aiCloseProjectCreationModal', (data) => callback(data)),
+  aiTaskCreationStepperResult: (requestId: string, result: TaskStepperResponse) =>
+    ipcInvoke('aiTaskCreationStepperResult', { requestId, result }),
+  aiTaskStepperActivity: (requestId: string) =>
+    ipcInvoke('aiTaskStepperActivity', { requestId }),
+  subscribeAITaskCreationStepper: (callback: (request: TaskStepperRequest) => void) =>
+    ipcOn('aiShowTaskCreationStepper', (request) => callback(request)),
+  subscribeAICloseTaskCreationStepper: (callback: (data: { requestId: string }) => void) =>
+    ipcOn('aiCloseTaskCreationStepper', (data) => callback(data)),
 } satisfies Window['electron'])
 
 const ipcInvoke = <Key extends keyof EventPayloadMapping>(

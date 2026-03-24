@@ -1102,6 +1102,22 @@ type EventPayloadMapping = {
     args: []
     return: string | null
   }
+  aiShowTaskCreationStepper: {
+    args: [TaskStepperRequest]
+    return: void
+  }
+  aiCloseTaskCreationStepper: {
+    args: [{ requestId: string }]
+    return: void
+  }
+  aiTaskCreationStepperResult: {
+    args: [{ requestId: string; result: TaskStepperResponse }]
+    return: void
+  }
+  aiTaskStepperActivity: {
+    args: [{ requestId: string }]
+    return: void
+  }
 };
 
 interface Window {
@@ -1417,5 +1433,9 @@ interface Window {
     aiPickDirectory: () => Promise<string | null>
     subscribeAIProjectCreationModal: (callback: (request: ProjectCreationRequest) => void) => () => void
     subscribeAICloseProjectCreationModal: (callback: (data: { requestId: string }) => void) => () => void
+    aiTaskCreationStepperResult: (requestId: string, result: TaskStepperResponse) => Promise<void>
+    aiTaskStepperActivity: (requestId: string) => Promise<void>
+    subscribeAITaskCreationStepper: (callback: (request: TaskStepperRequest) => void) => () => void
+    subscribeAICloseTaskCreationStepper: (callback: (data: { requestId: string }) => void) => () => void
   }
 }

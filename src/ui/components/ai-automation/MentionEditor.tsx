@@ -17,12 +17,12 @@ interface MentionEditorProps {
   minHeight?: string
   onProjectTagged?: (dir: DirectorySettings) => void
   onProjectRemoved?: (label: string) => void
-  /** Already-tagged project paths to exclude from the dropdown */
   excludeProjectPaths?: Set<string>
   onTaskTagged?: (taskId: string, title: string) => void
   onTaskRemoved?: (taskId: string) => void
   excludeTaskIds?: Set<string>
   boardId?: string
+  onEnterSubmit?: () => void
 }
 
 function getPlainText(el: HTMLElement): string {
@@ -71,7 +71,7 @@ function createTaskChipElement(taskId: string, title: string): HTMLSpanElement {
 }
 
 export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>(
-  ({ placeholder, className, minHeight = '100px', onProjectTagged, onProjectRemoved, excludeProjectPaths, onTaskTagged, onTaskRemoved, excludeTaskIds, boardId }, ref) => {
+  ({ placeholder, className, minHeight = '100px', onProjectTagged, onProjectRemoved, excludeProjectPaths, onTaskTagged, onTaskRemoved, excludeTaskIds, boardId, onEnterSubmit }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
     const taskMenuRef = useRef<HTMLDivElement>(null)
@@ -414,6 +414,11 @@ export const MentionEditor = forwardRef<MentionEditorHandle, MentionEditorProps>
             return
           }
         }
+      }
+
+      if (onEnterSubmit && e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        onEnterSubmit()
       }
     }
 

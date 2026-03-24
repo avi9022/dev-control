@@ -23,6 +23,7 @@ import { startMcpServer, stopMcpServer } from './ai-automation/mcp-server.js'
 import { setNotificationMainWindow } from './ai-automation/notification-manager.js'
 import { setPlannerMainWindow, killAllPlannerProcesses } from './ai-automation/planner-runner.js'
 import { setProjectCreationMainWindow, closeAllPendingModals } from './ai-automation/mcp-tools/request-project-creation.js'
+import { setTaskStepperMainWindow, closeAllPendingSteppers } from './ai-automation/mcp-tools/create-tasks.js'
 // MongoDB
 import { mongoManager } from './mongodb/mongo-manager.js'
 // Handler registrations
@@ -222,6 +223,7 @@ app.on("ready", async () => {
   setNotificationMainWindow(mainWindow)
   setPlannerMainWindow(mainWindow)
   setProjectCreationMainWindow(mainWindow)
+  setTaskStepperMainWindow(mainWindow)
   setShellMainWindow(mainWindow)
 
   // Start MCP server for agent tools
@@ -348,6 +350,8 @@ app.on('before-quit', async (event) => {
 
   // Close pending project creation modals
   closeAllPendingModals()
+
+  closeAllPendingSteppers()
 
   // Kill all interactive shells
   killAllShells()

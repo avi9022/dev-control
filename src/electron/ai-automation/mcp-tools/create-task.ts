@@ -4,14 +4,14 @@ import { GIT_STRATEGY } from '../../../shared/constants.js'
 
 export const createTaskTool: McpToolDefinition<{ title: string; description: string; boardId?: string; projectPaths?: string }> = {
   name: 'create_task',
-  description: 'Create a new task in the backlog. Optionally specify a board and project paths.',
+  description: 'Create a new task in the backlog. IMPORTANT: Always pass projectPaths so the task gets a worktree for the agent to work in.',
   inputSchema: {
     type: 'object',
     properties: {
       title: { type: 'string', description: 'Task title' },
       description: { type: 'string', description: 'Task description — what needs to be done' },
       boardId: { type: 'string', description: 'Board ID to create the task on. If omitted, uses the active board.' },
-      projectPaths: { type: 'string', description: 'Comma-separated project directory paths to associate with the task' },
+      projectPaths: { type: 'string', description: 'Comma-separated project directory paths to associate with the task. Agents need this to get worktrees — always provide it.' },
     },
     required: ['title', 'description'],
   },

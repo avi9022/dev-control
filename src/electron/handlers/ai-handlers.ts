@@ -15,6 +15,7 @@ import { getNotifications, markAllRead } from '../ai-automation/notification-man
 import { sendPlannerMessage } from '../ai-automation/planner-runner.js'
 import { savePlannerConversation } from '../ai-automation/mcp-tools/save-planner-conversation.js'
 import { resolveProjectCreation } from '../ai-automation/mcp-tools/request-project-creation.js'
+import { resolveTaskCreationStepper, resetTaskStepperTimeout } from '../ai-automation/mcp-tools/create-tasks.js'
 
 export function registerAIHandlers(): void {
   ipcMainHandle('aiGetTasks', async () => {
@@ -352,6 +353,14 @@ export function registerAIHandlers(): void {
 
   ipcMainHandle('aiProjectCreationResult', async (_event, { requestId, result }) => {
     resolveProjectCreation(requestId, result)
+  })
+
+  ipcMainHandle('aiTaskCreationStepperResult', async (_event, { requestId, result }) => {
+    resolveTaskCreationStepper(requestId, result)
+  })
+
+  ipcMainHandle('aiTaskStepperActivity', async (_event, { requestId }) => {
+    resetTaskStepperTimeout(requestId)
   })
 
   ipcMainHandle('aiPickDirectory', async () => {

@@ -43,10 +43,10 @@ enum AgentRole {
 }
 
 const ROLE_TOOLS: Record<AgentRole, string[]> = {
-  [AgentRole.Worker]:   ['Bash', 'Edit', 'Write', 'Read', 'Grep', 'Glob'],
-  [AgentRole.Planner]:  ['Read', 'Grep', 'Glob', 'Write'],
+  [AgentRole.Worker]: ['Bash', 'Edit', 'Write', 'Read', 'Grep', 'Glob'],
+  [AgentRole.Planner]: ['Read', 'Grep', 'Glob', 'Write'],
   [AgentRole.Reviewer]: ['Read', 'Grep', 'Glob'],
-  [AgentRole.Git]:      ['Bash(git *)'],
+  [AgentRole.Git]: ['Bash(git *)'],
 }
 
 // Context window sizes by model family

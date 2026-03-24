@@ -42,6 +42,16 @@
 
 ## Documentation
 
+## Verification
+
+- **Always run BOTH checks** after making changes:
+  1. `npx tsc --noEmit` — catches type errors in the UI/shared code
+  2. `npm run transpile:electron` — catches type errors in Electron code (stricter config)
+- Never trust one without the other. They use different tsconfigs with different strictness levels.
+- For full confidence, run `npm run build` which checks everything including the production bundle.
+
+## Documentation
+
 - **Roadmaps** go in `docs/roadmaps/`. Each major feature area gets its own roadmap file (e.g., `PLANNER_ROADMAP.md`, `AI_KANBAN_ROADMAP.md`). New features should be added to the relevant roadmap.
 - **Design docs** go in `docs/plans/` with naming pattern `YYYY-MM-DD-<topic>-design.md`.
 - **Implementation plans** go in `docs/plans/` with naming pattern `YYYY-MM-DD-<topic>-implementation.md`.

@@ -27,3 +27,28 @@ interface ProjectCreationToolResult {
   boardId: string
   boardName: string
 }
+
+interface TaskStepperProposedTask {
+  title: string
+  description: string
+  projectPaths?: string
+}
+
+interface TaskStepperRequest {
+  requestId: string
+  boardId: string
+  tasks: TaskStepperProposedTask[]
+}
+
+interface TaskStepperApprovedTask {
+  title: string
+  description: string
+  projects: AITaskProject[]
+  attachments: string[]
+}
+
+interface TaskStepperResponse {
+  cancelled?: boolean
+  timedOut?: boolean
+  tasks?: TaskStepperApprovedTask[]
+}

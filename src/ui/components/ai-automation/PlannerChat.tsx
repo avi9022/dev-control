@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect, type FC } from 'react'
-import { Send, Loader2, Wand2, Bug, ChevronRight, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback, type FC } from 'react'
+import { Send, Loader2, Wand2, Bug, ChevronRight, ChevronDown, ChevronsUpDown, Paperclip, X } from 'lucide-react'
+import Markdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ProjectCreationModal } from '@/ui/components/ai-automation/ProjectCreationModal'
+import { TaskCreationStepper } from '@/ui/components/ai-automation/TaskCreationStepper'
+import { MentionEditor, type MentionEditorHandle } from '@/ui/components/ai-automation/MentionEditor'
 
 const SUMMARY_TRUNCATE_LENGTH = 80
-const INPUT_FOCUS_DELAY_MS = 100
 const DEBUG_JSON_MAX_HEIGHT = 300
 const PLANNER_GREETING = "Hey! What would you like to plan today? Tell me about the goal or project you have in mind."
 
@@ -98,17 +100,19 @@ function DebugEventRow({ event, defaultExpanded }: { event: PlannerDebugEvent; d
 
 export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
   const [debugEvents, setDebugEvents] = useState<PlannerDebugEvent[]>([])
   const [allExpanded, setAllExpanded] = useState(false)
   const [preserveEvents, setPreserveEvents] = useState(false)
   const [projectCreationRequest, setProjectCreationRequest] = useState<ProjectCreationRequest | null>(null)
+  const [taskStepperRequest, setTaskStepperRequest] = useState<TaskStepperRequest | null>(null)
+  const [pendingFiles, setPendingFiles] = useState<{ name: string; path: string }[]>([])
+  const [taggedProjects, setTaggedProjects] = useState<Map<string, string>>(new Map())
   const sessionIdRef = useRef<string>(Date.now().toString())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const debugEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const editorRef = useRef<MentionEditorHandle>(null)
   const messagesRef = useRef(messages)
   messagesRef.current = messages
 
@@ -127,11 +131,42 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     }
   }, [messages, debugEvents])
 
-  const sendMessage = async (content: string) => {
+  const handleProjectTagged = useCallback((dir: DirectorySettings) => {
+    setTaggedProjects(prev => new Map(prev).set(dir.customLabel || dir.name, dir.path))
+  }, [])
+
+  const handleProjectRemoved = useCallback((label: string) => {
+    setTaggedProjects(prev => {
+      const next = new Map(prev)
+      next.delete(label)
+      return next
+    })
+  }, [])
+
+  const handleSubmitMessage = useCallback(async () => {
+    const text = editorRef.current?.getPlainText().trim() || ''
+    if (!text && pendingFiles.length === 0) return
+
+    let content = text
+
+    if (taggedProjects.size > 0) {
+      const projectLines = Array.from(taggedProjects.entries())
+        .map(([name, projectPath]) => `- ${name}: ${projectPath}`)
+        .join('\n')
+      content += `\n\n[Referenced projects:\n${projectLines}]`
+    }
+
+    if (pendingFiles.length > 0) {
+      const fileLines = pendingFiles.map(f => `- ${f.name}: ${f.path}`).join('\n')
+      content += `\n\n[Attached files:\n${fileLines}]`
+    }
+
     const userMessage: ChatMessage = { role: 'user', content }
     const newConversation = [...messages, userMessage]
     setMessages(newConversation)
-    setInput('')
+    editorRef.current?.clear()
+    setPendingFiles([])
+    setTaggedProjects(new Map())
     setIsLoading(true)
     if (!preserveEvents) setDebugEvents([])
 
@@ -146,15 +181,23 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [messages, pendingFiles, taggedProjects, preserveEvents])
 
-  // Stable ref to sendMessage to avoid re-triggering effect
-  const sendMessageRef = useRef(sendMessage)
-  sendMessageRef.current = sendMessage
+  const handleAddFiles = useCallback(async () => {
+    const selected = await window.electron.aiSelectFiles()
+    if (selected) {
+      const newFiles = selected
+        .filter(p => !pendingFiles.some(f => f.path === p))
+        .map(p => ({ name: p.split('/').pop() || p, path: p }))
+      setPendingFiles(prev => [...prev, ...newFiles])
+    }
+  }, [pendingFiles])
+
+  const submitRef = useRef(handleSubmitMessage)
+  submitRef.current = handleSubmitMessage
 
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), INPUT_FOCUS_DELAY_MS)
       if (messagesRef.current.length === 0) {
         sessionIdRef.current = Date.now().toString()
         setMessages([{ role: 'assistant', content: PLANNER_GREETING }])
@@ -174,13 +217,19 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     const unsubCloseModal = window.electron.subscribeAICloseProjectCreationModal(() => {
       setProjectCreationRequest(null)
     })
-    return () => { unsubDebug(); unsubShowModal(); unsubCloseModal() }
+    const unsubShowStepper = window.electron.subscribeAITaskCreationStepper((request: TaskStepperRequest) => {
+      setTaskStepperRequest(request)
+    })
+    const unsubCloseStepper = window.electron.subscribeAICloseTaskCreationStepper(() => {
+      setTaskStepperRequest(null)
+    })
+    return () => { unsubDebug(); unsubShowModal(); unsubCloseModal(); unsubShowStepper(); unsubCloseStepper() }
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
-    sendMessage(input.trim())
+    if (isLoading) return
+    handleSubmitMessage()
   }
 
   return (
@@ -215,15 +264,60 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
               {messages.filter(m => !(m.role === 'user' && m.content === 'Hi, I want to plan some tasks.')).map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`max-w-[85%] rounded-lg px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                      msg.role === 'user' ? 'rounded-br-sm' : 'rounded-bl-sm'
+                    className={`max-w-[85%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
+                      msg.role === 'user' ? 'rounded-br-sm whitespace-pre-wrap' : 'rounded-bl-sm'
                     }`}
                     style={{
                       background: msg.role === 'user' ? 'var(--ai-accent-subtle)' : 'var(--ai-surface-2)',
                       color: 'var(--ai-text-primary)',
                     }}
                   >
-                    {msg.content}
+                    {msg.role === 'assistant' ? (
+                      <Markdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc pl-4 mb-2 last:mb-0">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 last:mb-0">{children}</ol>,
+                          li: ({ children }) => <li className="mb-0.5">{children}</li>,
+                          h1: ({ children }) => <h1 className="text-base font-bold mb-2">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-sm font-bold mb-1.5">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
+                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                          code: ({ children, className }) => {
+                            const isBlock = className?.includes('language-')
+                            if (isBlock) {
+                              return (
+                                <code
+                                  className="block rounded p-2 my-2 text-xs overflow-x-auto"
+                                  style={{ background: 'var(--ai-surface-3)' }}
+                                >
+                                  {children}
+                                </code>
+                              )
+                            }
+                            return (
+                              <code
+                                className="rounded px-1 py-0.5 text-xs"
+                                style={{ background: 'var(--ai-surface-3)' }}
+                              >
+                                {children}
+                              </code>
+                            )
+                          },
+                          pre: ({ children }) => <>{children}</>,
+                          hr: () => <hr className="my-3 border-0 h-px" style={{ background: 'var(--ai-border-subtle)' }} />,
+                          a: ({ href, children }) => (
+                            <a href={href} className="underline" style={{ color: 'var(--ai-accent)' }} target="_blank" rel="noreferrer">
+                              {children}
+                            </a>
+                          ),
+                        }}
+                      >
+                        {msg.content}
+                      </Markdown>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               ))}
@@ -243,30 +337,62 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
               <div ref={messagesEndRef} />
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="flex-shrink-0 px-5 py-3 flex gap-2"
+            <div
+              className="flex-shrink-0 px-5 py-3"
               style={{ borderTop: '1px solid var(--ai-border-subtle)' }}
             >
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                placeholder="Describe what you want to plan..."
-                disabled={isLoading}
-                className="flex-1 bg-transparent border rounded-lg px-3 py-2 text-sm outline-none"
-                style={{ borderColor: 'var(--ai-border)', color: 'var(--ai-text-primary)' }}
-              />
-              <Button
-                type="submit"
-                disabled={!input.trim() || isLoading}
-                size="sm"
-                className="h-9 px-3"
-                style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}
-              >
-                <Send className="h-3.5 w-3.5" />
-              </Button>
-            </form>
+              {pendingFiles.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {pendingFiles.map((f, i) => (
+                    <span
+                      key={f.path}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs"
+                      style={{ background: 'var(--ai-surface-2)', borderColor: 'var(--ai-border-subtle)', color: 'var(--ai-text-secondary)' }}
+                    >
+                      <Paperclip className="h-3 w-3" style={{ color: 'var(--ai-text-tertiary)' }} />
+                      {f.name}
+                      <button onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))} style={{ color: 'var(--ai-text-tertiary)' }}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <MentionEditor
+                    ref={editorRef}
+                    placeholder="Describe what you want to plan... Use @ to tag projects, # to reference tasks"
+                    minHeight="72px"
+                    className="!min-h-[72px] max-h-[144px]"
+                    onEnterSubmit={handleSubmitMessage}
+                    onProjectTagged={handleProjectTagged}
+                    onProjectRemoved={handleProjectRemoved}
+                  />
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-2"
+                    onClick={handleAddFiles}
+                    disabled={isLoading}
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    size="sm"
+                    className="h-9 px-3"
+                    style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </form>
+            </div>
           </div>
 
           {/* Debug panel */}
@@ -310,6 +436,12 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
         <ProjectCreationModal
           request={projectCreationRequest}
           onComplete={() => setProjectCreationRequest(null)}
+        />
+      )}
+      {taskStepperRequest && (
+        <TaskCreationStepper
+          request={taskStepperRequest}
+          onComplete={() => setTaskStepperRequest(null)}
         />
       )}
     </Dialog>
