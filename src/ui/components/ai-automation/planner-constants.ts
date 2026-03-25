@@ -30,6 +30,7 @@ export function formatRelativeTime(isoDate: string): string {
 
 export const DEBUG_EVENT_COLORS: Record<string, string> = {
   system: 'var(--ai-text-tertiary)',
+  system_prompt: 'var(--ai-accent)',
   tool_call: 'var(--ai-warning)',
   response: 'var(--ai-accent)',
   user: 'var(--ai-purple)',

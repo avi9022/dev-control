@@ -1,5 +1,5 @@
 import { type FC, type RefObject } from 'react'
-import Markdown from 'react-markdown'
+import { MarkdownViewer } from './MarkdownViewer'
 import { LOADING_DOT_SIZE } from '@/ui/components/ai-automation/planner-constants'
 
 const LoadingDots: FC = () => {
@@ -47,48 +47,7 @@ export const PlannerMessageList: FC<PlannerMessageListProps> = ({ messages, isLo
             }}
           >
             {msg.role === 'assistant' ? (
-              <Markdown
-                components={{
-                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                  ul: ({ children }) => <ul className="list-disc pl-4 mb-2 last:mb-0">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 last:mb-0">{children}</ol>,
-                  li: ({ children }) => <li className="mb-0.5">{children}</li>,
-                  h1: ({ children }) => <h1 className="text-base font-bold mb-2">{children}</h1>,
-                  h2: ({ children }) => <h2 className="text-sm font-bold mb-1.5">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
-                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                  code: ({ children, className }) => {
-                    const isBlock = className?.includes('language-')
-                    if (isBlock) {
-                      return (
-                        <code
-                          className="block rounded-lg p-2.5 my-2 text-xs overflow-x-auto"
-                          style={{ background: 'var(--ai-surface-2)' }}
-                        >
-                          {children}
-                        </code>
-                      )
-                    }
-                    return (
-                      <code
-                        className="rounded px-1 py-0.5 text-xs"
-                        style={{ background: 'var(--ai-surface-2)' }}
-                      >
-                        {children}
-                      </code>
-                    )
-                  },
-                  pre: ({ children }) => <>{children}</>,
-                  hr: () => <hr className="my-3 border-0 h-px" style={{ background: 'var(--ai-border-subtle)' }} />,
-                  a: ({ href, children }) => (
-                    <a href={href} className="underline" style={{ color: 'var(--ai-accent)' }} target="_blank" rel="noreferrer">
-                      {children}
-                    </a>
-                  ),
-                }}
-              >
-                {msg.content}
-              </Markdown>
+              <MarkdownViewer content={msg.content} className="text-sm" />
             ) : (
               msg.content
             )}

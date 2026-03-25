@@ -16,6 +16,8 @@ import { sendPlannerMessage } from '../ai-automation/planner-runner.js'
 import { savePlannerConversation, listPlannerConversations, readPlannerConversation, deletePlannerConversation } from '../ai-automation/mcp-tools/save-planner-conversation.js'
 import { resolveProjectCreation } from '../ai-automation/mcp-tools/request-project-creation.js'
 import { resolveTaskCreationStepper, resetTaskStepperTimeout } from '../ai-automation/mcp-tools/create-tasks.js'
+import { getAllProjectProfiles, getProjectKnowledge, saveProjectProfile, saveProjectKnowledge, deleteProjectKnowledge } from '../ai-automation/project-knowledge-manager.js'
+import { generateProjectKnowledge } from '../ai-automation/project-knowledge-generator.js'
 
 export function registerAIHandlers(): void {
   ipcMainHandle('aiGetTasks', async () => {
@@ -379,5 +381,32 @@ export function registerAIHandlers(): void {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
+  })
+
+  ipcMainHandle('aiGetProjectProfiles', async () => {
+    return getAllProjectProfiles()
+  })
+
+  ipcMainHandle('aiGetProjectKnowledge', async (_event, projectPath) => {
+    return getProjectKnowledge(projectPath)
+  })
+
+  ipcMainHandle('aiGenerateProjectKnowledge', async (_event, projectPath) => {
+    try {
+      const { profile, knowledgeMarkdown } = await generateProjectKnowledge(projectPath)
+      saveProjectProfile(profile)
+      saveProjectKnowledge(projectPath, knowledgeMarkdown)
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Generation failed' }
+    }
+  })
+
+  ipcMainHandle('aiSaveProjectProfile', async (_event, profile) => {
+    saveProjectProfile(profile)
+  })
+
+  ipcMainHandle('aiDeleteProjectKnowledge', async (_event, projectPath) => {
+    deleteProjectKnowledge(projectPath)
   })
 }

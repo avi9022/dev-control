@@ -70,6 +70,7 @@ interface PlannerAssistantMessage {
 
 type PlannerDebugEvent =
   | { type: 'system'; subtype?: string }
+  | { type: 'system_prompt'; content: string }
   | { type: 'assistant'; message?: PlannerAssistantMessage }
   | { type: 'user' }
   | { type: 'result' }

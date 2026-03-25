@@ -1,18 +1,37 @@
 import { useState, useEffect, type FC, type RefObject } from 'react'
-import { ChevronRight, ChevronDown, ChevronsUpDown, Circle } from 'lucide-react'
+import { ChevronRight, ChevronDown, ChevronsUpDown, Circle, FileText } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { MarkdownViewer } from './MarkdownViewer'
 import { SUMMARY_TRUNCATE_LENGTH, DEBUG_JSON_MAX_HEIGHT, DEBUG_EVENT_COLORS } from '@/ui/components/ai-automation/planner-constants'
 
 interface DebugEventRowProps {
   event: PlannerDebugEvent
   defaultExpanded: boolean
+  onViewSystemPrompt?: (content: string) => void
 }
 
-const DebugEventRow: FC<DebugEventRowProps> = ({ event, defaultExpanded }) => {
+const DebugEventRow: FC<DebugEventRowProps> = ({ event, defaultExpanded, onViewSystemPrompt }) => {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
   useEffect(() => {
     setExpanded(defaultExpanded)
   }, [defaultExpanded])
+
+  if (event.type === 'system_prompt' && 'content' in event) {
+    return (
+      <div className="text-[10px] font-mono" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
+        <div
+          className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors duration-150 hover:bg-[var(--ai-surface-2)]"
+          onClick={() => onViewSystemPrompt?.(event.content)}
+        >
+          <FileText className="h-2.5 w-2.5 flex-shrink-0" style={{ color: DEBUG_EVENT_COLORS.system_prompt }} />
+          <Circle className="h-2 w-2 flex-shrink-0" style={{ color: DEBUG_EVENT_COLORS.system_prompt, fill: DEBUG_EVENT_COLORS.system_prompt }} />
+          <span className="font-medium" style={{ color: 'var(--ai-text-secondary)' }}>system_prompt</span>
+          <span className="truncate" style={{ color: 'var(--ai-text-tertiary)' }}>Click to view</span>
+        </div>
+      </div>
+    )
+  }
 
   const getLabel = (): { label: string; color: string; summary: string } => {
     switch (event.type) {
@@ -84,6 +103,8 @@ export const PlannerDebugPanel: FC<PlannerDebugPanelProps> = ({
   onPreserveChange,
   debugEndRef,
 }) => {
+  const [systemPromptContent, setSystemPromptContent] = useState<string | null>(null)
+
   return (
     <>
       <div className="px-3 py-2.5 flex-shrink-0 flex items-center justify-between" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
@@ -112,10 +133,31 @@ export const PlannerDebugPanel: FC<PlannerDebugPanelProps> = ({
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
         {debugEvents.map((event, i) => (
-          <DebugEventRow key={i} event={event} defaultExpanded={allExpanded} />
+          <DebugEventRow
+            key={i}
+            event={event}
+            defaultExpanded={allExpanded}
+            onViewSystemPrompt={setSystemPromptContent}
+          />
         ))}
         <div ref={debugEndRef} />
       </div>
+
+      <Dialog open={systemPromptContent !== null} onOpenChange={(open) => { if (!open) setSystemPromptContent(null) }}>
+        <DialogContent
+          className="!max-w-[800px] h-[80vh] flex flex-col !p-0"
+          style={{ background: 'var(--ai-surface-0)', borderColor: 'var(--ai-border-subtle)' }}
+        >
+          <DialogHeader className="px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--ai-border-subtle)' }}>
+            <DialogTitle style={{ color: 'var(--ai-text-primary)' }}>System Prompt</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+            {systemPromptContent && (
+              <MarkdownViewer content={systemPromptContent} className="text-sm" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

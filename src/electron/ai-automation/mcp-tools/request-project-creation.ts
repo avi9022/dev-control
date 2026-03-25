@@ -11,12 +11,10 @@ import { DEFAULT_PIPELINE } from '../../storage/store.js'
 import { type McpToolDefinition, textResult, errorResult } from './types.js'
 import { DEFAULT_BOARD_COLOR } from '../../../shared/constants.js'
 
-const PROJECT_CREATION_TIMEOUT_MS = 55_000
 const INITIAL_COMMIT_MESSAGE = 'Initial commit'
 
 interface PendingRequest {
   resolve: (result: ProjectCreationResponse) => void
-  timer: NodeJS.Timeout
 }
 
 const pendingRequests = new Map<string, PendingRequest>()
@@ -30,14 +28,12 @@ export function setProjectCreationMainWindow(window: BrowserWindow): void {
 export function resolveProjectCreation(requestId: string, result: ProjectCreationResponse): void {
   const pending = pendingRequests.get(requestId)
   if (!pending) return
-  clearTimeout(pending.timer)
   pendingRequests.delete(requestId)
   pending.resolve(result)
 }
 
 export function closeAllPendingModals(): void {
   for (const [requestId, pending] of pendingRequests) {
-    clearTimeout(pending.timer)
     pending.resolve({ timedOut: true })
     if (mainWindow && !mainWindow.isDestroyed()) {
       ipcWebContentsSend('aiCloseProjectCreationModal', mainWindow.webContents, { requestId })
@@ -48,15 +44,7 @@ export function closeAllPendingModals(): void {
 
 function waitForUserResponse(requestId: string): Promise<ProjectCreationResponse> {
   return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      pendingRequests.delete(requestId)
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        ipcWebContentsSend('aiCloseProjectCreationModal', mainWindow.webContents, { requestId })
-      }
-      resolve({ timedOut: true })
-    }, PROJECT_CREATION_TIMEOUT_MS)
-
-    pendingRequests.set(requestId, { resolve, timer })
+    pendingRequests.set(requestId, { resolve })
   })
 }
 

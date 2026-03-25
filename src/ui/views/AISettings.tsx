@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { ArrowLeft, Plus, Trash2, Folder, Wand2, Loader2, Sun, Moon } from 'lucide-react'
 import { PipelineDiagram } from '@/ui/components/ai-automation/PipelineDiagram'
+import { ProjectKnowledgePanel } from '@/ui/components/ai-automation/ProjectKnowledgePanel'
 import { NAV_ITEMS, DEFAULT_VISIBLE_VIEWS } from '@/ui/components/AppNavbarConfig'
 import { FIXED_PHASES, GIT_STRATEGY } from '@/shared/constants'
 
@@ -27,6 +28,7 @@ export const AISettings: FC<AISettingsProps> = ({ defaultTab }) => {
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge Docs</TabsTrigger>
+          <TabsTrigger value="project-knowledge">Project Knowledge</TabsTrigger>
           <TabsTrigger value="rules">Global Rules</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
         </TabsList>
@@ -108,6 +110,10 @@ export const AISettings: FC<AISettingsProps> = ({ defaultTab }) => {
 
         <TabsContent value="knowledge" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
           <KnowledgeDocsTab settings={settings} updateSettings={updateSettings} />
+        </TabsContent>
+
+        <TabsContent value="project-knowledge" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+          <ProjectKnowledgePanel />
         </TabsContent>
 
         <TabsContent value="rules" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">

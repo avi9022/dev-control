@@ -5,8 +5,6 @@ import { ipcWebContentsSend } from '../../utils/ipc-handle.js'
 import { type McpToolDefinition, type McpToolResult, textResult, errorResult } from './types.js'
 import { GIT_STRATEGY } from '../../../shared/constants.js'
 
-const STEPPER_TIMEOUT_MS = 55_000
-
 interface TaskInput {
   title: string
   description: string
@@ -25,7 +23,6 @@ interface FailedTaskResult {
 
 interface PendingStepperRequest {
   resolve: (result: TaskStepperResponse) => void
-  timer: NodeJS.Timeout
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -73,22 +70,9 @@ function buildProjects(projectPaths: string | undefined): AITaskProject[] {
     }))
 }
 
-function createTimeoutTimer(requestId: string): NodeJS.Timeout {
-  return setTimeout(() => {
-    const pending = pendingRequests.get(requestId)
-    if (!pending) return
-    pendingRequests.delete(requestId)
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      ipcWebContentsSend('aiCloseTaskCreationStepper', mainWindow.webContents, { requestId })
-    }
-    pending.resolve({ timedOut: true })
-  }, STEPPER_TIMEOUT_MS)
-}
-
 function waitForStepperResponse(requestId: string): Promise<TaskStepperResponse> {
   return new Promise((resolve) => {
-    const timer = createTimeoutTimer(requestId)
-    pendingRequests.set(requestId, { resolve, timer })
+    pendingRequests.set(requestId, { resolve })
   })
 }
 
@@ -154,21 +138,16 @@ export function setTaskStepperMainWindow(window: BrowserWindow): void {
 export function resolveTaskCreationStepper(requestId: string, result: TaskStepperResponse): void {
   const pending = pendingRequests.get(requestId)
   if (!pending) return
-  clearTimeout(pending.timer)
   pendingRequests.delete(requestId)
   pending.resolve(result)
 }
 
 export function resetTaskStepperTimeout(requestId: string): void {
-  const pending = pendingRequests.get(requestId)
-  if (!pending) return
-  clearTimeout(pending.timer)
-  pending.timer = createTimeoutTimer(requestId)
+  // No-op — timeouts removed, MCP progress keep-alive handles it
 }
 
 export function closeAllPendingSteppers(): void {
   for (const [requestId, pending] of pendingRequests) {
-    clearTimeout(pending.timer)
     pending.resolve({ timedOut: true })
     if (mainWindow && !mainWindow.isDestroyed()) {
       ipcWebContentsSend('aiCloseTaskCreationStepper', mainWindow.webContents, { requestId })

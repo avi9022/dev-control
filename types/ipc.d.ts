@@ -1130,6 +1130,26 @@ type EventPayloadMapping = {
     args: [{ requestId: string }]
     return: void
   }
+  aiGetProjectProfiles: {
+    args: []
+    return: ProjectProfile[]
+  }
+  aiGetProjectKnowledge: {
+    args: [string]
+    return: string | null
+  }
+  aiGenerateProjectKnowledge: {
+    args: [string]
+    return: { success: boolean; error?: string }
+  }
+  aiSaveProjectProfile: {
+    args: [ProjectProfile]
+    return: void
+  }
+  aiDeleteProjectKnowledge: {
+    args: [string]
+    return: void
+  }
 };
 
 interface Window {
@@ -1452,5 +1472,10 @@ interface Window {
     aiTaskStepperActivity: (requestId: string) => Promise<void>
     subscribeAITaskCreationStepper: (callback: (request: TaskStepperRequest) => void) => () => void
     subscribeAICloseTaskCreationStepper: (callback: (data: { requestId: string }) => void) => () => void
+    aiGetProjectProfiles: () => Promise<ProjectProfile[]>
+    aiGetProjectKnowledgeDoc: (projectPath: string) => Promise<string | null>
+    aiGenerateProjectKnowledge: (projectPath: string) => Promise<{ success: boolean; error?: string }>
+    aiSaveProjectProfile: (profile: ProjectProfile) => Promise<void>
+    aiDeleteProjectKnowledge: (projectPath: string) => Promise<void>
   }
 }

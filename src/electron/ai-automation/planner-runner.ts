@@ -4,7 +4,7 @@ import path from 'path'
 import fs from 'fs'
 import treeKill from 'tree-kill'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
-import { PLANNER_SYSTEM_PROMPT } from './planner-prompt.js'
+import { buildPlannerSystemPrompt } from './planner-prompt.js'
 import { getMcpPort } from './mcp-server.js'
 import { mcpTools } from './mcp-tools/index.js'
 import { getClaudePath } from './claude-path.js'
@@ -104,11 +104,17 @@ export async function sendPlannerMessage(
 
     const fullPrompt = `${conversationText}${ASSISTANT_SUFFIX}`
 
+    const systemPrompt = buildPlannerSystemPrompt()
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      ipcWebContentsSend('aiPlannerDebug', mainWindow.webContents, { type: 'system_prompt', content: systemPrompt })
+    }
+
     const args = [
       '--print',
       '--verbose',
       '--output-format', 'stream-json',
-      '--system-prompt', PLANNER_SYSTEM_PROMPT,
+      '--system-prompt', systemPrompt,
       '-p', fullPrompt,
     ]
 

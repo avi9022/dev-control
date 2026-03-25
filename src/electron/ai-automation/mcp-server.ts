@@ -10,6 +10,7 @@ const MCP_SERVER_NAME = 'devcontrol'
 const MCP_SERVER_VERSION = '1.0.0'
 const MCP_ENDPOINT = '/mcp'
 const LISTEN_HOST = '127.0.0.1'
+const PROGRESS_KEEPALIVE_INTERVAL_MS = 15_000
 
 let httpServer: http.Server | null = null
 let mcpPort: number | null = null
@@ -21,16 +22,11 @@ export function getMcpPort(): number | null {
 interface CallToolParams {
   name: string
   arguments?: Record<string, unknown>
+  _meta?: { progressToken?: string | number }
 }
 
-/**
- * Register tool handlers on the MCP server.
- * The CallToolRequestSchema handler is wrapped in a function to avoid the
- * MCP SDK's deep type instantiation issue (TS2589) when calling
- * `setRequestHandler(CallToolRequestSchema, ...)` directly with an inline
- * handler. By assigning the handler to a typed variable first we bypass the
- * type-depth limit.
- */
+const LONG_RUNNING_TOOLS = new Set(['request_project_creation', 'create_tasks'])
+
 function registerToolHandlers(mcpServer: McpServer): void {
   mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: mcpTools.map(t => ({
@@ -41,12 +37,33 @@ function registerToolHandlers(mcpServer: McpServer): void {
   }))
 
   const callToolHandler = async (request: { params: CallToolParams }) => {
-    const { name, arguments: args } = request.params
+    const { name, arguments: args, _meta } = request.params
     const tool = mcpTools.find(t => t.name === name)
     if (!tool) {
       return errorResult(`Unknown tool: ${name}`)
     }
-    return tool.handler(args || {})
+
+    const progressToken = _meta?.progressToken
+    let keepAliveTimer: NodeJS.Timeout | undefined
+
+    if (progressToken !== undefined && LONG_RUNNING_TOOLS.has(name)) {
+      let progress = 0
+      keepAliveTimer = setInterval(() => {
+        progress += 1
+        mcpServer.server.notification({
+          method: 'notifications/progress',
+          params: { progressToken, progress, total: 0 },
+        }).catch(() => {})
+      }, PROGRESS_KEEPALIVE_INTERVAL_MS)
+    }
+
+    try {
+      return await tool.handler(args || {})
+    } finally {
+      if (keepAliveTimer) {
+        clearInterval(keepAliveTimer)
+      }
+    }
   }
 
   // @ts-expect-error — The MCP SDK's CallToolRequestSchema triggers TS2589
