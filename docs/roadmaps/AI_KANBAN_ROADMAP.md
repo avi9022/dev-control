@@ -25,6 +25,8 @@
 - [x] **F34**: Unified Theme — apply the AI kanban warm charcoal design system (palette, typography, component styling) to the original DevControl views (services, databases, Docker, API client, etc.)
 - [x] **F35**: Kanban as Main View — restructure the app so the kanban board is the primary landing page, with DevControl tools (services, databases, Docker, queues, etc.) accessible as integrated panels or tabs within it, replacing the current toggle between two separate modes
 - [x] **F46**: Task Cross-References — `#shortId` syntax in descriptions and amendments, autocomplete dropdown, clickable chips in task detail, Related Tasks section in agent prompts with truncated description + task directory path for on-demand exploration
+- [x] **F60**: Agent Mid-Task Interaction — kill + resume mechanism using `--session-id` / `--resume` flags, user can interrupt and message running or stopped agents, session context preserved across interrupts and retries
+- [x] **F61**: Agent Chat View — structured chat UI replacing raw terminal, phase stepper with grouped retry nodes, markdown agent bubbles, toggleable tool calls, user message bubbles, phase placeholders, context history integration, merged History tab into Agents tab
 
 ## Planned Features
 
@@ -60,8 +62,6 @@
 - [ ] **F56**: Task Play Button — add a play/start button directly on task cards in the kanban board, allowing users to kick off the next pipeline phase with one click instead of navigating into the task detail view
 - [ ] **F57**: Quick Tasks — a lightweight task type that runs only a single phase (e.g., just planning, or just implementation) instead of the full pipeline. Useful for small, focused work like "fix this bug" or "write this doc" where the full plan→implement→review cycle is overkill. Configurable per task at creation time.
 - [ ] **F58**: Cleanup Done Tasks — automatically or manually clean up task data (worktrees, agent files, context history) for tasks in DONE. Reclaim disk space from accumulated worktrees and logs. Options: auto-cleanup after N days, bulk cleanup button, per-task cleanup, keep only the final diff/plan.
-- [ ] **F61**: Agent Chat View — replace the raw AgentTerminal with a structured chat UI. Each pipeline phase is a separate conversation with agent bubbles (markdown), tool call rows (toggleable), user message bubbles, and system events. Horizontal stepper shows phase history, click to navigate. Active phase is interactive, completed phases are read-only. Frontend parses raw stream-json events into chat messages. (Design: `docs/plans/2026-03-26-agent-chat-view-design.md`)
-- [ ] **F60**: Agent Mid-Task Interaction — allow users to interrupt a running agent mid-execution and send a message (like Ctrl+C in Claude Code CLI). Uses kill + resume mechanism with `--session-id` / `--resume` flags to preserve conversation context. Agent stops current work, receives user's message, and continues with full prior context. (Design: `docs/plans/2026-03-26-agent-mid-task-interaction-design.md`)
 - [ ] **F59**: Debug Mode Environment Variable — add a `DEVCONTROL_DEBUG` env var (or app setting) that controls visibility of debug features across the app. When enabled: show the planner debug panel, agent stream events, context history raw JSON, MCP tool call logs, and verbose error details. When disabled: hide all debug UI for a cleaner end-user experience. Default off in production builds, on in dev.
 
 ## Backlog (needs investigation)
