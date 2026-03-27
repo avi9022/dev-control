@@ -1,18 +1,17 @@
 import { useState, useEffect, useRef, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
-import { AgentTerminal } from '@/ui/components/ai-automation/AgentTerminal'
+import { AgentChat } from '@/ui/components/ai-automation/agent-chat'
 import { DiffViewer } from '@/ui/components/ai-automation/DiffViewer'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { ArrowLeft, Square, CheckCircle, XCircle, Loader2, FolderOpen, Pencil, FilePlus, TerminalSquare, ChevronDown, Cpu, FileText, AlertTriangle } from 'lucide-react'
-import { FIXED_PHASES, PhaseType, PhaseExitEvent, AttentionReason, SHORT_ID_LENGTH } from '@/shared/constants'
+import { ArrowLeft, Square, CheckCircle, XCircle, FolderOpen, Pencil, FilePlus, TerminalSquare, ChevronDown, Cpu } from 'lucide-react'
+import { FIXED_PHASES, PhaseType, SHORT_ID_LENGTH } from '@/shared/constants'
 
 const CONTEXT_HIGH_PCT = 80
 const CONTEXT_WARN_PCT = 60
 import { AgentStatsModal } from '@/ui/components/ai-automation/AgentStatsModal'
-import { ContextHistoryModal } from '@/ui/components/ai-automation/ContextHistoryModal'
 import { XtermTerminal } from '@/ui/components/ai-automation/XtermTerminal'
 import { AmendmentForm } from '@/ui/components/ai-automation/AmendmentForm'
 import { TaskDevControl } from '@/ui/components/ai-automation/TaskDevControl'
@@ -88,9 +87,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
   const [showApproveTarget, setShowApproveTarget] = useState(false)
   const [showTerminal, setShowTerminal] = useState(false)
   const [approvePhase, setApprovePhase] = useState<string>('')
-  const [elapsed, setElapsed] = useState(0)
   const [showStatsModal, setShowStatsModal] = useState(false)
-  const [contextHistoryEntry, setContextHistoryEntry] = useState<{ path: string; phaseName: string } | null>(null)
   const [agentStats, setAgentStats] = useState<AIAgentStats | null>(null)
 
   // Subscribe to live agent stats + fetch current on mount
@@ -118,18 +115,6 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
   }, [task?.id, task?.humanComments])
 
   const isAgentRunning = !!task?.activeProcessPid
-
-  // Elapsed timer for running agents
-  useEffect(() => {
-    if (!isAgentRunning || !task) { setElapsed(0); return }
-    const currentPhaseEntry = task.phaseHistory[task.phaseHistory.length - 1]
-    const startTime = currentPhaseEntry ? new Date(currentPhaseEntry.enteredAt).getTime() : Date.now()
-    setElapsed(Math.floor((Date.now() - startTime) / 1000))
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTime) / 1000))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [isAgentRunning, task])
 
   if (!task) {
     return (
@@ -182,12 +167,6 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
     const phase = targetPhase || settings?.defaultApprovePhase || FIXED_PHASES.DONE
     await moveTaskPhase(task.id, phase)
     setShowApproveTarget(false)
-  }
-
-  const formatElapsed = (s: number) => {
-    const m = Math.floor(s / 60)
-    const sec = s % 60
-    return m > 0 ? `${m}m ${sec}s` : `${sec}s`
   }
 
   // Get display name for current phase
@@ -249,6 +228,16 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {task.needsUserInput && (
+            <>
+              <Button size="sm" style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }} onClick={() => moveTaskPhase(task.id, task.phase)}>
+                Resume Task
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => moveTaskPhase(task.id, FIXED_PHASES.BACKLOG)}>
+                Move to Backlog
+              </Button>
+            </>
+          )}
           <Dialog open={showAmendDialog} onOpenChange={setShowAmendDialog}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
@@ -472,75 +461,13 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
         </div>
       </div>
 
-      {/* Agent status banner */}
-      {isAgentRunning && task.currentPhaseName && (
-        <div
-          className="mx-4 mt-3 px-3 py-2 rounded-md flex items-center gap-3"
-          style={{
-            backgroundColor: 'var(--ai-surface-2)',
-            border: '1px solid var(--ai-border-subtle)',
-          }}
-        >
-          <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" style={{ color: 'var(--ai-accent)' }} />
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium" style={{ color: 'var(--ai-text-primary)' }}>{task.currentPhaseName} agent</span>
-            <span style={{ color: 'var(--ai-text-tertiary)' }}>is working</span>
-            <span
-              className="text-xs px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: 'var(--ai-surface-3)', color: 'var(--ai-text-tertiary)' }}
-            >
-              {phaseName}
-            </span>
-            <span className="text-xs font-mono" style={{ color: 'var(--ai-text-tertiary)' }}>{formatElapsed(elapsed)}</span>
-          </div>
-          {task.projects && task.projects.length > 0 && (
-            <span className="ml-auto text-xs truncate max-w-[200px]" style={{ color: 'var(--ai-text-tertiary)' }}>
-              in {task.projects[0].label}
-            </span>
-          )}
-        </div>
-      )}
 
-      {/* Needs user input warning banner */}
-      {task.needsUserInput && (
-        <div
-          className="flex items-center gap-3 px-4 py-2.5 rounded-lg mx-4 mb-3 mt-3"
-          style={{
-            backgroundColor: 'var(--ai-warning-subtle)',
-            border: '1px solid var(--ai-warning)',
-          }}
-        >
-          <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: 'var(--ai-warning)' }} />
-          <span className="text-sm flex-1" style={{ color: 'var(--ai-warning)' }}>
-            {task.needsUserInputReason === AttentionReason.Crashed && 'This agent was interrupted when the app closed'}
-            {task.needsUserInputReason === AttentionReason.MaxRetries && 'This agent stalled repeatedly and stopped after 3 retries'}
-            {task.needsUserInputReason === AttentionReason.Error && 'This agent exited with an error'}
-            {!task.needsUserInputReason && 'This task needs attention'}
-          </span>
-          <Button
-            size="sm"
-            className="h-7 text-xs"
-            style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}
-            onClick={() => moveTaskPhase(task.id, task.phase)}
-          >
-            Retry Phase
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            onClick={() => moveTaskPhase(task.id, FIXED_PHASES.BACKLOG)}
-          >
-            Move to Backlog
-          </Button>
-        </div>
-      )}
 
       {/* Tabs */}
       <Tabs defaultValue={isManualPhase ? 'changes' : 'terminal'} className="flex-1 flex flex-col min-h-0">
         <TabsList className="mx-4 mt-2 w-fit">
           <TabsTrigger value="task">Task</TabsTrigger>
-          <TabsTrigger value="terminal">Terminal</TabsTrigger>
+          <TabsTrigger value="terminal">Agents</TabsTrigger>
           <TabsTrigger value="changes" className="relative">
             Changes
             {reviewComments.length > 0 && (
@@ -556,7 +483,6 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
             <TabsTrigger value="devcontrol">Dev Control</TabsTrigger>
           )}
           <TabsTrigger value="files">Task Files</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="amendments" className="relative">
             Amendments
             {(task.amendments?.length ?? 0) > 0 && (
@@ -609,7 +535,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
         </TabsContent>
 
         <TabsContent value="terminal" className="flex-1 min-h-0 m-0 p-4">
-          <AgentTerminal taskId={task.id} needsUserInput={task.needsUserInput} />
+          <AgentChat task={task} pipeline={pipeline} />
         </TabsContent>
 
         <TabsContent value="changes" className="flex-1 min-h-0 overflow-hidden p-4">
@@ -631,66 +557,6 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
 
         <TabsContent value="files" className="flex-1 min-h-0 overflow-y-auto p-4">
           <TaskFilesTab taskId={task.id} />
-        </TabsContent>
-
-        <TabsContent value="history" className="flex-1 min-h-0 overflow-y-auto p-4">
-          <div className="space-y-2">
-            {task.phaseHistory.map((entry, i) => {
-              const phaseConf = pipeline.find(p => p.id === entry.phase)
-              const displayName = phaseConf?.name || entry.phase.replace(/[-_]/g, ' ')
-              return (
-                <div key={i} className="flex items-center gap-3 text-sm">
-                  <span className="w-[160px] text-xs font-mono" style={{ color: 'var(--ai-text-tertiary)' }}>
-                    {new Date(entry.enteredAt).toLocaleString()}
-                  </span>
-                  <span
-                    className="px-2 py-0.5 rounded text-xs"
-                    style={{ backgroundColor: 'var(--ai-surface-2)', color: 'var(--ai-text-secondary)' }}
-                  >
-                    {displayName}
-                  </span>
-                  {entry.exitedAt && (
-                    <span className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>
-                      exited {new Date(entry.exitedAt).toLocaleString()}
-                    </span>
-                  )}
-                  {entry.exitEvent && entry.exitEvent !== PhaseExitEvent.Completed && (
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded"
-                      style={{
-                        backgroundColor: entry.exitEvent === PhaseExitEvent.Stopped ? 'var(--ai-surface-3)' : 'var(--ai-warning-subtle)',
-                        color: entry.exitEvent === PhaseExitEvent.Stopped ? 'var(--ai-text-tertiary)' : 'var(--ai-warning)',
-                      }}
-                    >
-                      {entry.exitEvent === PhaseExitEvent.Stopped && 'manually stopped'}
-                      {entry.exitEvent === PhaseExitEvent.Crashed && 'app crashed'}
-                      {entry.exitEvent === PhaseExitEvent.Stalled && 'stalled'}
-                      {entry.exitEvent === PhaseExitEvent.Error && 'error'}
-                    </span>
-                  )}
-                  {entry.contextHistoryPath && (
-                    <button
-                      onClick={() => setContextHistoryEntry({ path: entry.contextHistoryPath!, phaseName: displayName })}
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-colors"
-                      style={{ color: 'var(--ai-accent)', backgroundColor: 'var(--ai-accent-subtle)' }}
-                      title="View context history"
-                    >
-                      <FileText className="h-3 w-3" />
-                      Context
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          {contextHistoryEntry && (
-            <ContextHistoryModal
-              contextHistoryPath={contextHistoryEntry.path}
-              phaseName={contextHistoryEntry.phaseName}
-              open={!!contextHistoryEntry}
-              onOpenChange={(open) => { if (!open) setContextHistoryEntry(null) }}
-            />
-          )}
         </TabsContent>
 
         <TabsContent value="amendments" className="flex-1 min-h-0 overflow-y-auto p-4">

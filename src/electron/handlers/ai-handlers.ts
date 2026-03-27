@@ -6,7 +6,7 @@ import { store } from '../storage/store.js'
 import { stopProcess } from '../functions/run-service.js'
 import { randomUUID } from 'crypto'
 import { getTasks, getTaskById, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, getBoardPipeline } from '../ai-automation/task-manager.js'
-import { stopAgent, sendInput, enqueueTask, getTaskOutputHistory, getAgentStats } from '../ai-automation/agent-runner.js'
+import { stopAgent, sendInput, interruptAgent, enqueueTask, getTaskOutputHistory, getAgentStats } from '../ai-automation/agent-runner.js'
 import { getDiff as getAITaskDiff, cleanupWorktree } from '../ai-automation/worktree-manager.js'
 import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments, getOrCreateTaskDir } from '../ai-automation/task-dir-manager.js'
 import { generateKnowledgeDoc } from '../ai-automation/knowledge-generator.js'
@@ -76,6 +76,14 @@ export function registerAIHandlers(): void {
 
   ipcMainHandle('aiSendTaskInput', async (_event, taskId, input) => {
     sendInput(taskId, input)
+  })
+
+  ipcMainHandle('aiInterruptAgent', async (_event, taskId, message) => {
+    try {
+      interruptAgent(taskId, message)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to interrupt agent')
+    }
   })
 
   ipcMainHandle('aiGetTaskOutputHistory', async (_event, taskId) => {

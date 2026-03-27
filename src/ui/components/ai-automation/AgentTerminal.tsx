@@ -36,10 +36,10 @@ export const AgentTerminal: FC<AgentTerminalProps> = ({ taskId, needsUserInput }
     }
   }, [lines])
 
-  const handleSend = () => {
+  const handleSend = (): void => {
     if (!input.trim()) return
-    window.electron.aiSendTaskInput(taskId, input + '\n')
-    setLines(prev => [...prev, `> ${input}`])
+    window.electron.aiInterruptAgent(taskId, input)
+    setLines(prev => [...prev, `> ${input}`, 'Resuming...'])
     setInput('')
   }
 

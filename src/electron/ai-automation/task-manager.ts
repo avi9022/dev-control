@@ -184,6 +184,8 @@ export function moveTaskPhase(id: string, targetPhase: string): AITask {
   const phaseConfig = pipeline.find(p => p.id === targetPhase)
   const currentPhaseName = phaseConfig?.name || targetPhase
 
+  const isSamePhase = task.phase === targetPhase
+
   tasks[index] = {
     ...task,
     phase: targetPhase,
@@ -192,7 +194,8 @@ export function moveTaskPhase(id: string, targetPhase: string): AITask {
     needsUserInput: false,
     needsUserInputReason: undefined,
     stallRetryCount: 0,
-    currentPhaseName
+    currentPhaseName,
+    sessionId: isSamePhase ? task.sessionId : undefined,
   }
   store.set('aiTasks', tasks)
   broadcastTasks()

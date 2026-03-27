@@ -962,6 +962,10 @@ type EventPayloadMapping = {
     return: void;
     args: [string, string];
   }
+  aiInterruptAgent: {
+    return: void;
+    args: [string, string];
+  }
   aiGetTaskOutputHistory: {
     return: string[];
     args: [string];
@@ -1049,6 +1053,10 @@ type EventPayloadMapping = {
   aiTaskOutput: {
     return: AITaskOutput;
     args: [AITaskOutput];
+  }
+  aiTaskStreamEvent: {
+    return: AITaskStreamOutput;
+    args: [AITaskStreamOutput];
   }
   aiAgentStats: {
     return: AIAgentStats;
@@ -1435,6 +1443,7 @@ interface Window {
     aiReadContextHistory: (contextHistoryPath: string) => Promise<{ prompt: string; events: string }>
     aiStopTask: (id: string) => Promise<void>
     aiSendTaskInput: (taskId: string, input: string) => Promise<void>
+    aiInterruptAgent: (taskId: string, message: string) => Promise<void>
     aiGetTaskOutputHistory: (taskId: string) => Promise<string[]>
     aiGetAgentStats: (taskId: string) => Promise<AIAgentStats | null>
     aiGetTaskDiff: (taskId: string) => Promise<AIProjectDiff[]>
@@ -1459,6 +1468,7 @@ interface Window {
     aiSquashCommits: (worktreePath: string, baseBranch: string, newMessage: string, pushToRemote: boolean) => Promise<void>
     subscribeAITasks: (callback: (tasks: AITask[]) => void) => () => void
     subscribeAITaskOutput: (callback: (data: AITaskOutput) => void) => () => void
+    subscribeAITaskStreamEvent: (callback: (data: AITaskStreamOutput) => void) => () => void
     subscribeAIAgentStats: (callback: (data: AIAgentStats) => void) => () => void
     subscribeAINotifications: (callback: (data: AINotification[]) => void) => () => void
     aiGetNotifications: () => Promise<AINotification[]>

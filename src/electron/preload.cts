@@ -334,6 +334,7 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiMoveTaskPhase: (id: string, targetPhase: string) => ipcInvoke('aiMoveTaskPhase', id, targetPhase),
   aiStopTask: (id: string) => ipcInvoke('aiStopTask', id),
   aiSendTaskInput: (taskId: string, input: string) => ipcInvoke('aiSendTaskInput', taskId, input),
+  aiInterruptAgent: (taskId: string, message: string) => ipcInvoke('aiInterruptAgent', taskId, message),
   aiGetTaskOutputHistory: (taskId: string) => ipcInvoke('aiGetTaskOutputHistory', taskId),
   aiReadContextHistory: (contextHistoryPath: string) => ipcInvoke('aiReadContextHistory', contextHistoryPath),
   aiGetAgentStats: (taskId: string) => ipcInvoke('aiGetAgentStats', taskId),
@@ -369,6 +370,10 @@ electron.contextBridge.exposeInMainWorld("electron", {
     }),
   subscribeAITaskOutput: (callback: (data: AITaskOutput) => void) =>
     ipcOn('aiTaskOutput', (data) => {
+      callback(data);
+    }),
+  subscribeAITaskStreamEvent: (callback: (data: AITaskStreamOutput) => void) =>
+    ipcOn('aiTaskStreamEvent', (data) => {
       callback(data);
     }),
   subscribeAIAgentStats: (callback: (data: AIAgentStats) => void) =>

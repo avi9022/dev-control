@@ -56,6 +56,7 @@ interface AITask {
   excludedFiles?: string[]
   amendments?: AITaskAmendment[]
   linkedTaskIds?: string[]
+  sessionId?: string
   /** @deprecated Use projects[].gitStrategy instead */
   gitStrategy?: AIGitStrategy
   /** @deprecated Use projects[].baseBranch instead */
@@ -76,6 +77,7 @@ interface AIPhaseHistoryEntry {
   exitedAt?: string
   exitEvent?: AIPhaseHistoryEvent
   contextHistoryPath?: string
+  sessionId?: string
 }
 
 interface AITaskWorktree {
@@ -191,6 +193,11 @@ interface AIAutomationSettings {
 interface AITaskOutput {
   taskId: string
   output: string
+}
+
+interface AITaskStreamOutput {
+  taskId: string
+  event: import('../src/shared/stream-types').ClaudeStreamEvent
 }
 
 interface AIAgentStats {
