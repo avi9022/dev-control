@@ -10,7 +10,7 @@
   },
   "homepage": "https://github.com/avi9022/dev-control",
   "type": "module",
-  "main": "dist-electron/electron/main",
+  "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "npm-run-all --parallel dev:react dev:electron",
     "dev:react": "vite",
