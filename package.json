@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Desktop app for managing local development services, databases, Docker containers, and AI-powered task automation",
   "author": "Avi Isakov",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "https://github.com/avi9022/dev-control"
