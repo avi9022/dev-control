@@ -4,7 +4,7 @@ import path from 'path';
 import { addDirectoryToStore } from '../utils/add-directory-to-store.js';
 import { listDirectories } from '../utils/list-directories.js';
 
-export const addDirectoriesFromFolder = async () => {
+export const addDirectoriesFromFolder = async (): Promise<void> => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory', 'multiSelections'],
   });
@@ -13,25 +13,25 @@ export const addDirectoriesFromFolder = async () => {
     return
   }
 
-  result.filePaths.forEach((currPath) => {
+  for (const currPath of result.filePaths) {
     const mainDirectoryPath = currPath;
 
     const packageJsonPath = path.join(mainDirectoryPath, "package.json");
     const packageJsonExists = fs.existsSync(packageJsonPath);
 
     if (packageJsonExists) {
-      addDirectoryToStore(mainDirectoryPath)
+      await addDirectoryToStore(mainDirectoryPath)
     } else {
       const subDirectories = listDirectories(mainDirectoryPath)
 
-      subDirectories.forEach((name) => {
+      for (const name of subDirectories) {
         const fullPath = path.join(mainDirectoryPath, name);
-        const packageJsonPath = path.join(fullPath, "package.json");
+        const subPackageJsonPath = path.join(fullPath, "package.json");
 
-        if (fs.existsSync(packageJsonPath)) {
-          addDirectoryToStore(fullPath)
+        if (fs.existsSync(subPackageJsonPath)) {
+          await addDirectoryToStore(fullPath)
         }
-      })
+      }
     }
-  })
+  }
 }

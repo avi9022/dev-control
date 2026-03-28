@@ -22,7 +22,8 @@ export const OpenItemViewButton: FC<OpenItemViewButtonProps> = ({
   return <Tooltip>
     <TooltipTrigger asChild>
       <Button
-        size={'icon'}
+        size="sm"
+        className="h-6 w-6 p-0 rounded"
         disabled={views.length >= 3 || isOpen}
         variant={variant}
         onClick={(ev) => {
@@ -31,7 +32,7 @@ export const OpenItemViewButton: FC<OpenItemViewButtonProps> = ({
           openViewForItem(type, id)
         }}
       >
-        {<Columns2 />}
+        <Columns2 className="size-2.5" />
       </Button>
     </TooltipTrigger>
     <TooltipContent>

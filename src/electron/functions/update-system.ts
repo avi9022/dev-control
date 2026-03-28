@@ -4,12 +4,12 @@ import util from 'util';
 
 const execAsync = util.promisify(exec);
 
-export const updateSystem = async () => {
+export const updateSystem = async (): Promise<void> => {
   try {
     await execAsync('git pull');
     store.set('updateNotificationSettings', {
       hasUpdates: false,
-      useWasPrompted: false,
+      userWasPrompted: false,
       userRefusedUpdates: false
     })
   } catch (error) {

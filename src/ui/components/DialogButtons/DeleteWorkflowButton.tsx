@@ -29,8 +29,8 @@ export const DeleteWorkflowButton: FC<DeleteQueueButtonProps> = ({ id }) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant='destructive' type="button" onClick={(ev) => ev.stopPropagation()}>
-          <Trash color="white" />
+        <Button variant="ghost" size="sm" type="button" className="h-7 w-7 p-0 text-destructive" onClick={(ev) => ev.stopPropagation()}>
+          <Trash className="h-3.5 w-3.5" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

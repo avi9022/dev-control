@@ -1,4 +1,4 @@
-import { ipcMain, IpcMainInvokeEvent, WebContents } from "electron"
+import { ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron"
 import { validateEventFrame } from "./validate-event-frame.js"
 
 export const ipcMainHandle = <Key extends keyof EventPayloadMapping>(

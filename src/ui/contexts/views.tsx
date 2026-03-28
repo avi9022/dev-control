@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, type FC, type PropsWithChildren } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, type FC, type PropsWithChildren } from 'react'
 
-export type ViewType = 'directory' | 'queue'
+export type ViewType = 'kanban' | 'directory' | 'queue' | 'tool' | 'dynamodb' | 'api-client' | 'docker' | 'mongodb' | 'sql'
 
 interface View {
   type: ViewType,
@@ -31,12 +31,12 @@ export function useViews() {
 
 export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
   const [views, setViews] = useState<View[]>([{
-    type: 'directory',
+    type: 'kanban',
     itemId: null
   }])
   const [currentViewIndex, setCurrentViewIndex] = useState(0)
 
-  const setViewsCount = (count: number) => {
+  const setViewsCount = useCallback((count: number) => {
     setViews((prev) => {
       const updated: View[] = []
       for (let i = 0; i < count; i++) {
@@ -46,7 +46,7 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
         } else {
           updated.push({
             itemId: null,
-            type: 'directory'
+            type: 'kanban'
           })
         }
       }
@@ -57,42 +57,45 @@ export const ViewsProvider: FC<PropsWithChildren> = ({ children }) => {
 
       return updated
     })
-  }
+  }, [currentViewIndex])
 
-  const updateView = (type: ViewType, itemId: string | null) => {
+  const updateView = useCallback((type: ViewType, itemId: string | null) => {
     setViews((prev) => {
-      const prevCopy = [...prev]
-      if (prevCopy[currentViewIndex]) {
-        prevCopy[currentViewIndex].itemId = itemId
-        prevCopy[currentViewIndex].type = type
-      }
-      return prevCopy
+      // If a pane already has this type, update that one (not the focused pane)
+      const existingIndex = prev.findIndex(v => v.type === type)
+      const targetIndex = existingIndex !== -1 ? existingIndex : currentViewIndex
+      return prev.map((view, index) => {
+        if (index === targetIndex) {
+          return { ...view, itemId, type }
+        }
+        return view
+      })
     })
-  }
+  }, [currentViewIndex])
 
-  const closeView = (index: number) => {
+  const closeView = useCallback((index: number) => {
     setViews((prev) => prev.filter((_, currIndex) => currIndex !== index))
     setCurrentViewIndex(0)
-  }
+  }, [])
 
-  const openViewForItem = (type: ViewType, itemId: string) => {
-    if (views.length >= 3) return
+  const openViewForItem = useCallback((type: ViewType, itemId: string) => {
+    setViews((prev) => {
+      if (prev.length >= 3) return prev
+      return [...prev, { itemId, type }]
+    })
+  }, [])
 
-    setViews((prev) => [...prev, {
-      itemId,
-      type,
-    }])
-  }
-
-  return <ViewsContext.Provider value={{
+  const value = useMemo(() => ({
     setViewsCount,
     updateView,
     setCurrentViewIndex,
     closeView,
     views,
     currentViewIndex,
-    openViewForItem
-  }}>
+    openViewForItem,
+  }), [setViewsCount, updateView, setCurrentViewIndex, closeView, views, currentViewIndex, openViewForItem])
+
+  return <ViewsContext.Provider value={value}>
     {children}
   </ViewsContext.Provider>
 

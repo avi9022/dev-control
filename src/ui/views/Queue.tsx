@@ -25,8 +25,13 @@ export const Queue: FC<QueueProps> = ({
   useEffect(() => {
     if (!id) return
     const storedMessage = localStorage.getItem(`${id}-message`);
-    const parsedMessages = storedMessage ? JSON.parse(storedMessage) : '{}';
-    setRequestBody(parsedMessages ? parsedMessages : '{}');
+    let parsed: Record<string, string> = {};
+    try {
+      parsed = storedMessage ? JSON.parse(storedMessage) : {};
+    } catch {
+      parsed = {};
+    }
+    setRequestBody(parsed.body ?? '{}');
   }, [id])
 
   const handlePurgeQueue = () => {
@@ -39,11 +44,10 @@ export const Queue: FC<QueueProps> = ({
     window.electron.sendQueueMessage(id, requestBody)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleEditorChange = (json: any) => {
+  const handleEditorChange = (json: string) => {
     setRequestBody(json)
     if (id) {
-      setSavedMessages(json);
+      setSavedMessages({ body: json });
     }
   }
 
@@ -70,7 +74,7 @@ export const Queue: FC<QueueProps> = ({
     </div>
   }
 
-  return <div className="p-5 pt-0 h-full">
+  return <div className="p-5 pt-0 h-full overflow-y-auto">
     <div className="flex justify-between items-end mb-5">
       <div>
         <p className="text-3xl font-bold">Queue manager</p>
@@ -98,7 +102,7 @@ export const Queue: FC<QueueProps> = ({
             <CardTitle>
               <div className="flex gap-3 items-start">
                 <div className="pt-1">
-                  <Clock className="text-green-400" />
+                  <Clock className="text-status-green" />
                 </div>
                 <div>
                   <p className="text-2xl mb-2">Previous messages sent</p>
@@ -111,6 +115,7 @@ export const Queue: FC<QueueProps> = ({
             <div className="flex flex-col gap-3">
 
               {chosenQueueData?.lastFiveMessages.map(({ createdAt, id, message }) => <QueueMessage
+                key={id}
                 onReuseMessage={(message) => handleEditorChange(message)}
                 createdAt={createdAt}
                 id={id}
@@ -139,6 +144,7 @@ export const Queue: FC<QueueProps> = ({
             <div className="flex flex-col gap-3">
 
               {chosenQueueData?.waitingMessages.map(({ createdAt, id, message }) => <QueueMessage
+                key={id}
                 onReuseMessage={(message) => handleEditorChange(message)}
                 createdAt={createdAt}
                 id={id}

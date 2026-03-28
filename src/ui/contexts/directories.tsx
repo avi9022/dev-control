@@ -38,13 +38,13 @@ export const DirectoriesProvider: FC<PropsWithChildren> = ({ children }) => {
   }
 
   const subscribeToDirectories = () => {
-    window.electron.subscribeDirectories((updatedDirectories = []) => {
+    return window.electron.subscribeDirectories((updatedDirectories = []) => {
       setDirectories(updatedDirectories?.sort(({ runCommand }) => runCommand ? -1 : 1))
     })
   }
 
   const subscribeToDirectoriesState = () => {
-    window.electron.subscribeDirectoriesState((states = {}) => {
+    return window.electron.subscribeDirectoriesState((states = {}) => {
       setDirectoriesStateMap(states)
     })
   }
@@ -74,8 +74,13 @@ export const DirectoriesProvider: FC<PropsWithChildren> = ({ children }) => {
 
   useEffect(() => {
     getDirectories()
-    subscribeToDirectories()
-    subscribeToDirectoriesState()
+    const unsubscribeDirectories = subscribeToDirectories()
+    const unsubscribeDirectoriesState = subscribeToDirectoriesState()
+
+    return () => {
+      unsubscribeDirectories?.()
+      unsubscribeDirectoriesState?.()
+    }
   }, [])
   return <DirectoriesContext.Provider value={{
     directories,

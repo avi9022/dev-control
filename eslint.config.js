@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'dist-electron'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
@@ -23,6 +23,13 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+  {
+    files: ['**/contexts/**/*.{ts,tsx}', 'src/components/ui/**/*.{ts,tsx}', 'src/ui/components/AppSidebar/CollectionTreeItem.tsx', 'src/ui/components/ai-automation/FileTreeSidebar.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 )

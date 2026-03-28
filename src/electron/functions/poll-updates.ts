@@ -5,24 +5,22 @@ import { getUpdateNotificationSettings } from '../storage/get-update-notificatio
 
 const execAsync = util.promisify(exec);
 
+const POLLING_INTERVAL_MS = 600_000; // 10 minutes
+const BEHIND_REMOTE_INDICATOR = 'Your branch is behind';
 
-const POLLING_INTERVAL = 1000; // 10 minutes
-// const POLLING_INTERVAL = 1000 * 60 * 10; // 10 minutes
-
-export const pollUpdates = () => {
+export const pollUpdates = (): void => {
   setInterval(async () => {
     const settings = getUpdateNotificationSettings()
-
 
     try {
       await execAsync('git fetch');
       const { stdout } = await execAsync('git status -uno');
       console.log(stdout);
 
-      const hasUpdates = stdout.includes('Your branch is behind');
+      const hasUpdates = stdout.includes(BEHIND_REMOTE_INDICATOR);
 
       if (hasUpdates) {
-        store.set('updateNotification', {
+        store.set('updateNotificationSettings', {
           hasUpdates,
           userWasPrompted: false,
           userRefusedUpdates: settings.userRefusedUpdates
@@ -30,7 +28,6 @@ export const pollUpdates = () => {
       }
     } catch (error) {
       console.error('Failed to check for updates:', error);
-      return false;
     }
-  }, POLLING_INTERVAL);
+  }, POLLING_INTERVAL_MS);
 }

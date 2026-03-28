@@ -29,10 +29,10 @@ export const QueuesProvider: FC<PropsWithChildren> = ({ children }) => {
   const { updateView, views, currentViewIndex } = useViews()
 
   useEffect(() => {
-    window.electron.subscribeQueuesList((list) => {
+    const unsubscribeQueuesList = window.electron.subscribeQueuesList((list) => {
       setQueues(list)
     })
-    window.electron.subscribeQueueData((res) => {
+    const unsubscribeQueueData = window.electron.subscribeQueueData((res) => {
       setSubscribedQueuesData((prev) => {
         const copy = { ...prev }
         copy[res.queueUrl] = res.data
@@ -40,6 +40,11 @@ export const QueuesProvider: FC<PropsWithChildren> = ({ children }) => {
         return copy
       })
     })
+
+    return () => {
+      unsubscribeQueuesList?.()
+      unsubscribeQueueData?.()
+    }
   }, [])
 
 

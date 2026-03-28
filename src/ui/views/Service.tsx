@@ -1,8 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { FC } from "react";
 import { ServiceSettings } from "../components/ServiceSettings";
-import { Terminal } from "../components/Terminal";
-import { useLogger } from "../contexts/logger";
+import { Terminal } from "../components/terminal";
 import { useDirectories } from "../contexts/directories";
 import { useViews } from "../contexts/views";
 import clsx from "clsx";
@@ -21,7 +20,6 @@ export const Service: FC<ServiceProps> = ({
   id
 }) => {
   const { directories } = useDirectories()
-  const { getLogsByDirId } = useLogger()
   const { views } = useViews()
 
   if (!id) {
@@ -41,13 +39,12 @@ export const Service: FC<ServiceProps> = ({
     </div>
     <Tabs defaultValue="terminal" className={`w-full`}>
       <TabsList className={`w-full flex gap-2 h-[${tabsListHeight}]`}>
-        <TabsTrigger onChange={(ev) => console.log(ev)
-        } value="terminal">Terminal</TabsTrigger>
+        <TabsTrigger value="terminal">Terminal</TabsTrigger>
         <TabsTrigger value="settings">Settings</TabsTrigger>
       </TabsList>
       <TabsContent value="terminal">
         <div className={clsx(views.length > 1 ? heightWithLesSpace : height)}>
-          <Terminal logs={getLogsByDirId(id)} id={id} />
+          <Terminal id={id} />
         </div>
       </TabsContent>
       <TabsContent value="settings">

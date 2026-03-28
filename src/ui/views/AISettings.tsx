@@ -1,0 +1,512 @@
+import { useState, useEffect, type FC } from 'react'
+import { useAIAutomation } from '@/ui/contexts/ai-automation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ArrowLeft, Plus, Trash2, Folder, Wand2, Loader2, Sun, Moon } from 'lucide-react'
+import { PipelineDiagram } from '@/ui/components/ai-automation/PipelineDiagram'
+import { ProjectKnowledgePanel } from '@/ui/components/ai-automation/ProjectKnowledgePanel'
+import { NAV_ITEMS, DEFAULT_VISIBLE_VIEWS } from '@/ui/components/AppNavbarConfig'
+import { FIXED_PHASES, GIT_STRATEGY } from '@/shared/constants'
+
+interface AISettingsProps {
+  defaultTab?: string
+}
+
+export const AISettings: FC<AISettingsProps> = ({ defaultTab }) => {
+  const { settings, updateSettings } = useAIAutomation()
+
+  if (!settings) return <div className="flex items-center justify-center py-8" style={{ color: 'var(--ai-text-tertiary)' }}>Loading settings...</div>
+
+  return (
+    <Tabs defaultValue={defaultTab || "pipeline"} className="flex-1 flex flex-col min-h-0">
+      <TabsList className="w-fit">
+          <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          <TabsTrigger value="knowledge">Knowledge Docs</TabsTrigger>
+          <TabsTrigger value="project-knowledge">Project Knowledge</TabsTrigger>
+          <TabsTrigger value="rules">Global Rules</TabsTrigger>
+          <TabsTrigger value="general">General</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="appearance" className="flex-1 min-h-0 overflow-auto p-4">
+          <div className="flex gap-8">
+            {/* Left: Sidebar Views */}
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ai-text-primary)' }}>Sidebar Views</h3>
+              <p className="text-xs mb-3" style={{ color: 'var(--ai-text-tertiary)' }}>Choose which views appear in the sidebar.</p>
+              <div className="space-y-1">
+                {NAV_ITEMS.map(({ value, label, icon: Icon }) => {
+                  const visibleViews = settings.visibleViews || DEFAULT_VISIBLE_VIEWS
+                  const isChecked = visibleViews.includes(value)
+                  return (
+                    <label
+                      key={value}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors hover:bg-[var(--ai-surface-2)]"
+                    >
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          const current = settings.visibleViews || DEFAULT_VISIBLE_VIEWS
+                          const updated = checked
+                            ? [...current, value]
+                            : current.filter(v => v !== value)
+                          if (updated.length > 0) {
+                            updateSettings({ visibleViews: updated })
+                          }
+                        }}
+                      />
+                      <Icon className="size-4 text-[var(--ai-text-secondary)]" />
+                      <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>{label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Right: Theme */}
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ai-text-primary)' }}>Theme</h3>
+              <p className="text-xs mb-3" style={{ color: 'var(--ai-text-tertiary)' }}>Switch between dark and light mode.</p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => updateSettings({ theme: (settings.theme || 'dark') === 'dark' ? 'light' : 'dark' })}
+                  className="relative w-12 h-7 rounded-full transition-colors"
+                  style={{
+                    background: (settings.theme || 'dark') === 'light' ? 'var(--ai-accent)' : 'var(--ai-surface-3)',
+                  }}
+                >
+                  <span
+                    className="absolute top-0.5 w-6 h-6 rounded-full flex items-center justify-center transition-all"
+                    style={{
+                      left: (settings.theme || 'dark') === 'light' ? '22px' : '2px',
+                      background: 'var(--ai-surface-1)',
+                    }}
+                  >
+                    {(settings.theme || 'dark') === 'light'
+                      ? <Sun className="size-3.5" style={{ color: 'var(--ai-accent)' }} />
+                      : <Moon className="size-3.5" style={{ color: 'var(--ai-text-secondary)' }} />
+                    }
+                  </span>
+                </button>
+                <span className="text-sm capitalize" style={{ color: 'var(--ai-text-secondary)' }}>
+                  {settings.theme || 'dark'} mode
+                </span>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="pipeline" className="flex-1 min-h-0 overflow-hidden !p-0">
+          <PipelineDiagram
+            settings={settings}
+            updateSettings={updateSettings}
+          />
+        </TabsContent>
+
+        <TabsContent value="knowledge" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+          <KnowledgeDocsTab settings={settings} updateSettings={updateSettings} />
+        </TabsContent>
+
+        <TabsContent value="project-knowledge" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+          <ProjectKnowledgePanel />
+        </TabsContent>
+
+        <TabsContent value="rules" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+          <div className="space-y-2 mt-4">
+            <Label>Global rules applied to all agents</Label>
+            <Textarea
+              value={settings.globalRules}
+              onChange={e => updateSettings({ globalRules: e.target.value })}
+              placeholder="Enter global rules in markdown. These are included in every agent prompt..."
+              rows={15}
+              className="font-mono text-sm"
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="general" className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+          <GeneralTab settings={settings} updateSettings={updateSettings} />
+        </TabsContent>
+    </Tabs>
+  )
+}
+
+// --- Sub-components ---
+
+interface SettingsTabProps {
+  settings: AIAutomationSettings
+  updateSettings: (updates: Partial<AIAutomationSettings>) => void
+}
+
+const KnowledgeDocsTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [generateOpen, setGenerateOpen] = useState(false)
+  const [generatePath, setGeneratePath] = useState('')
+  const [directories, setDirectories] = useState<DirectorySettings[]>([])
+
+  useEffect(() => {
+    window.electron.getDirectories().then(setDirectories)
+    const unsub = window.electron.subscribeDirectories(setDirectories)
+    return unsub
+  }, [])
+
+  const addDoc = () => {
+    const newDoc: AIKnowledgeDoc = {
+      id: crypto.randomUUID(),
+      title: 'New Document',
+      content: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      autoGenerated: false
+    }
+    updateSettings({ knowledgeDocs: [...settings.knowledgeDocs, newDoc] })
+    setEditingId(newDoc.id)
+  }
+
+  const updateDoc = (id: string, updates: Partial<AIKnowledgeDoc>) => {
+    const docs = settings.knowledgeDocs.map(d =>
+      d.id === id ? { ...d, ...updates, updatedAt: new Date().toISOString() } : d
+    )
+    updateSettings({ knowledgeDocs: docs })
+  }
+
+  const deleteDoc = (id: string) => {
+    updateSettings({ knowledgeDocs: settings.knowledgeDocs.filter(d => d.id !== id) })
+    if (editingId === id) setEditingId(null)
+  }
+
+  const handleGenerate = () => {
+    if (!generatePath) return
+
+    const existing = settings.knowledgeDocs.find(d => d.sourcePath === generatePath)
+    if (existing) {
+      if (!confirm(`A knowledge doc already exists for "${generatePath.split('/').pop()}". Replace it?`)) {
+        return
+      }
+    }
+
+    // Fire and forget — the IPC handler creates the doc immediately and updates it as generation progresses
+    window.electron.aiGenerateKnowledgeDoc(generatePath)
+    setGenerateOpen(false)
+    setGeneratePath('')
+  }
+
+  const editingDoc = settings.knowledgeDocs.find(d => d.id === editingId)
+
+  if (editingDoc) {
+    return (
+      <div className="space-y-3 mt-4">
+        <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back to list
+        </Button>
+        <Input
+          value={editingDoc.title}
+          onChange={e => updateDoc(editingDoc.id, { title: e.target.value })}
+          className="text-lg font-semibold"
+        />
+        {editingDoc.sourcePath && (
+          <p className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>Source: {editingDoc.sourcePath}</p>
+        )}
+        <Textarea
+          value={editingDoc.content}
+          onChange={e => updateDoc(editingDoc.id, { content: e.target.value })}
+          placeholder="Write knowledge in markdown. Describe your system architecture, project relationships, tech stacks..."
+          rows={20}
+          className="font-mono text-sm"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3 mt-4">
+      <div className="flex justify-between items-center">
+        <p className="text-sm" style={{ color: 'var(--ai-text-secondary)' }}>
+          Knowledge documents describe your system. Agents use these as context when planning and working.
+        </p>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setGenerateOpen(true)}>
+            <Wand2 className="h-4 w-4 mr-1" /> Auto-Generate
+          </Button>
+          <Button size="sm" onClick={addDoc} style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}>
+            <Plus className="h-4 w-4 mr-1" /> Add Doc
+          </Button>
+        </div>
+      </div>
+
+      {generateOpen && (
+        <div className="p-4 rounded-md space-y-3" style={{ border: '1px solid var(--ai-border-subtle)', background: 'var(--ai-surface-2)' }}>
+          <h4 className="text-sm font-medium" style={{ color: 'var(--ai-text-primary)' }}>Generate Knowledge Doc</h4>
+          <p className="text-xs" style={{ color: 'var(--ai-text-secondary)' }}>Select a project to explore. Claude will analyze the codebase and generate a knowledge document.</p>
+
+          {directories.length > 0 && (
+            <div>
+              <Label className="text-xs">From DevControl projects</Label>
+              <Select value={generatePath} onValueChange={setGeneratePath}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select a project..." /></SelectTrigger>
+                <SelectContent>
+                  {directories.map(d => (
+                    <SelectItem key={d.id} value={d.path}>{d.customLabel || d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div>
+            <Label className="text-xs">Or choose a folder</Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                value={generatePath}
+                onChange={e => setGeneratePath(e.target.value)}
+                placeholder="/path/to/project"
+                className="font-mono text-sm"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-3 shrink-0"
+                onClick={async () => {
+                  const selected = await window.electron.aiSelectDirectory()
+                  if (selected) setGeneratePath(selected)
+                }}
+              >
+                <Folder className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" onClick={() => { setGenerateOpen(false); setGeneratePath('') }}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleGenerate} disabled={!generatePath}>
+              Generate
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {settings.knowledgeDocs.length === 0 && !generateOpen ? (
+        <div className="text-sm py-8 text-center rounded" style={{ color: 'var(--ai-text-tertiary)', border: '1px dashed var(--ai-border-subtle)' }}>
+          No knowledge docs yet. Add one to help agents understand your projects.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {settings.knowledgeDocs.map(doc => (
+            <div key={doc.id} className="flex items-center justify-between p-3 rounded transition-colors" style={{ background: 'var(--ai-surface-2)', border: '1px solid var(--ai-border-subtle)' }}>
+              <div className="cursor-pointer flex-1" onClick={() => !doc.generatingStatus && setEditingId(doc.id)}>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium" style={{ color: 'var(--ai-text-primary)' }}>{doc.title}</p>
+                  {doc.autoGenerated && !doc.generatingStatus && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--ai-accent-subtle)', color: 'var(--ai-accent)' }}>auto-generated</span>
+                  )}
+                </div>
+                {doc.generatingStatus ? (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {doc.generatingStatus.startsWith('Failed') ? (
+                      <span className="text-xs" style={{ color: 'var(--ai-pink)' }}>{doc.generatingStatus}</span>
+                    ) : (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" style={{ color: 'var(--ai-accent)' }} />
+                        <span className="text-xs truncate" style={{ color: 'var(--ai-accent)' }}>{doc.generatingStatus}</span>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--ai-text-tertiary)' }}>
+                    {doc.sourcePath ? doc.sourcePath : `Updated ${new Date(doc.updatedAt).toLocaleDateString()}`}
+                  </p>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deleteDoc(doc.id) }}>
+                <Trash2 className="h-4 w-4" style={{ color: 'var(--ai-pink)' }} />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
+  return (
+    <div className="space-y-4 mt-4 max-w-md">
+      <div>
+        <Label>Max Concurrent Agents</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>How many tasks can run agents simultaneously.</p>
+        <Input
+          type="number"
+          value={settings.maxConcurrency}
+          onChange={e => updateSettings({ maxConcurrency: Math.max(1, Math.min(5, Number(e.target.value))) })}
+          min={1}
+          max={5}
+          className="w-24"
+        />
+      </div>
+      <div>
+        <Label>Stall Timeout (minutes)</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>
+          Kill and retry an agent if no events are received for this duration.
+        </p>
+        <Input
+          type="number"
+          min={1}
+          max={30}
+          value={settings.stallTimeoutMinutes}
+          onChange={e => updateSettings({ stallTimeoutMinutes: Math.max(1, Math.min(30, parseInt(e.target.value) || 3)) })}
+          className="w-24"
+        />
+      </div>
+      <div>
+        <Label>Notifications</Label>
+        <p className="text-xs mb-2" style={{ color: 'var(--ai-text-tertiary)' }}>
+          Choose which events trigger notifications.
+        </p>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={settings.notifyOnManualPhase}
+              onCheckedChange={(v) => updateSettings({ notifyOnManualPhase: !!v })}
+            />
+            <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>Task ready for review</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={settings.notifyOnNeedsAttention}
+              onCheckedChange={(v) => updateSettings({ notifyOnNeedsAttention: !!v })}
+            />
+            <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>Agent needs attention</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={settings.notifyOnTaskDone}
+              onCheckedChange={(v) => updateSettings({ notifyOnTaskDone: !!v })}
+            />
+            <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>Task completed</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={settings.notifyOnPhaseStart}
+              onCheckedChange={(v) => updateSettings({ notifyOnPhaseStart: !!v })}
+            />
+            <span className="text-sm" style={{ color: 'var(--ai-text-primary)' }}>Phase started</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <Label>Default Git Strategy</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>How the agent manages code changes for new tasks.</p>
+        <Select value={settings.defaultGitStrategy === GIT_STRATEGY.NONE ? GIT_STRATEGY.NONE : GIT_STRATEGY.WORKTREE} onValueChange={v => {
+          if (v === GIT_STRATEGY.WORKTREE || v === GIT_STRATEGY.NONE) updateSettings({ defaultGitStrategy: v })
+        }}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={GIT_STRATEGY.WORKTREE}>Worktree</SelectItem>
+            <SelectItem value={GIT_STRATEGY.NONE}>None</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Default Base Branch</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>Branch to create task branches from. Can be overridden per task.</p>
+        <Input
+          value={settings.defaultBaseBranch}
+          onChange={e => updateSettings({ defaultBaseBranch: e.target.value })}
+          placeholder="main"
+          className="w-48"
+        />
+      </div>
+      <div>
+        <Label>Task Data Directory</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>Where task workspaces are stored (agent files, attachments, worktrees). Changing this only affects new tasks.</p>
+        <div className="flex gap-2">
+          <Input
+            value={settings.taskDataRoot || ''}
+            onChange={e => updateSettings({ taskDataRoot: e.target.value || undefined })}
+            placeholder="Default (app data directory)"
+            className="w-64"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="px-3 shrink-0"
+            onClick={async () => {
+              const selected = await window.electron.aiSelectDirectory()
+              if (selected) updateSettings({ taskDataRoot: selected })
+            }}
+          >
+            <Folder className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div>
+        <Label>Default Request Changes Phase</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>When requesting changes during review, the task is sent to this phase by default. Can be overridden per review.</p>
+        <Select
+          value={settings.defaultRequestChangesPhase || ''}
+          onValueChange={v => updateSettings({ defaultRequestChangesPhase: v || undefined })}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Auto (nearest previous agent phase)" />
+          </SelectTrigger>
+          <SelectContent>
+            {(settings.boards?.find(b => b.id === settings.activeBoardId)?.pipeline || []).map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Default Amendment Phase</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>When adding an amendment, the task is sent to this phase by default. Can be overridden per amendment.</p>
+        <Select
+          value={settings.defaultAmendmentPhase || ''}
+          onValueChange={v => updateSettings({ defaultAmendmentPhase: v || undefined })}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="First pipeline phase" />
+          </SelectTrigger>
+          <SelectContent>
+            {(settings.boards?.find(b => b.id === settings.activeBoardId)?.pipeline || []).map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Default Approve Phase</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>Where tasks go when you click Approve. Can be overridden per approval via the dropdown arrow.</p>
+        <Select
+          value={settings.defaultApprovePhase || FIXED_PHASES.DONE}
+          onValueChange={v => updateSettings({ defaultApprovePhase: v })}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(settings.boards?.find(b => b.id === settings.activeBoardId)?.pipeline || []).map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+            <SelectItem value={FIXED_PHASES.DONE}>Done</SelectItem>
+          </SelectContent>
+        </Select>
+        <label className="flex items-center gap-2 mt-2 cursor-pointer">
+          <Checkbox
+            checked={settings.approveSkipConfirm ?? false}
+            onCheckedChange={(v) => updateSettings({ approveSkipConfirm: !!v })}
+          />
+          <span className="text-xs" style={{ color: 'var(--ai-text-secondary)' }}>Don't ask — always send to default phase</span>
+        </label>
+      </div>
+    </div>
+  )
+}

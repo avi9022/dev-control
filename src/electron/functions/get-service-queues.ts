@@ -1,30 +1,54 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import fs from 'fs';
 import yaml from 'js-yaml';
 import { getDirectoryById } from '../storage/get-directory-by-id.js';
 
-export const getServiceQueues = (id: string): QueueSettings[] => {
+interface ServerlessFunction {
+  events?: Array<{
+    sqs?: {
+      arn?: string
+    }
+  }>
+}
+
+interface ServerlessConfig {
+  functions?: Record<string, ServerlessFunction>
+  custom?: {
+    'serverless-offline-sqs'?: {
+      endpoint?: string
+    }
+  }
+}
+
+function isServerlessConfig(value: unknown): value is ServerlessConfig {
+  if (typeof value !== 'object' || value === null) return false
+  const obj = value as Record<string, unknown>
+  if (obj.functions !== undefined && typeof obj.functions !== 'object') return false
+  return true
+}
+
+export const getServiceQueues = async (id: string): Promise<QueueSettings[]> => {
   const directory = getDirectoryById(id)
   if (!directory) return []
   let file: string = ''
   try {
-    file = fs.readFileSync(`${directory.path}/serverless.yml`, 'utf8');
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (err) {
+    file = await fs.promises.readFile(`${directory.path}/serverless.yml`, 'utf8');
+  } catch {
     return []
   }
 
   if (!file) return []
-  const parsed = yaml.load(file) as any;
+  const raw: unknown = yaml.load(file);
+  if (!isServerlessConfig(raw)) return []
+  const parsed = raw
   const queues: QueueSettings[] = []
 
   if (parsed.functions) {
     let offlineSqsEndpoint = ''
-    if (parsed?.custom?.["serverless-offline-sqs"]) {
-      offlineSqsEndpoint = parsed?.custom?.["serverless-offline-sqs"].endpoint
+    if (parsed.custom?.["serverless-offline-sqs"]) {
+      offlineSqsEndpoint = parsed.custom["serverless-offline-sqs"].endpoint || ''
     }
 
-    Object.entries<any>(parsed.functions).forEach(([funcName, data]) => {
+    for (const [funcName, data] of Object.entries(parsed.functions)) {
       if (data?.events?.[0]?.sqs?.arn) {
         const arn = data.events[0].sqs.arn
         const match = arn.match(/:([a-zA-Z0-9_-]+?_)[$][{]/);
@@ -37,7 +61,7 @@ export const getServiceQueues = (id: string): QueueSettings[] => {
 
         queues.push(queue)
       }
-    })
+    }
   }
 
   return queues

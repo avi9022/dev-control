@@ -1,5 +1,5 @@
 import { store } from "./store.js"
 
-export const getWorkflows = (): Workflow[] => {
+export const getWorkflows = (): EnhancedWorkflow[] => {
   return store.get('workflows') || []
 }

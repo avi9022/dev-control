@@ -3,27 +3,26 @@ import { store } from "../storage/store.js";
 import { ipcWebContentsSend } from "../utils/ipc-handle.js";
 import { BrowserWindow } from "electron";
 import { updateDirectoryData } from "./update-directory-data.js";
+import { DirectoryStatus, PORT_POLL_INTERVAL_MS } from '../../shared/constants.js';
 
-const POLLING_INTERVAL = 500;
-
-export const pollPorts = (mainWindow: BrowserWindow) => {
-  setInterval(async () => {
+export const pollPorts = (mainWindow: BrowserWindow): NodeJS.Timeout => {
+  return setInterval(async () => {
     const directories = store.get('directories')
     const stateMap: DirectoryMapByState = {}
 
     const promises = directories.map(async ({ port, id, isInitializing }) => {
-      let stateToSet: DirectoryState = 'UNKNOWN'
+      let stateToSet: DirectoryState = DirectoryStatus.Unknown
       if (port) {
         const isRunning = await isPortReachable(+port, { host: 'localhost' });
 
         if (!isRunning) {
-          stateToSet = isInitializing ? 'INITIALIZING' : 'STOPPED'
+          stateToSet = isInitializing ? DirectoryStatus.Initializing : DirectoryStatus.Stopped
         } else {
           if (isInitializing) {
             updateDirectoryData(id, { isInitializing: false })
           }
 
-          stateToSet = 'RUNNING'
+          stateToSet = DirectoryStatus.Running
         }
       }
 
@@ -32,5 +31,5 @@ export const pollPorts = (mainWindow: BrowserWindow) => {
 
     await Promise.all(promises)
     ipcWebContentsSend('directoriesMapByState', mainWindow.webContents, stateMap);
-  }, POLLING_INTERVAL);
+  }, PORT_POLL_INTERVAL_MS);
 }

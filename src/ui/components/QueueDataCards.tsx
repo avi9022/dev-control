@@ -28,13 +28,13 @@ export const QueueDataCards: FC<QueueDataCardsProps> = ({ data }) => {
         <CardHeader>
           <CardTitle>
             <div className="flex gap-2 items-center">
-              <CircleCheck size={18} className="text-green-400" />
+              <CircleCheck size={18} className="text-status-green" />
               <p>Messages in process</p>
             </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-5xl text-green-400">{data?.queueAttributes.ApproximateNumberOfMessagesNotVisible || 0}</p>
+          <p className="text-5xl text-status-green">{data?.queueAttributes.ApproximateNumberOfMessagesNotVisible || 0}</p>
         </CardContent>
       </Card>
       <Card className="border-none flex-1">

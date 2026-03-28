@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, type FC } from "react";
 import Editor from "@monaco-editor/react";
 
 interface JsonInputProps {
-  onChange?: (json: any) => void;
-  value?: any;
+  onChange?: (json: string) => void;
+  value?: string;
   disabled?: boolean
 }
 
@@ -41,7 +40,7 @@ export const JsonInput: FC<JsonInputProps> = ({
           minimap: { enabled: false },
         }}
       />
-      {error && <p className="text-sm text-red-500 px-2">⚠️ {error}</p>}
+      {error && <p className="text-sm text-status-red px-2">⚠️ {error}</p>}
     </div>
   );
 };

@@ -9,7 +9,13 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: './',
   build: {
-    outDir: "dist-react"
+    outDir: "dist-react",
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        overlay: path.resolve(__dirname, 'overlay.html')
+      }
+    }
   },
   resolve: {
     alias: {
@@ -18,6 +24,9 @@ export default defineConfig({
   },
   server: {
     port: 5123,
-    strictPort: true
+    strictPort: true,
+    watch: {
+      ignored: ['**/docs/**', '**/dist-electron/**', '**/ai-task-data/**']
+    }
   }
 })

@@ -25,9 +25,10 @@ export const StopAllServicesButton = () => {
           <DialogTrigger asChild>
             <Button
               disabled={!hasRunningService}
-              className={'bg-destructive hover:bg-destructive/80'} size="sm"
+              className={'bg-destructive hover:bg-destructive/80 size-7 p-0'}
+              size="sm"
             >
-              <Square fill="white" color="white" />
+              <Square className="size-3" fill="currentColor" />
             </Button>
           </DialogTrigger>
         </TooltipTrigger>
