@@ -5,7 +5,7 @@ import { type ClaudeStreamEvent } from '@/shared/stream-types'
 import { ContextHistoryModal } from '@/ui/components/ai-automation/ContextHistoryModal'
 import { PhaseStepper } from './PhaseStepper'
 import { ChatMessageList } from './ChatMessageList'
-import { parseEventsToMessages, parseEventToMessages } from './chat-parser'
+import { type ChatMessage, parseEventsToMessages, parseEventToMessages } from './chat-parser'
 
 interface PhasePlaceholderProps {
   icon: React.ReactNode

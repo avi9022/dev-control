@@ -1,7 +1,14 @@
 {
-  "name": "electron",
-  "private": true,
-  "version": "0.0.0",
+  "name": "dev-control",
+  "version": "1.0.0",
+  "description": "Desktop app for managing local development services, databases, Docker containers, and AI-powered task automation",
+  "author": "Avi Isakov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/avi9022/dev-control"
+  },
+  "homepage": "https://github.com/avi9022/dev-control",
   "type": "module",
   "main": "dist-electron/electron/main",
   "scripts": {
@@ -11,6 +18,10 @@
     "start:electron": "npm run transpile:electron && cross-env NODE_ENV=development electron .",
     "transpile:electron": "tsc --project src/electron/tsconfig.json",
     "build": "tsc -b && vite build",
+    "build:dist": "npm run build && npm run transpile:electron && electron-builder --config electron-builder.yml",
+    "build:mac": "npm run build && npm run transpile:electron && electron-builder --mac --config electron-builder.yml",
+    "build:win": "npm run build && npm run transpile:electron && electron-builder --win --config electron-builder.yml",
+    "build:linux": "npm run build && npm run transpile:electron && electron-builder --linux --config electron-builder.yml",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -92,7 +103,7 @@
     "@vitejs/plugin-react": "^4.4.1",
     "cross-env": "^7.0.3",
     "electron": "^30.5.1",
-    "electron-builder": "^26.0.12",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",

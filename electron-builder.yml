@@ -1,0 +1,50 @@
+appId: com.devcontrol.app
+productName: DevControl
+directories:
+  buildResources: build
+  output: release
+files:
+  - dist-react/**/*
+  - dist-electron/**/*
+  - package.json
+  - node_modules/**/*
+  - "!node_modules/.cache"
+  - "!node_modules/*/{test,tests,__tests__,spec}/**"
+  - "!node_modules/*/CHANGELOG.md"
+  - "!node_modules/*/README.md"
+asar: true
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - universal
+    - target: zip
+      arch:
+        - universal
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+linux:
+  category: Development
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+publish:
+  provider: github
+  owner: avi9022
+  repo: dev-control

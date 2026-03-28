@@ -143,7 +143,7 @@ export function resolveTaskCreationStepper(requestId: string, result: TaskSteppe
 }
 
 export function resetTaskStepperTimeout(requestId: string): void {
-  // No-op — timeouts removed, MCP progress keep-alive handles it
+  void requestId
 }
 
 export function closeAllPendingSteppers(): void {
