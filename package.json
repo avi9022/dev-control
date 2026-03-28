@@ -2,7 +2,10 @@
   "name": "dev-control",
   "version": "1.0.0",
   "description": "Desktop app for managing local development services, databases, Docker containers, and AI-powered task automation",
-  "author": "Avi Isakov",
+  "author": {
+    "name": "Avi Isakov",
+    "email": "avi.isakov9022@gmail.com"
+  },
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
