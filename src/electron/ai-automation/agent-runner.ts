@@ -4,7 +4,7 @@ import path from 'path'
 import treeKill from 'tree-kill'
 import { app, BrowserWindow } from 'electron'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
-import { getTaskById, updateTask, moveTaskPhase, getSettings, getBoardPipeline } from './task-manager.js'
+import { getTaskById, updateTask, updateSubtask, moveTaskPhase, moveSubtaskPhase, getActiveSubtask, getSettings, getBoardPipeline } from './task-manager.js'
 import { type ClaudeStreamEvent } from './stream-types.js'
 import {
   FIXED_PHASES,
@@ -109,15 +109,28 @@ export function stopAgent(taskId: string): Promise<void> {
     }
     const task = getTaskById(taskId)
     if (task) {
-      const history = [...task.phaseHistory]
-      if (history.length > 0) {
-        history[history.length - 1] = {
-          ...history[history.length - 1],
-          exitedAt: new Date().toISOString(),
-          exitEvent: PhaseExitEvent.Stopped,
+      const subtask = getActiveSubtask(task)
+      if (subtask) {
+        const history = [...subtask.phaseHistory]
+        if (history.length > 0) {
+          history[history.length - 1] = {
+            ...history[history.length - 1],
+            exitedAt: new Date().toISOString(),
+            exitEvent: PhaseExitEvent.Stopped,
+          }
         }
+        updateSubtask(taskId, subtask.id, { phaseHistory: history })
+      } else {
+        const history = [...task.phaseHistory]
+        if (history.length > 0) {
+          history[history.length - 1] = {
+            ...history[history.length - 1],
+            exitedAt: new Date().toISOString(),
+            exitEvent: PhaseExitEvent.Stopped,
+          }
+        }
+        updateTask(taskId, { phaseHistory: history })
       }
-      updateTask(taskId, { phaseHistory: history })
     }
     treeKill(proc.pid, 'SIGTERM', (err) => {
       if (err) {
@@ -179,7 +192,14 @@ function processQueue(): void {
     const pipeline = getBoardPipeline(task.boardId)
 
     if (task.phase === FIXED_PHASES.BACKLOG && pipeline.length > 0) {
-      moveTaskPhase(taskId, pipeline[0].id)
+      if (task.isCluster) {
+        const subtask = getActiveSubtask(task)
+        if (subtask) {
+          moveSubtaskPhase(taskId, subtask.id, pipeline[0].id)
+        }
+      } else {
+        moveTaskPhase(taskId, pipeline[0].id)
+      }
       task = getTaskById(taskId)
       if (!task) continue
     }

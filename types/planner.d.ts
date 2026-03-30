@@ -53,6 +53,21 @@ interface TaskStepperResponse {
   tasks?: TaskStepperApprovedTask[]
 }
 
+interface ClusterCreationRequest {
+  requestId: string
+  title: string
+  subtasks: Array<{ title: string; description: string }>
+  projectPaths?: string
+  boardId?: string
+}
+
+interface ClusterCreationResponse {
+  cancelled?: boolean
+  title: string
+  subtasks: Array<{ title: string; description: string }>
+  projects: AITaskProject[]
+}
+
 interface PlannerChatMessage {
   role: 'user' | 'assistant'
   content: string

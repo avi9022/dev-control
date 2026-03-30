@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { type BrowserWindow } from 'electron'
-import { createTask } from '../task-manager.js'
+import { createTask, getSettings } from '../task-manager.js'
 import { ipcWebContentsSend } from '../../utils/ipc-handle.js'
 import { type McpToolDefinition, type McpToolResult, textResult, errorResult } from './types.js'
 import { GIT_STRATEGY } from '../../../shared/constants.js'
@@ -59,6 +59,7 @@ function parseTasksJson(json: string): TaskInput[] {
 
 function buildProjects(projectPaths: string | undefined): AITaskProject[] {
   if (!projectPaths) return []
+  const defaultBaseBranch = getSettings().defaultBaseBranch || undefined
   return projectPaths
     .split(',')
     .map(p => p.trim())
@@ -67,13 +68,18 @@ function buildProjects(projectPaths: string | undefined): AITaskProject[] {
       path: projectPath,
       label: projectPath.split('/').pop() || projectPath,
       gitStrategy: GIT_STRATEGY.WORKTREE,
+      baseBranch: defaultBaseBranch,
     }))
 }
 
-function waitForStepperResponse(requestId: string): Promise<TaskStepperResponse> {
+export function waitForStepperResponse(requestId: string): Promise<TaskStepperResponse> {
   return new Promise((resolve) => {
     pendingRequests.set(requestId, { resolve })
   })
+}
+
+export function getStepperMainWindow(): BrowserWindow | null {
+  return mainWindow
 }
 
 function createTasksDirectly(taskInputs: TaskInput[], boardId: string | undefined): McpToolResult {
@@ -142,9 +148,6 @@ export function resolveTaskCreationStepper(requestId: string, result: TaskSteppe
   pending.resolve(result)
 }
 
-export function resetTaskStepperTimeout(requestId: string): void {
-  void requestId
-}
 
 export function closeAllPendingSteppers(): void {
   for (const [requestId, pending] of pendingRequests) {

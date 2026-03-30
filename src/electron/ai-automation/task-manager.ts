@@ -1,5 +1,7 @@
 import { store, DEFAULT_PIPELINE } from '../storage/store.js'
 import { randomUUID } from 'crypto'
+import fs from 'fs'
+import path from 'path'
 import { BrowserWindow } from 'electron'
 import { ipcWebContentsSend } from '../utils/ipc-handle.js'
 import { cleanupWorktree } from './worktree-manager.js'
@@ -97,6 +99,228 @@ export function createTask(
   return task
 }
 
+export function createCluster(
+  title: string,
+  subtaskDefs: Array<{ title: string; description: string }>,
+  projects: AITaskProject[],
+  boardId?: string
+): AITask {
+  const now = new Date().toISOString()
+  const id = randomUUID()
+  const taskDir = getOrCreateTaskDir(id)
+  const settings = getSettings()
+  const resolvedBoardId = boardId || settings.activeBoardId || 'default'
+
+  const subtasks: AISubtask[] = subtaskDefs.map((def) => {
+    const subtaskId = randomUUID()
+    const subtaskDir = path.join(taskDir, 'subtasks', subtaskId)
+    fs.mkdirSync(subtaskDir, { recursive: true })
+    return {
+      id: subtaskId,
+      title: def.title,
+      description: def.description,
+      phase: FIXED_PHASES.BACKLOG,
+      createdAt: now,
+      updatedAt: now,
+      phaseHistory: [{ phase: FIXED_PHASES.BACKLOG, enteredAt: now }],
+      needsUserInput: false,
+      taskDirPath: subtaskDir,
+    }
+  })
+
+  const task: AITask = {
+    id,
+    title,
+    description: '',
+    boardId: resolvedBoardId,
+    phase: FIXED_PHASES.BACKLOG,
+    createdAt: now,
+    updatedAt: now,
+    projects,
+    taskDirPath: taskDir,
+    worktrees: [],
+    needsUserInput: false,
+    phaseHistory: [{ phase: FIXED_PHASES.BACKLOG, enteredAt: now }],
+    isCluster: true,
+    subtasks,
+    activeSubtaskIndex: 0,
+  }
+
+  const tasks = store.get('aiTasks')
+  tasks.push(task)
+  store.set('aiTasks', tasks)
+  broadcastTasks()
+  return task
+}
+
+export function getActiveSubtask(task: AITask): AISubtask | undefined {
+  if (!task.isCluster || !task.subtasks || task.activeSubtaskIndex === undefined) return undefined
+  return task.subtasks[task.activeSubtaskIndex]
+}
+
+export function updateSubtask(taskId: string, subtaskId: string, updates: Partial<AISubtask>): void {
+  const tasks = store.get('aiTasks')
+  const taskIndex = tasks.findIndex(t => t.id === taskId)
+  if (taskIndex === -1) return
+
+  const task = tasks[taskIndex]
+  if (!task.subtasks) return
+
+  const subtaskIndex = task.subtasks.findIndex(s => s.id === subtaskId)
+  if (subtaskIndex === -1) return
+
+  task.subtasks[subtaskIndex] = { ...task.subtasks[subtaskIndex], ...updates, updatedAt: new Date().toISOString() }
+  tasks[taskIndex] = { ...task, updatedAt: new Date().toISOString() }
+  store.set('aiTasks', tasks)
+  broadcastTasks()
+}
+
+export function moveSubtaskPhase(taskId: string, subtaskId: string, targetPhase: string): void {
+  const tasks = store.get('aiTasks')
+  const taskIndex = tasks.findIndex(t => t.id === taskId)
+  if (taskIndex === -1) return
+
+  const task = tasks[taskIndex]
+  if (!task.subtasks) return
+
+  const subtaskIndex = task.subtasks.findIndex(s => s.id === subtaskId)
+  if (subtaskIndex === -1) return
+
+  const subtask = task.subtasks[subtaskIndex]
+  const now = new Date().toISOString()
+  const history = [...subtask.phaseHistory]
+  if (history.length > 0) {
+    history[history.length - 1] = { ...history[history.length - 1], exitedAt: now }
+  }
+  history.push({ phase: targetPhase, enteredAt: now })
+
+  const isSamePhase = subtask.phase === targetPhase
+
+  task.subtasks[subtaskIndex] = {
+    ...subtask,
+    phase: targetPhase,
+    updatedAt: now,
+    phaseHistory: history,
+    needsUserInput: false,
+    needsUserInputReason: undefined,
+    stallRetryCount: 0,
+    sessionId: isSamePhase ? subtask.sessionId : undefined,
+  }
+
+  const pipeline = getBoardPipeline(task.boardId)
+  const phaseConfig = pipeline.find(p => p.id === targetPhase)
+  task.subtasks[subtaskIndex].currentPhaseName = phaseConfig?.name || targetPhase
+
+  task.phase = targetPhase
+  task.currentPhaseName = phaseConfig?.name || targetPhase
+  tasks[taskIndex] = { ...task, updatedAt: now }
+  store.set('aiTasks', tasks)
+  broadcastTasks()
+
+  if (targetPhase === FIXED_PHASES.DONE) {
+    advanceClusterSubtask(taskId)
+  }
+}
+
+function buildClusterFinalDescription(task: AITask): string {
+  const parts: string[] = [`Feature: ${task.title}\n`]
+  if (task.subtasks) {
+    parts.push('Completed subtasks:')
+    task.subtasks.forEach((s, i) => {
+      parts.push(`${i + 1}. ${s.title}`)
+    })
+  }
+  return parts.join('\n')
+}
+
+export function advanceClusterSubtask(taskId: string, worktreeHead?: string): void {
+  const tasks = store.get('aiTasks')
+  const taskIndex = tasks.findIndex(t => t.id === taskId)
+  if (taskIndex === -1) return
+
+  const task = tasks[taskIndex]
+  if (!task.isCluster || !task.subtasks || task.activeSubtaskIndex === undefined) return
+
+  const nextIndex = task.activeSubtaskIndex + 1
+
+  if (nextIndex >= task.subtasks.length) {
+    const now = new Date().toISOString()
+    const pipeline = getBoardPipeline(task.boardId)
+    const settings = getSettings()
+    const approvalPhaseId = settings.clusterApprovalPhase
+    const approvalPhaseIndex = approvalPhaseId
+      ? pipeline.findIndex(p => p.id === approvalPhaseId)
+      : -1
+    const finalPhaseIndex = approvalPhaseIndex >= 0 ? approvalPhaseIndex + 1 : -1
+    const finalPhase = finalPhaseIndex >= 0 && finalPhaseIndex < pipeline.length
+      ? pipeline[finalPhaseIndex]
+      : undefined
+
+    if (finalPhase) {
+      const history = [...task.phaseHistory]
+      if (history.length > 0) {
+        history[history.length - 1] = { ...history[history.length - 1], exitedAt: now }
+      }
+      history.push({ phase: finalPhase.id, enteredAt: now })
+      task.phase = finalPhase.id
+      task.currentPhaseName = finalPhase.name
+      task.phaseHistory = history
+      task.description = buildClusterFinalDescription(task)
+      task.updatedAt = now
+      tasks[taskIndex] = task
+      store.set('aiTasks', tasks)
+      broadcastTasks()
+      sendNotification('phase_start', taskId, task.title, `All subtasks done — ${finalPhase.name} phase started`)
+    } else {
+      const history = [...task.phaseHistory]
+      if (history.length > 0) {
+        history[history.length - 1] = { ...history[history.length - 1], exitedAt: now }
+      }
+      history.push({ phase: FIXED_PHASES.DONE, enteredAt: now })
+      task.phase = FIXED_PHASES.DONE
+      task.phaseHistory = history
+      task.updatedAt = now
+      tasks[taskIndex] = task
+      store.set('aiTasks', tasks)
+      broadcastTasks()
+      sendNotification('task_done', taskId, task.title, 'All subtasks completed')
+    }
+    return
+  }
+
+  if (worktreeHead) {
+    task.subtasks[nextIndex] = { ...task.subtasks[nextIndex], diffBaseline: worktreeHead }
+  }
+
+  task.activeSubtaskIndex = nextIndex
+
+  const pipeline = getBoardPipeline(task.boardId)
+  const firstPhase = pipeline[0]
+  if (firstPhase) {
+    const now = new Date().toISOString()
+    const subtask = task.subtasks[nextIndex]
+    const history = [...subtask.phaseHistory]
+    if (history.length > 0) {
+      history[history.length - 1] = { ...history[history.length - 1], exitedAt: now }
+    }
+    history.push({ phase: firstPhase.id, enteredAt: now })
+    task.subtasks[nextIndex] = {
+      ...subtask,
+      phase: firstPhase.id,
+      updatedAt: now,
+      phaseHistory: history,
+      currentPhaseName: firstPhase.name,
+    }
+    task.phase = firstPhase.id
+    task.currentPhaseName = firstPhase.name
+  }
+
+  task.updatedAt = new Date().toISOString()
+  tasks[taskIndex] = task
+  store.set('aiTasks', tasks)
+  broadcastTasks()
+}
+
 export function updateTask(id: string, updates: Partial<AITask>): void {
   const tasks = store.get('aiTasks')
   const index = tasks.findIndex(t => t.id === id)
@@ -166,6 +390,15 @@ export function moveTaskPhase(id: string, targetPhase: string): AITask {
   if (index === -1) throw new Error(`Task ${id} not found`)
 
   const task = tasks[index]
+
+  if (task.isCluster && task.subtasks && task.activeSubtaskIndex !== undefined) {
+    const activeSubtask = task.subtasks[task.activeSubtaskIndex]
+    if (activeSubtask) {
+      moveSubtaskPhase(id, activeSubtask.id, targetPhase)
+      return store.get('aiTasks').find(t => t.id === id) || task
+    }
+  }
+
   const pipeline = getBoardPipeline(task.boardId)
 
   // BACKLOG can go to any pipeline phase (user drag), and any phase can go to BACKLOG

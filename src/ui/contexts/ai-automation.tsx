@@ -4,6 +4,7 @@ interface AIAutomationContextType {
   tasks: AITask[]
   settings: AIAutomationSettings | null
   createTask: (title: string, description: string, projects: AITaskProject[], boardId?: string) => Promise<AITask>
+  createCluster: (title: string, subtasks: Array<{ title: string; description: string }>, projects: AITaskProject[], boardId?: string) => Promise<AITask>
   updateTask: (id: string, updates: Partial<AITask>) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   moveTaskPhase: (id: string, targetPhase: string) => Promise<void>
@@ -14,7 +15,7 @@ interface AIAutomationContextType {
 
 const AIAutomationContext = createContext<AIAutomationContextType | null>(null)
 
-export function useAIAutomation() {
+export function useAIAutomation(): AIAutomationContextType {
   const ctx = useContext(AIAutomationContext)
   if (!ctx) throw new Error('useAIAutomation must be within AIAutomationProvider')
   return ctx
@@ -34,6 +35,10 @@ export const AIAutomationProvider: FC<PropsWithChildren> = ({ children }) => {
 
   const createTask = useCallback(async (title: string, description: string, projects: AITaskProject[], boardId?: string) => {
     return window.electron.aiCreateTask(title, description, projects, boardId)
+  }, [])
+
+  const createCluster = useCallback(async (title: string, subtasks: Array<{ title: string; description: string }>, projects: AITaskProject[], boardId?: string) => {
+    return window.electron.aiCreateCluster(title, subtasks, projects, boardId)
   }, [])
 
   const updateTask = useCallback(async (id: string, updates: Partial<AITask>) => {
@@ -66,6 +71,7 @@ export const AIAutomationProvider: FC<PropsWithChildren> = ({ children }) => {
       tasks,
       settings,
       createTask,
+      createCluster,
       updateTask,
       deleteTask,
       moveTaskPhase,

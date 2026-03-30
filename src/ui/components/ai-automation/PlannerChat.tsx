@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, type FC } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ProjectCreationModal } from '@/ui/components/ai-automation/ProjectCreationModal'
 import { TaskCreationStepper } from '@/ui/components/ai-automation/TaskCreationStepper'
+import { NewTaskDialog } from '@/ui/components/ai-automation/NewTaskDialog'
 import { type MentionEditorHandle } from '@/ui/components/ai-automation/MentionEditor'
 import { PLANNER_GREETING, DIALOG_MAX_WIDTH, DIALOG_HEIGHT } from '@/ui/components/ai-automation/planner-constants'
 import { PlannerSidebar } from '@/ui/components/ai-automation/PlannerSidebar'
@@ -21,6 +22,7 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
   const [preserveEvents, setPreserveEvents] = useState(false)
   const [projectCreationRequest, setProjectCreationRequest] = useState<ProjectCreationRequest | null>(null)
   const [taskStepperRequest, setTaskStepperRequest] = useState<TaskStepperRequest | null>(null)
+  const [clusterCreationRequest, setClusterCreationRequest] = useState<ClusterCreationRequest | null>(null)
   const [pendingFiles, setPendingFiles] = useState<{ name: string; path: string }[]>([])
   const [taggedProjects, setTaggedProjects] = useState<Map<string, string>>(new Map())
   const [conversationList, setConversationList] = useState<PlannerConversationListItem[]>([])
@@ -183,7 +185,10 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
     const unsubCloseStepper = window.electron.subscribeAICloseTaskCreationStepper(() => {
       setTaskStepperRequest(null)
     })
-    return () => { unsubDebug(); unsubShowModal(); unsubCloseModal(); unsubShowStepper(); unsubCloseStepper() }
+    const unsubShowCluster = window.electron.subscribeAIClusterCreationModal((request: ClusterCreationRequest) => {
+      setClusterCreationRequest(request)
+    })
+    return () => { unsubDebug(); unsubShowModal(); unsubCloseModal(); unsubShowStepper(); unsubCloseStepper(); unsubShowCluster() }
   }, [])
 
   return (
@@ -242,6 +247,18 @@ export const PlannerChat: FC<PlannerChatProps> = ({ open, onOpenChange }) => {
         <TaskCreationStepper
           request={taskStepperRequest}
           onComplete={() => setTaskStepperRequest(null)}
+        />
+      )}
+      {clusterCreationRequest && (
+        <NewTaskDialog
+          open
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              window.electron.aiClusterCreationResult(clusterCreationRequest.requestId, { cancelled: true, title: '', subtasks: [], projects: [] })
+              setClusterCreationRequest(null)
+            }
+          }}
+          clusterPrefill={clusterCreationRequest}
         />
       )}
     </Dialog>

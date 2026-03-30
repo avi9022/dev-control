@@ -328,6 +328,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
   aiGetTasks: () => ipcInvoke('aiGetTasks'),
   aiCreateTask: (title: string, description: string, projects: AITaskProject[], boardId?: string) =>
     ipcInvoke('aiCreateTask', title, description, projects, boardId),
+  aiCreateCluster: (title: string, subtasks: Array<{ title: string; description: string }>, projects: AITaskProject[], boardId?: string) =>
+    ipcInvoke('aiCreateCluster', title, subtasks, projects, boardId),
   aiSelectDirectory: () => ipcInvoke('aiSelectDirectory'),
   aiUpdateTask: (id: string, updates: Partial<AITask>) => ipcInvoke('aiUpdateTask', id, updates),
   aiDeleteTask: (id: string) => ipcInvoke('aiDeleteTask', id),
@@ -413,6 +415,10 @@ electron.contextBridge.exposeInMainWorld("electron", {
     ipcOn('aiShowTaskCreationStepper', (request) => callback(request)),
   subscribeAICloseTaskCreationStepper: (callback: (data: { requestId: string }) => void) =>
     ipcOn('aiCloseTaskCreationStepper', (data) => callback(data)),
+  subscribeAIClusterCreationModal: (callback: (request: ClusterCreationRequest) => void) =>
+    ipcOn('aiShowClusterCreationModal', (request) => callback(request)),
+  aiClusterCreationResult: (requestId: string, result: ClusterCreationResponse) =>
+    ipcInvoke('aiClusterCreationResult', requestId, result),
   aiGetProjectProfiles: () => ipcInvoke('aiGetProjectProfiles'),
   aiGetProjectKnowledgeDoc: (projectPath: string) => ipcInvoke('aiGetProjectKnowledge', projectPath),
   aiGenerateProjectKnowledge: (projectPath: string) => ipcInvoke('aiGenerateProjectKnowledge', projectPath),

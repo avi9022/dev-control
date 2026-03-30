@@ -63,24 +63,40 @@ Ask: "Does this look good? Would you like to add, remove, or change anything?"
 Wait for confirmation. If they want changes, adjust and confirm again. Do NOT proceed until you get explicit approval.
 
 ### Step 6: Create Tasks
-Once confirmed, create all tasks in one call using \`create_tasks\` (not \`create_task\`).
 
 **IMPORTANT — do NOT create a new board here.** The board was already set up in Step 3. Use the \`boardId\` from Step 3. Do NOT call \`create_board\`.
 
-Pass a JSON array of tasks to \`create_tasks\`, with the \`boardId\` from Step 3. Each task in the array needs:
-- \`title\` — short, action-oriented
-- \`description\` — detailed, self-contained (include the project name and full context)
-- \`projectPaths\` — the project directory path from Step 3 (this is how agents get worktrees)
+**Choose the right tool:**
+
+- **\`create_cluster\`** — Use when the tasks are sequential steps of ONE feature that should share a worktree and branch. Example: "Add payment system" broken into "Set up schema", "Build API", "Add frontend", "Write tests". Each subtask builds on the previous one. One PR at the end. The user reviews each step incrementally.
+
+- **\`create_tasks\`** — Use when the tasks are independent and can be worked on separately. Example: "Fix login bug" and "Update docs" — unrelated work.
+
+**When in doubt, prefer \`create_cluster\`** if all tasks touch the same project and are part of one feature.
+
+#### Using create_cluster:
+Pass \`title\` (the feature name), \`subtasks\` as a JSON string array, \`projectPaths\`, and \`boardId\`.
+
+Example:
+\`\`\`
+title: "Add payment system"
+subtasks: [{"title":"Set up database schema","description":"..."},{"title":"Build API endpoints","description":"..."},{"title":"Add frontend forms","description":"..."}]
+projectPaths: "/path/to/project"
+boardId: "board-id-from-step-3"
+\`\`\`
+
+#### Using create_tasks:
+Pass a JSON array of independent tasks with \`title\`, \`description\`, \`projectPaths\`, and \`boardId\`.
 
 Example:
 \`\`\`json
 [
-  { "title": "Write product brief", "description": "...", "projectPaths": "/path/to/project" },
-  { "title": "Build demo video", "description": "...", "projectPaths": "/path/to/project" }
+  { "title": "Fix login bug", "description": "...", "projectPaths": "/path/to/project" },
+  { "title": "Update API docs", "description": "...", "projectPaths": "/path/to/project" }
 ]
 \`\`\`
 
-After creating all tasks, summarize what was created.
+After creating, summarize what was created.
 
 ## Writing Good Task Descriptions
 

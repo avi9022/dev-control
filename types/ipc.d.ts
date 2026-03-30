@@ -914,6 +914,10 @@ type EventPayloadMapping = {
     return: AITask;
     args: [string, string, AITaskProject[], string?];
   }
+  aiCreateCluster: {
+    return: AITask;
+    args: [string, Array<{ title: string; description: string }>, AITaskProject[], string?];
+  }
   aiSelectDirectory: {
     return: string | null;
     args: [];
@@ -1132,6 +1136,14 @@ type EventPayloadMapping = {
   }
   aiTaskCreationStepperResult: {
     args: [{ requestId: string; result: TaskStepperResponse }]
+    return: void
+  }
+  aiShowClusterCreationModal: {
+    args: [ClusterCreationRequest]
+    return: void
+  }
+  aiClusterCreationResult: {
+    args: [string, ClusterCreationResponse]
     return: void
   }
   aiTaskStepperActivity: {
@@ -1428,6 +1440,7 @@ interface Window {
     // AI Automation API
     aiGetTasks: () => Promise<AITask[]>
     aiCreateTask: (title: string, description: string, projects: AITaskProject[], boardId?: string) => Promise<AITask>
+    aiCreateCluster: (title: string, subtasks: Array<{ title: string; description: string }>, projects: AITaskProject[], boardId?: string) => Promise<AITask>
     aiSelectDirectory: () => Promise<string | null>
     aiAttachTaskFiles: (taskId: string, filePaths: string[]) => Promise<string[]>
     aiDeleteTaskAttachment: (taskId: string, filename: string) => Promise<void>
@@ -1482,6 +1495,8 @@ interface Window {
     aiTaskStepperActivity: (requestId: string) => Promise<void>
     subscribeAITaskCreationStepper: (callback: (request: TaskStepperRequest) => void) => () => void
     subscribeAICloseTaskCreationStepper: (callback: (data: { requestId: string }) => void) => () => void
+    subscribeAIClusterCreationModal: (callback: (request: ClusterCreationRequest) => void) => () => void
+    aiClusterCreationResult: (requestId: string, result: ClusterCreationResponse) => Promise<void>
     aiGetProjectProfiles: () => Promise<ProjectProfile[]>
     aiGetProjectKnowledgeDoc: (projectPath: string) => Promise<string | null>
     aiGenerateProjectKnowledge: (projectPath: string) => Promise<{ success: boolean; error?: string }>
