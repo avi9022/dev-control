@@ -33,6 +33,28 @@ interface AIProjectDiff {
   diff: string     // raw git diff
 }
 
+interface AISubtask {
+  id: string
+  title: string
+  description: string
+  phase: AITaskPhase
+  createdAt: string
+  updatedAt: string
+  phaseHistory: AIPhaseHistoryEntry[]
+  sessionId?: string
+  humanComments?: AIHumanComment[]
+  reviewComments?: AIReviewComment[]
+  amendments?: AITaskAmendment[]
+  excludedFiles?: string[]
+  activeProcessPid?: number
+  currentPhaseName?: string
+  needsUserInput: boolean
+  needsUserInputReason?: AITaskAttentionReason
+  stallRetryCount?: number
+  diffBaseline?: string
+  taskDirPath?: string
+}
+
 interface AITask {
   id: string
   title: string
@@ -57,6 +79,9 @@ interface AITask {
   amendments?: AITaskAmendment[]
   linkedTaskIds?: string[]
   sessionId?: string
+  isCluster?: boolean
+  subtasks?: AISubtask[]
+  activeSubtaskIndex?: number
   /** @deprecated Use projects[].gitStrategy instead */
   gitStrategy?: AIGitStrategy
   /** @deprecated Use projects[].baseBranch instead */
@@ -186,6 +211,7 @@ interface AIAutomationSettings {
   defaultAmendmentPhase?: string
   defaultApprovePhase?: string
   approveSkipConfirm?: boolean
+  clusterApprovalPhase?: string
   fileViewMode?: 'list' | 'grid' | 'tree'
   visibleViews?: string[]
 }

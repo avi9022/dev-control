@@ -1,4 +1,4 @@
-import { createTask } from '../task-manager.js'
+import { createTask, getSettings } from '../task-manager.js'
 import { type McpToolDefinition, textResult, errorResult } from './types.js'
 import { GIT_STRATEGY } from '../../../shared/constants.js'
 
@@ -22,11 +22,13 @@ export const createTaskTool: McpToolDefinition<{ title: string; description: str
       return errorResult('title and description are required')
     }
 
+    const defaultBaseBranch = getSettings().defaultBaseBranch || undefined
     const projects = projectPaths
       ? projectPaths.split(',').map(p => p.trim()).filter(Boolean).map(path => ({
           path,
           label: path.split('/').pop() || path,
           gitStrategy: GIT_STRATEGY.WORKTREE,
+          baseBranch: defaultBaseBranch,
         }))
       : []
 

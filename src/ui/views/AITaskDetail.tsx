@@ -11,6 +11,7 @@ import { FIXED_PHASES, PhaseType, SHORT_ID_LENGTH } from '@/shared/constants'
 
 const CONTEXT_HIGH_PCT = 80
 const CONTEXT_WARN_PCT = 60
+const SHOW_PARENT_INDEX = -1
 import { AgentStatsModal } from '@/ui/components/ai-automation/AgentStatsModal'
 import { XtermTerminal } from '@/ui/components/ai-automation/XtermTerminal'
 import { AmendmentForm } from '@/ui/components/ai-automation/AmendmentForm'
@@ -26,11 +27,27 @@ interface AITaskDetailProps {
   taskId: string
   onBack: () => void
   onSelectTask?: (taskId: string) => void
+  subtaskIndex?: number
 }
 
-export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTask }) => {
+export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTask, subtaskIndex }) => {
   const { tasks, stopTask, moveTaskPhase, updateTask, settings, updateSettings } = useAIAutomation()
   const task = tasks.find(t => t.id === taskId)
+  const isCluster = !!task?.isCluster
+  const showParent = subtaskIndex === SHOW_PARENT_INDEX
+  const resolvedSubtaskIndex = showParent ? undefined : (subtaskIndex ?? task?.activeSubtaskIndex)
+  const activeSubtask = isCluster && !showParent && task?.subtasks && resolvedSubtaskIndex !== undefined
+    ? task.subtasks[resolvedSubtaskIndex]
+    : undefined
+  const isLastSubtask = isCluster && task?.subtasks && resolvedSubtaskIndex !== undefined
+    && resolvedSubtaskIndex >= task.subtasks.length - 1
+  const isClusterSubtaskView = !!activeSubtask
+  const clusterApprovalPhase = settings?.clusterApprovalPhase
+  const showStartNextSubtask = isClusterSubtaskView && activeSubtask && (
+    clusterApprovalPhase
+      ? activeSubtask.phase === clusterApprovalPhase
+      : activeSubtask.phase === FIXED_PHASES.DONE
+  )
   const [reviewComments, setReviewCommentsLocal] = useState<AIHumanComment[]>([])
 
   const setReviewComments = (comments: AIHumanComment[]) => {
@@ -184,7 +201,12 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h2 className="text-base font-semibold" style={{ color: 'var(--ai-text-primary)' }}>{task.title}</h2>
+            <h2 className="text-base font-semibold" style={{ color: 'var(--ai-text-primary)' }}>
+              {isCluster && activeSubtask
+                ? <>{task.title} <span style={{ color: 'var(--ai-text-tertiary)' }}>→</span> {activeSubtask.title}</>
+                : task.title
+              }
+            </h2>
             <div className="flex items-center gap-2 mt-0.5">
               <span
                 className="text-xs px-1.5 py-0.5 rounded"
@@ -197,6 +219,11 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
               )}
               {task.branchName && (
                 <span className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>{task.branchName}</span>
+              )}
+              {isCluster && task.subtasks && (
+                <span className="ai-badge" style={{ background: 'var(--ai-surface-3)', color: 'var(--ai-text-tertiary)' }}>
+                  {task.subtasks.filter(s => s.phase === FIXED_PHASES.DONE).length}/{task.subtasks.length} subtasks
+                </span>
               )}
               <button
                 onClick={() => navigator.clipboard.writeText(task.id)}
@@ -395,65 +422,78 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
                 </div>
               )}
               <div className="relative flex items-center">
-                <Button
-                  size="sm"
-                  className="rounded-r-none"
-                  style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}
-                  onClick={() => {
-                    if (settings?.approveSkipConfirm) {
-                      handleApprove()
-                    } else {
-                      setShowApproveTarget(prev => {
-                        if (!prev) {
-                          setApprovePhase(settings?.defaultApprovePhase || FIXED_PHASES.DONE)
-                        }
-                        return !prev
-                      })
-                    }
-                  }}
-                >
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  className="rounded-l-none px-1.5"
-                  style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)', borderLeft: '1px solid var(--ai-surface-0)', opacity: 0.9 }}
-                  onClick={() => setShowApproveTarget(prev => {
-                    if (!prev) setApprovePhase(settings?.defaultApprovePhase || FIXED_PHASES.DONE)
-                    return !prev
-                  })}
-                >
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-                {showApproveTarget && (
-                  <div
-                    className="absolute top-full right-0 mt-2 w-56 z-50 rounded-lg shadow-xl p-3 space-y-3"
-                    style={{ border: '1px solid var(--ai-border-subtle)', backgroundColor: 'var(--ai-surface-2)' }}
+                {showStartNextSubtask ? (
+                  <Button
+                    size="sm"
+                    style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}
+                    onClick={() => handleApprove(FIXED_PHASES.DONE)}
                   >
-                    <div>
-                      <label className="text-[10px] font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>Send to</label>
-                      <Select value={approvePhase} onValueChange={setApprovePhase}>
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue placeholder="Select target..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {pipeline.map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                          ))}
-                          <SelectItem value={FIXED_PHASES.DONE}>Done</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowApproveTarget(false)}>
-                        Cancel
-                      </Button>
-                      <Button size="sm" className="h-7 text-xs" style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }} onClick={() => handleApprove(approvePhase)}>
-                        Confirm
-                      </Button>
-                    </div>
-                  </div>
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    {isLastSubtask ? 'Complete Cluster' : 'Start Next Subtask'}
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      className="rounded-r-none"
+                      style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }}
+                      onClick={() => {
+                        if (settings?.approveSkipConfirm) {
+                          handleApprove()
+                        } else {
+                          setShowApproveTarget(prev => {
+                            if (!prev) {
+                              setApprovePhase(settings?.defaultApprovePhase || FIXED_PHASES.DONE)
+                            }
+                            return !prev
+                          })
+                        }
+                      }}
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="rounded-l-none px-1.5"
+                      style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)', borderLeft: '1px solid var(--ai-surface-0)', opacity: 0.9 }}
+                      onClick={() => setShowApproveTarget(prev => {
+                        if (!prev) setApprovePhase(settings?.defaultApprovePhase || FIXED_PHASES.DONE)
+                        return !prev
+                      })}
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                    {showApproveTarget && (
+                      <div
+                        className="absolute top-full right-0 mt-2 w-56 z-50 rounded-lg shadow-xl p-3 space-y-3"
+                        style={{ border: '1px solid var(--ai-border-subtle)', backgroundColor: 'var(--ai-surface-2)' }}
+                      >
+                        <div>
+                          <label className="text-[10px] font-medium mb-1 block" style={{ color: 'var(--ai-text-tertiary)' }}>Send to</label>
+                          <Select value={approvePhase} onValueChange={setApprovePhase}>
+                            <SelectTrigger className="h-7 text-xs">
+                              <SelectValue placeholder="Select target..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {pipeline.map(p => (
+                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                              ))}
+                              <SelectItem value={FIXED_PHASES.DONE}>Done</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowApproveTarget(false)}>
+                            Cancel
+                          </Button>
+                          <Button size="sm" className="h-7 text-xs" style={{ background: 'var(--ai-accent)', color: 'var(--ai-surface-0)' }} onClick={() => handleApprove(approvePhase)}>
+                            Confirm
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -501,7 +541,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
             {/* Left column */}
             <div className="flex-1 min-w-0 space-y-5">
               <TaskDetailsCard
-                task={task}
+                task={activeSubtask ? { ...task, description: activeSubtask.description, title: activeSubtask.title } : task}
                 editing={editing}
                 editTitle={editTitle}
                 setEditTitle={setEditTitle}
@@ -535,7 +575,7 @@ export const AITaskDetail: FC<AITaskDetailProps> = ({ taskId, onBack, onSelectTa
         </TabsContent>
 
         <TabsContent value="terminal" className="flex-1 min-h-0 m-0 p-4">
-          <AgentChat task={task} pipeline={pipeline} />
+          <AgentChat task={activeSubtask ? { ...task, phaseHistory: activeSubtask.phaseHistory, sessionId: activeSubtask.sessionId, phase: activeSubtask.phase, currentPhaseName: activeSubtask.currentPhaseName } : task} pipeline={pipeline} />
         </TabsContent>
 
         <TabsContent value="changes" className="flex-1 min-h-0 overflow-hidden p-4">

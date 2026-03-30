@@ -24,6 +24,8 @@ interface TaskFormProps {
   boardId?: string
   autoFocusTitle?: boolean
   defaultBaseBranch?: string
+  hideTitle?: boolean
+  hideDescription?: boolean
 }
 
 export const TaskForm: FC<TaskFormProps> = ({
@@ -40,6 +42,8 @@ export const TaskForm: FC<TaskFormProps> = ({
   boardId,
   autoFocusTitle,
   defaultBaseBranch = FALLBACK_BASE_BRANCH,
+  hideTitle,
+  hideDescription,
 }) => {
   const titleRef = useRef<HTMLInputElement>(null)
 
@@ -74,30 +78,34 @@ export const TaskForm: FC<TaskFormProps> = ({
 
   return (
     <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
-      <div>
-        <Label>Title</Label>
-        <Input
-          ref={titleRef}
-          value={title}
-          onChange={e => onTitleChange(e.target.value)}
-          placeholder="Task title"
-          className="mt-1"
-          autoFocus={autoFocusTitle}
-        />
-      </div>
-      <div>
-        <Label>Description</Label>
-        <MentionEditor
-          ref={descriptionRef}
-          placeholder="Describe what needs to be done... Type @ to tag a project, # to reference a task"
-          className="mt-1"
-          minHeight={DESCRIPTION_MIN_HEIGHT}
-          onProjectTagged={handleProjectTaggedInternal}
-          onProjectRemoved={handleProjectRemovedInternal}
-          excludeProjectPaths={excludeProjectPaths}
-          boardId={boardId}
-        />
-      </div>
+      {!hideTitle && (
+        <div>
+          <Label>Title</Label>
+          <Input
+            ref={titleRef}
+            value={title}
+            onChange={e => onTitleChange(e.target.value)}
+            placeholder="Task title"
+            className="mt-1"
+            autoFocus={autoFocusTitle}
+          />
+        </div>
+      )}
+      {!hideDescription && (
+        <div>
+          <Label>Description</Label>
+          <MentionEditor
+            ref={descriptionRef}
+            placeholder="Describe what needs to be done... Type @ to tag a project, # to reference a task"
+            className="mt-1"
+            minHeight={DESCRIPTION_MIN_HEIGHT}
+            onProjectTagged={handleProjectTaggedInternal}
+            onProjectRemoved={handleProjectRemovedInternal}
+            excludeProjectPaths={excludeProjectPaths}
+            boardId={boardId}
+          />
+        </div>
+      )}
       {taggedProjects.length > 0 && (
         <div>
           <Label className="text-xs" style={{ color: 'var(--ai-text-tertiary)' }}>Project Workspaces</Label>

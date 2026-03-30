@@ -1,10 +1,13 @@
-import { useState, useEffect, useMemo, lazy, Suspense, type FC } from 'react'
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense, type FC } from 'react'
 import { useAIAutomation } from '@/ui/contexts/ai-automation'
 import { TaskCard } from '@/ui/components/ai-automation/TaskCard'
+import { ClusterFlowOverlay } from '@/ui/components/ai-automation/ClusterOverlay'
 import { AITaskDetail } from './AITaskDetail'
 import { FIXED_PHASES, PhaseType, DEFAULT_PHASE_COLOR, DEFAULT_BOARD_COLOR } from '@/shared/constants'
 
 const KANBAN_COLUMN_WIDTH = 280
+const EXPANDED_CARD_Z_INDEX = 101
+const SHOW_PARENT_INDEX = -1
 
 const World3DLazy = lazy(() => import('@/ui/components/ai-automation/World3D').then(m => ({ default: m.World3D })))
 
@@ -17,6 +20,14 @@ interface AIKanbanProps {
 export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show3D }) => {
   const { tasks, moveTaskPhase, deleteTask, settings } = useAIAutomation()
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [expandedCluster, setExpandedCluster] = useState<{ taskId: string; rect: DOMRect } | null>(null)
+  const [selectedSubtaskIndex, setSelectedSubtaskIndex] = useState<number | undefined>(undefined)
+
+  const handleClusterSubtaskClick = useCallback((taskId: string, subtaskIndex: number) => {
+    setExpandedCluster(null)
+    setSelectedSubtaskIndex(subtaskIndex)
+    onSelectTask(taskId)
+  }, [onSelectTask])
 
   const theme = settings?.theme || 'dark'
   const isLight = theme === 'light'
@@ -82,7 +93,7 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
   if (selectedTaskId) {
     return (
       <div className="h-full" style={{ background: 'var(--ai-surface-0)' }}>
-        <AITaskDetail taskId={selectedTaskId} onBack={() => onSelectTask(null)} onSelectTask={onSelectTask} />
+        <AITaskDetail taskId={selectedTaskId} onBack={() => { onSelectTask(null); setSelectedSubtaskIndex(undefined) }} onSelectTask={onSelectTask} subtaskIndex={selectedSubtaskIndex} />
       </div>
     )
   }
@@ -136,13 +147,15 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
                       key={task.id}
                       draggable
                       onDragStart={() => handleDragStart(task.id)}
+                      style={expandedCluster?.taskId === task.id ? { position: 'relative', zIndex: EXPANDED_CARD_Z_INDEX } : undefined}
                     >
                       <TaskCard
                         task={task}
-                        onClick={(t) => onSelectTask(t.id)}
+                        onClick={(t, e) => t.isCluster ? setExpandedCluster({ taskId: t.id, rect: e.currentTarget.getBoundingClientRect() }) : onSelectTask(t.id)}
                         onDelete={deleteTask}
                         onRetryPhase={(taskId) => moveTaskPhase(taskId, task.phase)}
                         onMoveToBacklog={(taskId) => moveTaskPhase(taskId, FIXED_PHASES.BACKLOG)}
+                        onOpenDetail={(taskId) => { setSelectedSubtaskIndex(SHOW_PARENT_INDEX); onSelectTask(taskId) }}
                       />
                     </div>
                   ))}
@@ -152,6 +165,19 @@ export const AIKanban: FC<AIKanbanProps> = ({ selectedTaskId, onSelectTask, show
           })}
         </div>
       </div>
+      {expandedCluster && (() => {
+        const clusterTask = tasks.find(t => t.id === expandedCluster.taskId)
+        if (!clusterTask) return null
+        return (
+          <ClusterFlowOverlay
+            task={clusterTask}
+            anchorRect={expandedCluster.rect}
+            onSelectSubtask={handleClusterSubtaskClick}
+            onDelete={deleteTask}
+            onClose={() => setExpandedCluster(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef, type FC } from 'react'
-import { AlertCircle, Trash2, Loader2 } from 'lucide-react'
+import { AlertCircle, Trash2, Loader2, Layers, ExternalLink } from 'lucide-react'
 import { renderMentions } from './mention-utils'
-import { AttentionReason } from '@/shared/constants'
+import { AttentionReason, FIXED_PHASES } from '@/shared/constants'
 
 interface TaskCardProps {
   task: AITask
-  onClick: (task: AITask) => void
+  onClick: (task: AITask, event: React.MouseEvent) => void
   onDelete: (taskId: string) => void
   onRetryPhase?: (taskId: string) => void
   onMoveToBacklog?: (taskId: string) => void
+  onOpenDetail?: (taskId: string) => void
 }
 
 const warningReasonLabel = (reason?: string): string => {
@@ -20,13 +21,20 @@ const warningReasonLabel = (reason?: string): string => {
   }
 }
 
-export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete, onRetryPhase, onMoveToBacklog }) => {
+export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete, onRetryPhase, onMoveToBacklog, onOpenDetail }) => {
   const isRunning = !!task.activeProcessPid
   const hasAmendments = (task.amendments?.length || 0) > 0
+  const isCluster = !!task.isCluster
+  const activeSubtask = isCluster && task.subtasks && task.activeSubtaskIndex !== undefined
+    ? task.subtasks[task.activeSubtaskIndex]
+    : undefined
+  const completedSubtaskCount = isCluster && task.subtasks
+    ? task.subtasks.filter(s => s.phase === FIXED_PHASES.DONE).length
+    : 0
+  const totalSubtaskCount = task.subtasks?.length || 0
   const [showWarningMenu, setShowWarningMenu] = useState(false)
   const warningRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown on outside click
   useEffect(() => {
     if (!showWarningMenu) return
     const handler = (e: MouseEvent) => {
@@ -40,10 +48,9 @@ export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete, onRetryPh
 
   return (
     <div
-      onClick={() => onClick(task)}
+      onClick={(e) => onClick(task, e)}
       className="group ai-card cursor-pointer p-3"
     >
-      {/* Title row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {isRunning && (
@@ -103,24 +110,49 @@ export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete, onRetryPh
             {task.title}
           </p>
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(task.id) }}
-          className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ color: 'var(--ai-text-tertiary)' }}
-          title="Delete task"
-        >
-          <Trash2 className="h-3.5 w-3.5 transition-colors" />
-        </button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {isCluster && onOpenDetail && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenDetail(task.id) }}
+              className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ color: 'var(--ai-text-tertiary)' }}
+              title="Open cluster details"
+            >
+              <ExternalLink className="h-3.5 w-3.5 transition-colors" />
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(task.id) }}
+            className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: 'var(--ai-text-tertiary)' }}
+            title="Delete task"
+          >
+            <Trash2 className="h-3.5 w-3.5 transition-colors" />
+          </button>
+        </div>
       </div>
 
-      {/* Description */}
-      {task.description && (
+      {isCluster && activeSubtask && (
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <Layers className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--ai-text-tertiary)' }} />
+          <span className="text-xs truncate" style={{ color: 'var(--ai-text-secondary)' }}>
+            {activeSubtask.title}
+          </span>
+          <span
+            className="ai-badge ml-auto flex-shrink-0"
+            style={{ background: 'var(--ai-surface-3)', color: 'var(--ai-text-tertiary)' }}
+          >
+            {completedSubtaskCount}/{totalSubtaskCount}
+          </span>
+        </div>
+      )}
+
+      {!isCluster && task.description && (
         <p className="text-xs mt-1.5 line-clamp-2 leading-relaxed" style={{ color: 'var(--ai-text-secondary)' }}>
           {renderMentions(task.description, new Set((task.projects || []).map(p => p.label)))}
         </p>
       )}
 
-      {/* Footer badges */}
       <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
         {task.projects && task.projects.length > 0 && task.projects.map((p, i) => (
           <span
@@ -144,7 +176,7 @@ export const TaskCard: FC<TaskCardProps> = ({ task, onClick, onDelete, onRetryPh
             className="ai-badge"
             style={{ background: 'var(--ai-pink-subtle)', color: 'var(--ai-pink)' }}
           >
-            {task.amendments!.length} amendment{task.amendments!.length > 1 ? 's' : ''}
+            {task.amendments?.length ?? 0} amendment{(task.amendments?.length ?? 0) > 1 ? 's' : ''}
           </span>
         )}
       </div>

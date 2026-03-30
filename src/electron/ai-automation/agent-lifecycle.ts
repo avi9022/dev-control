@@ -2,10 +2,10 @@ import { randomUUID } from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { type ChildProcess } from 'child_process'
-import { getTaskById, updateTask, moveTaskPhase, getSettings, getBoardPipeline } from './task-manager.js'
+import { getTaskById, updateTask, moveTaskPhase, moveSubtaskPhase, updateSubtask, getActiveSubtask, advanceClusterSubtask, getSettings, getBoardPipeline } from './task-manager.js'
 import { sendNotification } from './notification-manager.js'
 import { buildPrompt } from './prompt-builder.js'
-import { createWorktree, generateBranchName } from './worktree-manager.js'
+import { createWorktree, generateBranchName, getWorktreeHead } from './worktree-manager.js'
 import { getOrCreateTaskDir } from './task-dir-manager.js'
 import { type ClaudeStreamEvent } from './stream-types.js'
 import {
@@ -61,7 +61,10 @@ export function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase): void {
   let task = getTaskById(taskId)
   if (!task) return
 
-  if (task.sessionId && task.phase === phaseConfig.id) {
+  const subtask = getActiveSubtask(task)
+  const existingSessionId = subtask ? subtask.sessionId : task.sessionId
+
+  if (existingSessionId && task.phase === phaseConfig.id) {
     resumeAgent(taskId, RESUME_CONTINUATION_MESSAGE)
     return
   }
@@ -102,31 +105,48 @@ export function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase): void {
 
   const systemPrompt = buildPrompt(task, phaseConfig)
   const sessionId = randomUUID()
-  updateTask(taskId, { sessionId })
 
-  const taskDirPath = task.taskDirPath
-  if (!taskDirPath) return
+  if (subtask) {
+    updateSubtask(taskId, subtask.id, { sessionId })
+  } else {
+    updateTask(taskId, { sessionId })
+  }
+
+  const contextDirBase = subtask?.taskDirPath || task.taskDirPath
+  if (!contextDirBase) return
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const contextHistoryDir = path.join(taskDirPath, 'context-history', `${phaseConfig.id}-${timestamp}`)
+  const contextHistoryDir = path.join(contextDirBase, 'context-history', `${phaseConfig.id}-${timestamp}`)
   fs.mkdirSync(contextHistoryDir, { recursive: true })
   fs.writeFileSync(path.join(contextHistoryDir, 'prompt.md'), systemPrompt)
   fs.writeFileSync(path.join(contextHistoryDir, 'events.json'), '[\n')
 
-  const phaseHistory = [...task.phaseHistory]
-  if (phaseHistory.length > 0) {
-    const lastEntry = phaseHistory[phaseHistory.length - 1]
-    if (lastEntry.phase === phaseConfig.id && !lastEntry.exitedAt) {
-      phaseHistory[phaseHistory.length - 1] = { ...lastEntry, contextHistoryPath: contextHistoryDir, sessionId }
-      updateTask(taskId, { phaseHistory })
-      const refreshedTask = getTaskById(taskId)
-      if (!refreshedTask) return
-      task = refreshedTask
+  if (subtask) {
+    const phaseHistory = [...subtask.phaseHistory]
+    if (phaseHistory.length > 0) {
+      const lastEntry = phaseHistory[phaseHistory.length - 1]
+      if (lastEntry.phase === phaseConfig.id && !lastEntry.exitedAt) {
+        phaseHistory[phaseHistory.length - 1] = { ...lastEntry, contextHistoryPath: contextHistoryDir, sessionId }
+        updateSubtask(taskId, subtask.id, { phaseHistory })
+      }
+    }
+  } else {
+    const phaseHistory = [...task.phaseHistory]
+    if (phaseHistory.length > 0) {
+      const lastEntry = phaseHistory[phaseHistory.length - 1]
+      if (lastEntry.phase === phaseConfig.id && !lastEntry.exitedAt) {
+        phaseHistory[phaseHistory.length - 1] = { ...lastEntry, contextHistoryPath: contextHistoryDir, sessionId }
+        updateTask(taskId, { phaseHistory })
+      }
     }
   }
 
-  let message = task.description
-  if (task.humanComments && task.humanComments.length > 0) {
-    message += '\n\nHuman review comments to address:\n' + task.humanComments.map(c => `- ${c.file}:${c.line}: ${c.comment}`).join('\n')
+  task = getTaskById(taskId) || task
+
+  const description = subtask ? subtask.description : task.description
+  const comments = subtask ? subtask.humanComments : task.humanComments
+  let message = description
+  if (comments && comments.length > 0) {
+    message += '\n\nHuman review comments to address:\n' + comments.map(c => `- ${c.file}:${c.line}: ${c.comment}`).join('\n')
   }
 
   const config = buildAgentArgs(task, phaseConfig, systemPrompt)
@@ -139,7 +159,8 @@ export function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase): void {
     sanitizeArg(message),
   ]
 
-  sendNotification('phase_start', taskId, task.title, `${phaseConfig.name} phase started`)
+  const displayTitle = subtask ? `${task.title} → ${subtask.title}` : task.title
+  sendNotification('phase_start', taskId, displayTitle, `${phaseConfig.name} phase started`)
   const header = `\n--- ${phaseConfig.name.toUpperCase()} AGENT ---\n`
   startAgentProcess(taskId, task, phaseConfig, finalArgs, config, eventRecorder, header, deps.agentStats, getProcessCallbacks())
 }
@@ -147,26 +168,40 @@ export function spawnAgent(taskId: string, phaseConfig: AIPipelinePhase): void {
 export function resumeAgent(taskId: string, userMessage: string): void {
   let task = getTaskById(taskId)
   if (!task) return
-  if (!task.sessionId) return
-  const sessionId = task.sessionId
+
+  const subtask = getActiveSubtask(task)
+  const sessionId = subtask ? subtask.sessionId : task.sessionId
+  if (!sessionId) return
 
   const pipeline = getBoardPipeline(task.boardId)
   const currentPhaseId = task.phase
   const phaseConfig = pipeline.find(p => p.id === currentPhaseId)
   if (!phaseConfig) return
 
-  const lastEntry = task.phaseHistory[task.phaseHistory.length - 1]
+  const phaseHistory = subtask ? subtask.phaseHistory : task.phaseHistory
+  const lastEntry = phaseHistory[phaseHistory.length - 1]
   const needsNewEntry = !lastEntry || lastEntry.exitedAt !== undefined
 
   if (needsNewEntry) {
     const now = new Date().toISOString()
-    const phaseHistory = [...task.phaseHistory]
-    phaseHistory.push({ phase: currentPhaseId, enteredAt: now, sessionId })
-    updateTask(taskId, { phaseHistory })
+    const newHistory = [...phaseHistory, { phase: currentPhaseId, enteredAt: now, sessionId }]
+    if (subtask) {
+      updateSubtask(taskId, subtask.id, { phaseHistory: newHistory })
+    } else {
+      updateTask(taskId, { phaseHistory: newHistory })
+    }
     task = getTaskById(taskId) || task
   }
 
-  const contextHistoryDir = ensureContextHistoryDir(task, taskId, phaseConfig)
+  const updatedSubtask = getActiveSubtask(task)
+  const contextDirBase = updatedSubtask?.taskDirPath || task.taskDirPath
+  const contextHistoryDir = contextDirBase
+    ? ensureContextHistoryDir(
+        { ...task, taskDirPath: contextDirBase, phaseHistory: updatedSubtask?.phaseHistory || task.phaseHistory, sessionId },
+        taskId,
+        phaseConfig,
+      )
+    : undefined
   task = getTaskById(taskId) || task
 
   const systemPrompt = buildPrompt(task, phaseConfig)
@@ -217,17 +252,24 @@ function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, out
   const task = getTaskById(taskId)
   if (!task) return
 
+  const subtask = getActiveSubtask(task)
+
   if (exitCode !== 0 && exitCode !== null) {
     console.warn(`[ai-agent] Agent crashed for task ${taskId} (phase: ${phaseConfig.name}) with exit code ${exitCode}`)
-    const history = [...task.phaseHistory]
-    if (history.length > 0) {
-      history[history.length - 1] = { ...history[history.length - 1], exitedAt: new Date().toISOString(), exitEvent: PhaseExitEvent.Crashed }
+    if (subtask) {
+      const history = [...subtask.phaseHistory]
+      if (history.length > 0) {
+        history[history.length - 1] = { ...history[history.length - 1], exitedAt: new Date().toISOString(), exitEvent: PhaseExitEvent.Crashed }
+      }
+      updateSubtask(taskId, subtask.id, { needsUserInput: true, needsUserInputReason: AttentionReason.Crashed, phaseHistory: history })
+      updateTask(taskId, { needsUserInput: true, needsUserInputReason: AttentionReason.Crashed })
+    } else {
+      const history = [...task.phaseHistory]
+      if (history.length > 0) {
+        history[history.length - 1] = { ...history[history.length - 1], exitedAt: new Date().toISOString(), exitEvent: PhaseExitEvent.Crashed }
+      }
+      updateTask(taskId, { needsUserInput: true, needsUserInputReason: AttentionReason.Crashed, phaseHistory: history })
     }
-    updateTask(taskId, {
-      needsUserInput: true,
-      needsUserInputReason: AttentionReason.Crashed,
-      phaseHistory: history,
-    })
     sendNotification('needs_attention', taskId, task.title, `Agent crashed in ${phaseConfig.name} (exit code ${exitCode})`)
     return
   }
@@ -235,12 +277,20 @@ function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, out
   const pipeline = getBoardPipeline(task.boardId)
   const currentIndex = pipeline.findIndex(p => p.id === phaseConfig.id)
 
-  updateTask(taskId, { stallRetryCount: 0 })
+  if (subtask) {
+    updateSubtask(taskId, subtask.id, { stallRetryCount: 0 })
+  } else {
+    updateTask(taskId, { stallRetryCount: 0 })
+  }
 
   if (phaseConfig.rejectPattern && output.includes(phaseConfig.rejectPattern) && phaseConfig.rejectTarget) {
     const targetExists = pipeline.some(p => p.id === phaseConfig.rejectTarget)
     if (targetExists && phaseConfig.rejectTarget) {
-      moveTaskPhase(taskId, phaseConfig.rejectTarget)
+      if (subtask) {
+        moveSubtaskPhase(taskId, subtask.id, phaseConfig.rejectTarget)
+      } else {
+        moveTaskPhase(taskId, phaseConfig.rejectTarget)
+      }
       deps.enqueueTask(taskId)
       return
     }
@@ -248,13 +298,27 @@ function handleAgentCompletion(taskId: string, phaseConfig: AIPipelinePhase, out
 
   const nextIndex = currentIndex + 1
   if (nextIndex < pipeline.length) {
-    moveTaskPhase(taskId, pipeline[nextIndex].id)
+    if (subtask) {
+      moveSubtaskPhase(taskId, subtask.id, pipeline[nextIndex].id)
+    } else {
+      moveTaskPhase(taskId, pipeline[nextIndex].id)
+    }
     if (pipeline[nextIndex].type === PhaseType.Agent) {
       deps.enqueueTask(taskId)
     }
   } else {
-    moveTaskPhase(taskId, FIXED_PHASES.DONE)
+    if (subtask) {
+      moveSubtaskPhase(taskId, subtask.id, FIXED_PHASES.DONE)
+      let worktreeHead: string | undefined
+      if (task.worktrees.length > 0) {
+        try {
+          worktreeHead = getWorktreeHead(task.worktrees[0].worktreePath)
+        } catch { }
+      }
+      advanceClusterSubtask(taskId, worktreeHead)
+      deps.enqueueTask(taskId)
+    } else {
+      moveTaskPhase(taskId, FIXED_PHASES.DONE)
+    }
   }
-
-  deps.enqueueTask(taskId)
 }

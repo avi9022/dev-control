@@ -5,9 +5,10 @@ import { ipcMainHandle } from '../utils/ipc-handle.js'
 import { store } from '../storage/store.js'
 import { stopProcess } from '../functions/run-service.js'
 import { randomUUID } from 'crypto'
-import { getTasks, getTaskById, createTask as aiCreateTask, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getSettings as getAISettings, updateSettings as updateAISettings, getBoardPipeline } from '../ai-automation/task-manager.js'
+import { getTasks, getTaskById, createTask as aiCreateTask, createCluster as aiCreateCluster, updateTask as aiUpdateTask, deleteTask as aiDeleteTask, moveTaskPhase, getActiveSubtask, getSettings as getAISettings, updateSettings as updateAISettings, getBoardPipeline } from '../ai-automation/task-manager.js'
 import { stopAgent, sendInput, interruptAgent, enqueueTask, getTaskOutputHistory, getAgentStats } from '../ai-automation/agent-runner.js'
-import { getDiff as getAITaskDiff, cleanupWorktree } from '../ai-automation/worktree-manager.js'
+import { getDiff as getAITaskDiff, getDiffFromBaseline, cleanupWorktree } from '../ai-automation/worktree-manager.js'
+import { FIXED_PHASES } from '../../shared/constants.js'
 import { listTaskDirFiles, readTaskDirFile, attachFiles, deleteAttachment, deleteAgentFile, listAttachments, getOrCreateTaskDir } from '../ai-automation/task-dir-manager.js'
 import { generateKnowledgeDoc } from '../ai-automation/knowledge-generator.js'
 import { getBranchInfo, renameBranch, editCommitMessage, editMultipleCommitMessages, squashCommits } from '../ai-automation/git-operations.js'
@@ -15,7 +16,8 @@ import { getNotifications, markAllRead } from '../ai-automation/notification-man
 import { sendPlannerMessage } from '../ai-automation/planner-runner.js'
 import { savePlannerConversation, listPlannerConversations, readPlannerConversation, deletePlannerConversation } from '../ai-automation/mcp-tools/save-planner-conversation.js'
 import { resolveProjectCreation } from '../ai-automation/mcp-tools/request-project-creation.js'
-import { resolveTaskCreationStepper, resetTaskStepperTimeout } from '../ai-automation/mcp-tools/create-tasks.js'
+import { resolveTaskCreationStepper } from '../ai-automation/mcp-tools/create-tasks.js'
+import { resolveClusterCreation } from '../ai-automation/mcp-tools/create-cluster.js'
 import { getAllProjectProfiles, getProjectKnowledge, saveProjectProfile, saveProjectKnowledge, deleteProjectKnowledge } from '../ai-automation/project-knowledge-manager.js'
 import { generateProjectKnowledge } from '../ai-automation/project-knowledge-generator.js'
 
@@ -26,6 +28,14 @@ export function registerAIHandlers(): void {
 
   ipcMainHandle('aiCreateTask', async (_event, title, description, projects, boardId) => {
     return aiCreateTask(title, description, projects, boardId)
+  })
+
+  ipcMainHandle('aiCreateCluster', async (_event, title, subtasks, projects, boardId) => {
+    try {
+      return aiCreateCluster(title, subtasks, projects, boardId)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to create cluster')
+    }
   })
 
   ipcMainHandle('aiSelectDirectory', async () => {
@@ -59,14 +69,21 @@ export function registerAIHandlers(): void {
   })
 
   ipcMainHandle('aiMoveTaskPhase', async (_event, id, targetPhase) => {
-    moveTaskPhase(id, targetPhase)
-    if (targetPhase !== 'BACKLOG' && targetPhase !== 'DONE') {
+    try {
+      moveTaskPhase(id, targetPhase)
       const task = getTaskById(id)
-      const pipeline = task ? getBoardPipeline(task.boardId) : []
-      const phaseConfig = pipeline.find(p => p.id === targetPhase)
-      if (phaseConfig?.type === 'agent') {
-        enqueueTask(id)
+      if (!task) return
+
+      const currentPhase = task.phase
+      if (currentPhase !== FIXED_PHASES.BACKLOG && currentPhase !== FIXED_PHASES.DONE) {
+        const pipeline = getBoardPipeline(task.boardId)
+        const phaseConfig = pipeline.find(p => p.id === currentPhase)
+        if (phaseConfig?.type === 'agent') {
+          enqueueTask(id)
+        }
       }
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to move task phase')
     }
   })
 
@@ -114,13 +131,17 @@ export function registerAIHandlers(): void {
     const task = getTasks().find(t => t.id === taskId)
     if (!task) return []
 
+    const subtask = getActiveSubtask(task)
+    const diffBaseline = subtask?.diffBaseline
+
     const results: AIProjectDiff[] = []
 
-    // Collect diffs from all worktrees
     for (const wt of (task.worktrees || [])) {
       try {
         const project = task.projects?.find(p => p.path === wt.projectPath)
-        const diff = getAITaskDiff(wt.worktreePath, wt.branchName, project?.baseBranch)
+        const diff = diffBaseline
+          ? getDiffFromBaseline(wt.worktreePath, diffBaseline)
+          : getAITaskDiff(wt.worktreePath, wt.branchName, project?.baseBranch)
         if (diff) {
           results.push({
             project: project?.label || wt.projectPath.split('/').pop() || wt.projectPath,
@@ -128,12 +149,9 @@ export function registerAIHandlers(): void {
             diff
           })
         }
-      } catch {
-        // Skip failed diffs
-      }
+      } catch { }
     }
 
-    // Fallback: if no worktrees, try first project
     if (results.length === 0 && task.projects?.length > 0) {
       try {
         const diff = getAITaskDiff(task.projects[0].path)
@@ -144,9 +162,7 @@ export function registerAIHandlers(): void {
             diff
           })
         }
-      } catch {
-        // Skip
-      }
+      } catch { }
     }
 
     return results
@@ -381,9 +397,14 @@ export function registerAIHandlers(): void {
     resolveTaskCreationStepper(requestId, result)
   })
 
-  ipcMainHandle('aiTaskStepperActivity', async (_event, { requestId }) => {
-    resetTaskStepperTimeout(requestId)
+  ipcMainHandle('aiClusterCreationResult', async (_event, requestId, result) => {
+    try {
+      resolveClusterCreation(requestId, result)
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to resolve cluster creation')
+    }
   })
+
 
   ipcMainHandle('aiPickDirectory', async () => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })

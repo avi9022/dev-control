@@ -2,6 +2,7 @@ import { execFileSync } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import { getWorktreesDir } from './task-dir-manager.js'
+import { getSettings } from './task-manager.js'
 import { SHORT_ID_LENGTH } from '../../shared/constants.js'
 
 const GIT_COMMAND_TIMEOUT_MS = 30_000
@@ -14,7 +15,6 @@ function git(args: string[], cwd: string): string {
 
 function resolveBaseBranch(projectPath: string, baseBranch?: string): string {
   if (baseBranch) {
-    // Verify the specified branch exists
     try {
       git(['rev-parse', '--verify', baseBranch], projectPath)
       return baseBranch
@@ -22,7 +22,15 @@ function resolveBaseBranch(projectPath: string, baseBranch?: string): string {
       console.warn(`[worktree] Base branch '${baseBranch}' not found, falling back to detection`)
     }
   }
-  // Auto-detect: try main, then master, then current HEAD
+
+  const settingsBaseBranch = getSettings().defaultBaseBranch
+  if (settingsBaseBranch) {
+    try {
+      git(['rev-parse', '--verify', settingsBaseBranch], projectPath)
+      return settingsBaseBranch
+    } catch { }
+  }
+
   try {
     git(['rev-parse', '--verify', 'main'], projectPath)
     return 'main'
@@ -112,6 +120,22 @@ export function cleanupWorktree(projectPath: string, worktreePath: string): void
     } catch {
       // Best effort
     }
+  }
+}
+
+export function getWorktreeHead(worktreePath: string): string {
+  return git(['rev-parse', 'HEAD'], worktreePath)
+}
+
+export function getDiffFromBaseline(projectPath: string, baseline: string): string {
+  try {
+    const diff = git(['diff', `${baseline}..HEAD`], projectPath)
+    if (diff.length > MAX_DIFF_FILE_SIZE) {
+      return diff.slice(0, MAX_DIFF_FILE_SIZE) + '\n\n[Diff truncated — exceeded size limit]'
+    }
+    return diff
+  } catch {
+    return ''
   }
 }
 

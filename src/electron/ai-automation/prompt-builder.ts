@@ -2,7 +2,7 @@ import { getSettings, getTasks } from './task-manager.js'
 import { listTaskDirFiles, readTaskDirFile, listAttachments, getAttachmentsDir } from './task-dir-manager.js'
 import fs from 'fs'
 import path from 'path'
-import { GIT_STRATEGY, SHORT_ID_LENGTH } from '../../shared/constants.js'
+import { GIT_STRATEGY, SHORT_ID_LENGTH, FIXED_PHASES } from '../../shared/constants.js'
 
 const DESCRIPTION_TRUNCATE_LENGTH = 200
 const MAX_INLINE_FILE_SIZE = 10_000
@@ -41,7 +41,12 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
   }
 
   // 5. Task context with directory boundary
-  let taskContext = `## Task\n\n**Title:** ${task.title}\n\n**Description:** ${task.description}`
+  const activeSubtaskForPrompt = (task.isCluster && task.subtasks && task.activeSubtaskIndex !== undefined)
+    ? task.subtasks[task.activeSubtaskIndex]
+    : undefined
+  const taskTitle = activeSubtaskForPrompt ? `${task.title} → ${activeSubtaskForPrompt.title}` : task.title
+  const taskDescription = activeSubtaskForPrompt ? activeSubtaskForPrompt.description : task.description
+  let taskContext = `## Task\n\n**Title:** ${taskTitle}\n\n**Description:** ${taskDescription}`
   if (task.worktrees.length > 0) {
     taskContext += `\n\n**Working Directory:** ${task.worktrees[0].worktreePath}`
     if (task.worktrees.length > 1) {
@@ -78,8 +83,41 @@ export function buildPrompt(task: AITask, phaseConfig: AIPipelinePhase): string 
   }
   parts.push(taskContext)
 
-  // 5b. Amendments (new requirements added after initial implementation)
-  const activeAmendments = (task.amendments || []).filter(a => !a.hidden)
+  if (task.isCluster && task.subtasks && task.activeSubtaskIndex !== undefined) {
+    const activeSubtask = task.subtasks[task.activeSubtaskIndex]
+    const totalCount = task.subtasks.length
+    const currentNumber = task.activeSubtaskIndex + 1
+
+    let clusterContext = `## Cluster Context\n\nYou are working on subtask ${currentNumber} of ${totalCount} for: "${task.title}"\n`
+
+    const completedSubtasks = task.subtasks.filter(s => s.phase === FIXED_PHASES.DONE)
+    if (completedSubtasks.length > 0) {
+      clusterContext += `\nCompleted subtasks:\n`
+      completedSubtasks.forEach((s, i) => {
+        clusterContext += `${i + 1}. ${s.title} (DONE)\n`
+      })
+    }
+
+    if (activeSubtask) {
+      clusterContext += `\nCurrent subtask:\n${currentNumber}. ${activeSubtask.title}\n`
+    }
+
+    const upcomingSubtasks = task.subtasks.slice(task.activeSubtaskIndex + 1)
+    if (upcomingSubtasks.length > 0) {
+      clusterContext += `\nUpcoming subtasks:\n`
+      upcomingSubtasks.forEach((s, i) => {
+        clusterContext += `${currentNumber + 1 + i}. ${s.title}\n`
+      })
+    }
+
+    clusterContext += `\nWork in the same worktree as previous subtasks. Previous work is already committed.`
+    parts.push(clusterContext)
+  }
+
+  const activeAmendments = ((task.isCluster && task.subtasks && task.activeSubtaskIndex !== undefined)
+    ? (task.subtasks[task.activeSubtaskIndex]?.amendments || [])
+    : (task.amendments || [])
+  ).filter(a => !a.hidden)
   if (activeAmendments.length > 0) {
     let amendSection = `## Amendments\n\nThe following requirements were added after the initial task was created. Your existing work already addresses the original task description — focus on these additions:\n`
     for (const amendment of activeAmendments) {

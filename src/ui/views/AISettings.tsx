@@ -507,6 +507,25 @@ const GeneralTab: FC<SettingsTabProps> = ({ settings, updateSettings }) => {
           <span className="text-xs" style={{ color: 'var(--ai-text-secondary)' }}>Don't ask — always send to default phase</span>
         </label>
       </div>
+
+      <div>
+        <Label>Cluster Approval Phase</Label>
+        <p className="text-xs mb-1" style={{ color: 'var(--ai-text-tertiary)' }}>The phase where you review and approve each subtask in a cluster. After approval, the next subtask starts automatically. Phases after this one run only when all subtasks are done.</p>
+        <Select
+          value={settings.clusterApprovalPhase || 'none'}
+          onValueChange={v => updateSettings({ clusterApprovalPhase: v === 'none' ? undefined : v })}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None (subtasks run full pipeline)</SelectItem>
+            {(settings.boards?.find(b => b.id === settings.activeBoardId)?.pipeline || []).map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   )
 }

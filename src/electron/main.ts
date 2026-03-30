@@ -24,6 +24,7 @@ import { setNotificationMainWindow } from './ai-automation/notification-manager.
 import { setPlannerMainWindow, killAllPlannerProcesses } from './ai-automation/planner-runner.js'
 import { setProjectCreationMainWindow, closeAllPendingModals } from './ai-automation/mcp-tools/request-project-creation.js'
 import { setTaskStepperMainWindow, closeAllPendingSteppers } from './ai-automation/mcp-tools/create-tasks.js'
+import { setClusterCreationMainWindow } from './ai-automation/mcp-tools/create-cluster.js'
 // MongoDB
 import { mongoManager } from './mongodb/mongo-manager.js'
 // Handler registrations
@@ -224,6 +225,7 @@ app.on("ready", async () => {
   setPlannerMainWindow(mainWindow)
   setProjectCreationMainWindow(mainWindow)
   setTaskStepperMainWindow(mainWindow)
+  setClusterCreationMainWindow(mainWindow)
   setShellMainWindow(mainWindow)
 
   // Start MCP server for agent tools
@@ -240,10 +242,15 @@ app.on("ready", async () => {
   portPollingInterval = pollPorts(mainWindow)
 
   // Queue polling using broker manager
+  let queuePollingInFlight = false
   queuePollingInterval = setInterval(async () => {
-    if (!brokerManager.isConnected()) return
-    const queues = await brokerManager.listQueues()
-    ipcWebContentsSend('queuesList', mainWindow.webContents, queues)
+    if (!brokerManager.isConnected() || queuePollingInFlight) return
+    queuePollingInFlight = true
+    try {
+      const queues = await brokerManager.listQueues()
+      ipcWebContentsSend('queuesList', mainWindow.webContents, queues)
+    } catch { }
+    queuePollingInFlight = false
   }, 500)
   // Setup tray (overlay window is created on-demand to appear on current space)
   tray = createTray()
