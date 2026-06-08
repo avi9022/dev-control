@@ -30,7 +30,7 @@ import { getImportantValues, saveImportantValues } from './storage/important-val
 import type { Todo } from './storage/todos.js'
 import fs from 'fs'
 import { dynamoDBManager } from './dynamodb/dynamodb-manager.js'
-import { listTables } from './dynamodb/list-tables.js'
+import { listAWSProfiles } from './dynamodb/list-aws-profiles.js'
 import { describeTable } from './dynamodb/describe-table.js'
 import { scanTable } from './dynamodb/scan-table.js'
 import { queryTable, type QueryOptions } from './dynamodb/query-table.js'
@@ -226,9 +226,9 @@ app.on("ready", async () => {
   brokerManager.setMainWindow(mainWindow)
   brokerManager.testConnection()
 
-  // Initialize DynamoDB manager
+  // Initialize DynamoDB manager — connect every enabled connection.
   dynamoDBManager.setMainWindow(mainWindow)
-  dynamoDBManager.testConnection()
+  dynamoDBManager.connectAll()
 
   portPollingInterval = pollPorts(mainWindow)
 
@@ -450,31 +450,56 @@ app.on("ready", async () => {
   ipcMainHandle('getDynamoDBConnections', () => dynamoDBManager.getConnections())
   ipcMainHandle('saveDynamoDBConnection', (_event, config: DynamoDBConnectionConfig) => dynamoDBManager.saveConnection(config))
   ipcMainHandle('deleteDynamoDBConnection', (_event, id: string) => dynamoDBManager.deleteConnection(id))
-  ipcMainHandle('getActiveDynamoDBConnection', () => dynamoDBManager.getActiveConnectionId())
-  ipcMainHandle('setActiveDynamoDBConnection', (_event, id: string) => dynamoDBManager.setActiveConnection(id))
+  ipcMainHandle('setDynamoDBConnectionEnabled', (_event, id: string, enabled: boolean) => dynamoDBManager.setConnectionEnabled(id, enabled))
   ipcMainHandle('testDynamoDBConnection', (_event, id: string) => dynamoDBManager.testConnection(id))
+  ipcMainHandle('getDynamoDBConnectionStates', () => dynamoDBManager.getConnectionStates())
+  ipcMainHandle('listAWSProfiles', () => listAWSProfiles())
 
-  // DynamoDB handlers
-  ipcMainHandle('dynamodbListTables', async () => {
-    return await listTables()
+  // DynamoDB handlers — each operation is scoped to a specific connection.
+  // Operation errors are classified (read-only / expired token) and emitted
+  // back as connection state before re-throwing so the renderer can surface a toast.
+  const withConnectionErrors = async <T>(connectionId: string, op: () => Promise<T>, tableName?: string): Promise<T> => {
+    try {
+      return await op()
+    } catch (error) {
+      dynamoDBManager.handleOperationError(connectionId, error, tableName)
+      throw error
+    }
+  }
+
+  // Manual read-only pins (per "connectionId::tableName"). Persisted so a table
+  // the user marks read-only stays locked across restarts and never fires writes.
+  ipcMainHandle('getDynamoDBReadOnlyTables', () => store.get('dynamodbReadOnlyTables') ?? [])
+  ipcMainHandle('setDynamoDBTableReadOnly', (_event, connectionId: string, tableName: string, readOnly: boolean) => {
+    const key = `${connectionId}::${tableName}`
+    const current = store.get('dynamodbReadOnlyTables') ?? []
+    const updated = readOnly
+      ? Array.from(new Set([...current, key]))
+      : current.filter((k) => k !== key)
+    store.set('dynamodbReadOnlyTables', updated)
+    return updated
   })
-  ipcMainHandle('dynamodbDescribeTable', async (_event, tableName: string) => {
-    return await describeTable(tableName)
+
+  ipcMainHandle('dynamodbListAllTables', async () => {
+    return await dynamoDBManager.listAllTables()
   })
-  ipcMainHandle('dynamodbScanTable', async (_event, tableName: string, options: DynamoDBScanOptions) => {
-    return await scanTable(tableName, options)
+  ipcMainHandle('dynamodbDescribeTable', async (_event, connectionId: string, tableName: string) => {
+    return await withConnectionErrors(connectionId, () => describeTable(connectionId, tableName))
   })
-  ipcMainHandle('dynamodbQueryTable', async (_event, tableName: string, options: QueryOptions) => {
-    return await queryTable(tableName, options)
+  ipcMainHandle('dynamodbScanTable', async (_event, connectionId: string, tableName: string, options: DynamoDBScanOptions) => {
+    return await withConnectionErrors(connectionId, () => scanTable(connectionId, tableName, options))
   })
-  ipcMainHandle('dynamodbGetItem', async (_event, tableName: string, key: Record<string, unknown>) => {
-    return await getItem(tableName, key)
+  ipcMainHandle('dynamodbQueryTable', async (_event, connectionId: string, tableName: string, options: QueryOptions) => {
+    return await withConnectionErrors(connectionId, () => queryTable(connectionId, tableName, options))
   })
-  ipcMainHandle('dynamodbPutItem', async (_event, tableName: string, item: Record<string, unknown>) => {
-    return await putItem(tableName, item)
+  ipcMainHandle('dynamodbGetItem', async (_event, connectionId: string, tableName: string, key: Record<string, unknown>) => {
+    return await withConnectionErrors(connectionId, () => getItem(connectionId, tableName, key))
   })
-  ipcMainHandle('dynamodbDeleteItem', async (_event, tableName: string, key: Record<string, unknown>) => {
-    return await deleteItem(tableName, key)
+  ipcMainHandle('dynamodbPutItem', async (_event, connectionId: string, tableName: string, item: Record<string, unknown>) => {
+    return await withConnectionErrors(connectionId, () => putItem(connectionId, tableName, item), tableName)
+  })
+  ipcMainHandle('dynamodbDeleteItem', async (_event, connectionId: string, tableName: string, key: Record<string, unknown>) => {
+    return await withConnectionErrors(connectionId, () => deleteItem(connectionId, tableName, key), tableName)
   })
 
   // ─── API Client handlers ───

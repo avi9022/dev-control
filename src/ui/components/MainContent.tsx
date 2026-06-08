@@ -19,7 +19,7 @@ export const MainContent: FC = () => {
   const renderView = (type: string, itemId: string | null, index: number) => {
     switch (type) {
       case 'dynamodb':
-        return <DynamoDBView key={index} tableName={itemId} />
+        return <DynamoDBView key={index} itemId={itemId} />
       case 'tool':
         return <Tool key={index} id={itemId} />
       case 'api-client':

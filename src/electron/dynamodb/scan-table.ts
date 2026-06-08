@@ -17,6 +17,7 @@ export interface ScanResult {
 }
 
 export async function scanTable(
+  connectionId: string,
   tableName: string,
   options: ScanOptions = {}
 ): Promise<ScanResult> {
@@ -29,7 +30,7 @@ export async function scanTable(
     ExpressionAttributeValues: options.expressionAttributeValues,
   });
 
-  const response = await dynamoDBManager.getDocClient().send(command);
+  const response = await dynamoDBManager.getDocClient(connectionId).send(command);
 
   return {
     items: (response.Items || []) as Record<string, unknown>[],

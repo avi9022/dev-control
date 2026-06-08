@@ -97,21 +97,25 @@ electron.contextBridge.exposeInMainWorld("electron", {
   getDynamoDBConnections: () => ipcInvoke('getDynamoDBConnections'),
   saveDynamoDBConnection: (config: DynamoDBConnectionConfig) => ipcInvoke('saveDynamoDBConnection', config),
   deleteDynamoDBConnection: (id: string) => ipcInvoke('deleteDynamoDBConnection', id),
-  getActiveDynamoDBConnection: () => ipcInvoke('getActiveDynamoDBConnection'),
-  setActiveDynamoDBConnection: (id: string) => ipcInvoke('setActiveDynamoDBConnection', id),
+  setDynamoDBConnectionEnabled: (id: string, enabled: boolean) => ipcInvoke('setDynamoDBConnectionEnabled', id, enabled),
   testDynamoDBConnection: (id: string) => ipcInvoke('testDynamoDBConnection', id),
+  getDynamoDBConnectionStates: () => ipcInvoke('getDynamoDBConnectionStates'),
+  listAWSProfiles: () => ipcInvoke('listAWSProfiles'),
   subscribeDynamoDBConnectionState: (callback) =>
     ipcOn('dynamodbConnectionState', (state) => {
       callback(state);
     }),
   // DynamoDB API
-  dynamodbListTables: () => ipcInvoke('dynamodbListTables'),
-  dynamodbDescribeTable: (tableName: string) => ipcInvoke('dynamodbDescribeTable', tableName),
-  dynamodbScanTable: (tableName: string, options?: DynamoDBScanOptions) => ipcInvoke('dynamodbScanTable', tableName, options || {}),
-  dynamodbQueryTable: (tableName: string, options: DynamoDBQueryOptions) => ipcInvoke('dynamodbQueryTable', tableName, options),
-  dynamodbGetItem: (tableName: string, key: Record<string, unknown>) => ipcInvoke('dynamodbGetItem', tableName, key),
-  dynamodbPutItem: (tableName: string, item: Record<string, unknown>) => ipcInvoke('dynamodbPutItem', tableName, item),
-  dynamodbDeleteItem: (tableName: string, key: Record<string, unknown>) => ipcInvoke('dynamodbDeleteItem', tableName, key),
+  getDynamoDBReadOnlyTables: () => ipcInvoke('getDynamoDBReadOnlyTables'),
+  setDynamoDBTableReadOnly: (connectionId: string, tableName: string, readOnly: boolean) =>
+    ipcInvoke('setDynamoDBTableReadOnly', connectionId, tableName, readOnly),
+  dynamodbListAllTables: () => ipcInvoke('dynamodbListAllTables'),
+  dynamodbDescribeTable: (connectionId: string, tableName: string) => ipcInvoke('dynamodbDescribeTable', connectionId, tableName),
+  dynamodbScanTable: (connectionId: string, tableName: string, options?: DynamoDBScanOptions) => ipcInvoke('dynamodbScanTable', connectionId, tableName, options || {}),
+  dynamodbQueryTable: (connectionId: string, tableName: string, options: DynamoDBQueryOptions) => ipcInvoke('dynamodbQueryTable', connectionId, tableName, options),
+  dynamodbGetItem: (connectionId: string, tableName: string, key: Record<string, unknown>) => ipcInvoke('dynamodbGetItem', connectionId, tableName, key),
+  dynamodbPutItem: (connectionId: string, tableName: string, item: Record<string, unknown>) => ipcInvoke('dynamodbPutItem', connectionId, tableName, item),
+  dynamodbDeleteItem: (connectionId: string, tableName: string, key: Record<string, unknown>) => ipcInvoke('dynamodbDeleteItem', connectionId, tableName, key),
   // Broker API
   getBrokerConfigs: () => ipcInvoke('getBrokerConfigs'),
   saveBrokerConfig: (config: BrokerConfig) => ipcInvoke('saveBrokerConfig', config),

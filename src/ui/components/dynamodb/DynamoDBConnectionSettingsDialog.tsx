@@ -9,11 +9,13 @@ import {
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useDynamoDB } from '@/ui/contexts/dynamodb'
-import { Loader2, CheckCircle, XCircle, Plus, Trash2 } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Plus, Trash2, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface DynamoDBConnectionSettingsDialogProps {
@@ -23,11 +25,13 @@ interface DynamoDBConnectionSettingsDialogProps {
 
 interface FormState {
   name: string
+  enabled: boolean
   connectionMethod: DynamoDBConnectionMethod
   region: string
   endpoint: string
   accessKeyId: string
   secretAccessKey: string
+  sessionToken: string
   profileName: string
 }
 
@@ -35,27 +39,32 @@ type TestStatus = 'idle' | 'testing' | 'success' | 'error'
 
 const emptyForm: FormState = {
   name: '',
+  enabled: true,
   connectionMethod: 'custom-endpoint',
   region: 'eu-west-1',
   endpoint: 'http://localhost:8000',
   accessKeyId: 'root',
   secretAccessKey: 'root',
+  sessionToken: '',
   profileName: 'default'
 }
 
 const formFromConfig = (config: DynamoDBConnectionConfig): FormState => ({
   name: config.name,
+  enabled: config.enabled ?? true,
   connectionMethod: config.connectionMethod,
   region: config.region,
   endpoint: config.endpoint || '',
   accessKeyId: config.accessKeyId || '',
   secretAccessKey: config.secretAccessKey || '',
+  sessionToken: config.sessionToken || '',
   profileName: config.profileName || 'default'
 })
 
 const formToConfig = (form: FormState, id: string): DynamoDBConnectionConfig => ({
   id,
   name: form.name,
+  enabled: form.enabled,
   connectionMethod: form.connectionMethod,
   region: form.region,
   ...(form.connectionMethod === 'custom-endpoint' && {
@@ -66,6 +75,8 @@ const formToConfig = (form: FormState, id: string): DynamoDBConnectionConfig => 
   ...(form.connectionMethod === 'aws-credentials' && {
     accessKeyId: form.accessKeyId,
     secretAccessKey: form.secretAccessKey,
+    // SSO / temporary credentials require a session token alongside the keys.
+    ...(form.sessionToken.trim() ? { sessionToken: form.sessionToken.trim() } : {}),
   }),
   ...(form.connectionMethod === 'aws-profile' && {
     profileName: form.profileName,
@@ -79,6 +90,20 @@ export const DynamoDBConnectionSettingsDialog: FC<DynamoDBConnectionSettingsDial
   const [testStatus, setTestStatus] = useState<TestStatus>('idle')
   const [testError, setTestError] = useState<string | undefined>()
   const [isSaving, setIsSaving] = useState(false)
+  const [profiles, setProfiles] = useState<string[]>([])
+
+  const loadProfiles = async () => {
+    const found = await window.electron.listAWSProfiles()
+    setProfiles(found)
+  }
+
+  // Discover ~/.aws profiles when the dialog opens or the user switches to the
+  // profile method, so the dropdown stays current with the credentials files.
+  useEffect(() => {
+    if (open && form.connectionMethod === 'aws-profile') {
+      loadProfiles()
+    }
+  }, [open, form.connectionMethod])
 
   useEffect(() => {
     if (open && connections.length > 0 && !selectedConnectionId) {
@@ -99,7 +124,7 @@ export const DynamoDBConnectionSettingsDialog: FC<DynamoDBConnectionSettingsDial
     }
   }, [selectedConnectionId, connections])
 
-  const updateField = (field: keyof FormState, value: string) => {
+  const updateField = (field: keyof FormState, value: string | boolean) => {
     setForm(prev => ({ ...prev, [field]: value }))
     setTestStatus('idle')
     setTestError(undefined)
@@ -182,11 +207,19 @@ export const DynamoDBConnectionSettingsDialog: FC<DynamoDBConnectionSettingsDial
                     key={conn.id}
                     onClick={() => setSelectedConnectionId(conn.id)}
                     className={cn(
-                      "w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent truncate",
+                      "w-full flex items-center gap-2 text-left px-3 py-2 text-sm rounded-md hover:bg-accent",
                       selectedConnectionId === conn.id && "bg-accent"
                     )}
                   >
-                    {conn.name}
+                    <span
+                      className={cn(
+                        "w-2 h-2 rounded-full flex-shrink-0",
+                        conn.enabled ? "bg-green-500" : "bg-stone-500"
+                      )}
+                    />
+                    <span className={cn("truncate", !conn.enabled && "text-muted-foreground")}>
+                      {conn.name}
+                    </span>
                   </button>
                 ))}
                 {/* Show unsaved new connection */}
@@ -224,14 +257,24 @@ export const DynamoDBConnectionSettingsDialog: FC<DynamoDBConnectionSettingsDial
           {/* Connection form */}
           {selectedConnectionId && (
             <div className="flex-1 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="conn-name">Name</Label>
-                <Input
-                  id="conn-name"
-                  value={form.name}
-                  onChange={(e) => updateField('name', e.target.value)}
-                  placeholder="My Connection"
-                />
+              <div className="flex items-end gap-4">
+                <div className="space-y-2 flex-1">
+                  <Label htmlFor="conn-name">Name</Label>
+                  <Input
+                    id="conn-name"
+                    value={form.name}
+                    onChange={(e) => updateField('name', e.target.value)}
+                    placeholder="My Connection"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pb-2">
+                  <Switch
+                    id="conn-enabled"
+                    checked={form.enabled}
+                    onCheckedChange={(checked) => updateField('enabled', checked)}
+                  />
+                  <Label htmlFor="conn-enabled" className="cursor-pointer">Enabled</Label>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -297,15 +340,62 @@ export const DynamoDBConnectionSettingsDialog: FC<DynamoDBConnectionSettingsDial
                 </div>
               )}
 
+              {form.connectionMethod === 'aws-credentials' && (
+                <div className="space-y-2">
+                  <Label htmlFor="conn-session-token">
+                    Session Token
+                    <span className="ml-1 text-xs text-muted-foreground">(required for AWS SSO / temporary credentials)</span>
+                  </Label>
+                  <Textarea
+                    id="conn-session-token"
+                    value={form.sessionToken}
+                    onChange={(e) => updateField('sessionToken', e.target.value)}
+                    placeholder="AWS_SESSION_TOKEN — expires periodically, paste a fresh one when it does"
+                    className="font-mono text-xs h-20 resize-none"
+                  />
+                </div>
+              )}
+
               {form.connectionMethod === 'aws-profile' && (
                 <div className="space-y-2">
-                  <Label htmlFor="conn-profile">Profile Name</Label>
-                  <Input
-                    id="conn-profile"
-                    value={form.profileName}
-                    onChange={(e) => updateField('profileName', e.target.value)}
-                    placeholder="default"
-                  />
+                  <Label htmlFor="conn-profile">Profile</Label>
+                  {profiles.length > 0 || form.profileName ? (
+                    <div className="flex gap-2">
+                      <Select
+                        value={form.profileName}
+                        onValueChange={(v) => updateField('profileName', v)}
+                      >
+                        <SelectTrigger id="conn-profile" className="flex-1">
+                          <SelectValue placeholder="Select a profile..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from(new Set([...profiles, form.profileName].filter(Boolean))).map((p) => (
+                            <SelectItem key={p} value={p}>{p}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={loadProfiles}
+                        title="Reload profiles from ~/.aws"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Input
+                        id="conn-profile"
+                        value={form.profileName}
+                        onChange={(e) => updateField('profileName', e.target.value)}
+                        placeholder="default"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        No profiles found in ~/.aws — type one manually.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 

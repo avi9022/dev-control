@@ -27,6 +27,7 @@ export interface QueryResult {
 }
 
 export async function queryTable(
+  connectionId: string,
   tableName: string,
   options: QueryOptions
 ): Promise<QueryResult> {
@@ -92,7 +93,7 @@ export async function queryTable(
     ScanIndexForward: options.scanIndexForward ?? true,
   });
 
-  const response = await dynamoDBManager.getDocClient().send(command);
+  const response = await dynamoDBManager.getDocClient(connectionId).send(command);
 
   return {
     items: (response.Items || []) as Record<string, unknown>[],

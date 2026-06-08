@@ -1,34 +1,37 @@
-import { useState, type FC } from 'react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { type FC } from 'react'
 import { Button } from '@/components/ui/button'
 import { Settings } from 'lucide-react'
 import { useDynamoDB } from '@/ui/contexts/dynamodb'
 import { DynamoDBConnectionSettingsDialog } from './DynamoDBConnectionSettingsDialog'
 
 export const DynamoDBConnectionSelector: FC = () => {
-  const { connections, activeConnectionId, setActiveConnection, isConnected } = useDynamoDB()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const { connections, connectionStates, settingsOpen, setSettingsOpen } = useDynamoDB()
 
-  const handleConnectionChange = async (value: string) => {
-    await setActiveConnection(value)
-  }
+  const enabled = connections.filter((c) => c.enabled)
+  const connectedCount = enabled.filter((c) => connectionStates.get(c.id)?.isConnected).length
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-stone-700 rounded-md mx-5">
-      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+      <span className="text-sm font-medium text-white flex-1 truncate">
+        Connections
+        <span className="ml-2 text-xs text-muted-foreground">
+          {connectedCount}/{enabled.length} connected
+        </span>
+      </span>
 
-      <Select value={activeConnectionId || ''} onValueChange={handleConnectionChange}>
-        <SelectTrigger className="flex-1 bg-transparent border-none text-white h-8">
-          <SelectValue placeholder="Select connection..." />
-        </SelectTrigger>
-        <SelectContent>
-          {connections.map((conn) => (
-            <SelectItem key={conn.id} value={conn.id}>
-              {conn.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex items-center gap-1.5">
+        {enabled.map((conn) => {
+          const state = connectionStates.get(conn.id)
+          const color = state?.isConnected ? 'bg-green-500' : 'bg-red-500'
+          return (
+            <div
+              key={conn.id}
+              className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${color}`}
+              title={`${conn.name}${state?.isConnected ? '' : ' — disconnected'}`}
+            />
+          )
+        })}
+      </div>
 
       <Button
         variant="ghost"

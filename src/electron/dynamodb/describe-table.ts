@@ -31,9 +31,9 @@ export interface DynamoDBTableInfo {
   }>;
 }
 
-export async function describeTable(tableName: string): Promise<DynamoDBTableInfo> {
+export async function describeTable(connectionId: string, tableName: string): Promise<DynamoDBTableInfo> {
   const command = new DescribeTableCommand({ TableName: tableName });
-  const response = await dynamoDBManager.getRawClient().send(command);
+  const response = await dynamoDBManager.getRawClient(connectionId).send(command);
 
   if (!response.Table) {
     throw new Error(`Table ${tableName} not found`);

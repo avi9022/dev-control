@@ -19,7 +19,9 @@ type Schema = {
   brokerConfigs: Record<BrokerType, BrokerConfig>
   // DynamoDB connection settings
   dynamodbConnections: DynamoDBConnectionConfig[]
-  activeDynamoDBConnection: string | null
+  // Tables the user has manually pinned read-only ("connectionId::tableName" keys).
+  // Surfaces the lock in advance and gates write actions so no denied write is fired.
+  dynamodbReadOnlyTables: string[]
   // API Client settings
   apiWorkspaces: ApiWorkspace[]
   activeApiWorkspaceId: string | null
@@ -52,6 +54,7 @@ type Schema = {
 const DEFAULT_DYNAMODB_CONNECTION: DynamoDBConnectionConfig = {
   id: 'default-local',
   name: 'Local',
+  enabled: true,
   connectionMethod: 'custom-endpoint',
   region: 'eu-west-1',
   endpoint: 'http://localhost:8000',
@@ -97,7 +100,7 @@ export const store = new Store<Schema>({
     activeBroker: 'elasticmq',
     brokerConfigs: DEFAULT_BROKER_CONFIGS,
     dynamodbConnections: [DEFAULT_DYNAMODB_CONNECTION],
-    activeDynamoDBConnection: 'default-local',
+    dynamodbReadOnlyTables: [],
     // API Client defaults
     apiWorkspaces: [],
     activeApiWorkspaceId: null,

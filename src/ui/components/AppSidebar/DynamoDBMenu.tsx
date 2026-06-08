@@ -1,19 +1,24 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, CircleX, RefreshCw, Database } from "lucide-react"
+import { Search, CircleX, RefreshCw, Database, Lock } from "lucide-react"
 import { useState, type FC } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useDynamoDB } from "@/ui/contexts/dynamodb"
+import { useDynamoDB, encodeTableKey } from "@/ui/contexts/dynamodb"
 import { cn } from "@/lib/utils"
 import { DynamoDBConnectionSelector } from "@/ui/components/dynamodb/DynamoDBConnectionSelector"
 import { DynamoDBEmptyState } from "@/ui/components/dynamodb/DynamoDBEmptyState"
 
 export const DynamoDBMenu: FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
-  const { tables, loading, isConnected, refreshTables, selectTable, selectedTable } = useDynamoDB()
+  const {
+    tableRefs, loading, connectionStates, refreshTables, selectTable, selectedTableKey, isTableReadOnly,
+  } = useDynamoDB()
 
-  const filteredTables = tables.filter((table) =>
-    table.toLowerCase().includes(searchTerm.toLowerCase())
+  const anyConnected = Array.from(connectionStates.values()).some((s) => s.isConnected)
+
+  const term = searchTerm.toLowerCase()
+  const filteredRefs = tableRefs.filter((ref) =>
+    ref.tableName.toLowerCase().includes(term) || ref.connectionName.toLowerCase().includes(term)
   )
 
   return (
@@ -22,9 +27,9 @@ export const DynamoDBMenu: FC = () => {
         <DynamoDBConnectionSelector />
       </div>
 
-      {!isConnected && <DynamoDBEmptyState />}
+      {!anyConnected && <DynamoDBEmptyState />}
 
-      {isConnected && (
+      {anyConnected && (
         <>
           <div className="relative h-[35px] mb-4 px-5">
             <Search className="absolute left-8 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -51,25 +56,33 @@ export const DynamoDBMenu: FC = () => {
                 </div>
               )}
 
-              {!loading && filteredTables.length === 0 && (
+              {!loading && filteredRefs.length === 0 && (
                 <div className="px-3 py-8 text-sm text-muted-foreground text-center">
                   {searchTerm ? 'No tables match your search' : 'No tables found'}
                 </div>
               )}
 
-              {!loading && filteredTables.map((table) => (
-                <button
-                  key={table}
-                  onClick={() => selectTable(table)}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent text-left",
-                    selectedTable === table && "bg-accent"
-                  )}
-                >
-                  <Database className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span className="truncate">{table}</span>
-                </button>
-              ))}
+              {!loading && filteredRefs.map((ref) => {
+                const key = encodeTableKey(ref.connectionId, ref.tableName)
+                const readOnly = isTableReadOnly(ref.connectionId, ref.tableName)
+                return (
+                  <button
+                    key={key}
+                    onClick={() => selectTable(ref.connectionId, ref.tableName)}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent text-left",
+                      selectedTableKey === key && "bg-accent"
+                    )}
+                  >
+                    <Database className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate flex-1">{ref.tableName}</span>
+                    {readOnly && <Lock className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-700 text-stone-300 flex-shrink-0 max-w-[90px] truncate">
+                      {ref.connectionName}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </ScrollArea>
 
@@ -85,7 +98,7 @@ export const DynamoDBMenu: FC = () => {
               Refresh
             </Button>
             <span className="text-xs text-muted-foreground">
-              {tables.length} table{tables.length !== 1 ? 's' : ''}
+              {tableRefs.length} table{tableRefs.length !== 1 ? 's' : ''}
             </span>
           </div>
         </>

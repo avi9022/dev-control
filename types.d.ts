@@ -973,19 +973,32 @@ type DynamoDBConnectionMethod = 'custom-endpoint' | 'aws-credentials' | 'aws-pro
 interface DynamoDBConnectionConfig {
   id: string
   name: string
+  enabled: boolean
   connectionMethod: DynamoDBConnectionMethod
   region: string
   endpoint?: string
   accessKeyId?: string
   secretAccessKey?: string
+  sessionToken?: string
   profileName?: string
 }
 
 interface DynamoDBConnectionState {
   connectionId: string
   isConnected: boolean
+  // Read-only is tracked per table, not per connection: a write denial on one
+  // table must not flag its siblings, which may be writable under the same role.
+  readOnlyTables?: string[]
+  expired?: boolean
   lastError?: string
   lastChecked?: number
+}
+
+// A table belonging to a specific connection (flat sidebar list across all connections)
+interface DynamoDBTableRef {
+  connectionId: string
+  connectionName: string
+  tableName: string
 }
 
 // Broker Types
@@ -1263,50 +1276,62 @@ type EventPayloadMapping = {
     return: void;
     args: [string];
   }
-  getActiveDynamoDBConnection: {
-    return: string | null;
-    args: [];
-  }
-  setActiveDynamoDBConnection: {
+  setDynamoDBConnectionEnabled: {
     return: void;
-    args: [string];
+    args: [string, boolean];
   }
   testDynamoDBConnection: {
     return: DynamoDBConnectionState;
     args: [string];
+  }
+  getDynamoDBConnectionStates: {
+    return: DynamoDBConnectionState[];
+    args: [];
+  }
+  listAWSProfiles: {
+    return: string[];
+    args: [];
   }
   dynamodbConnectionState: {
     return: DynamoDBConnectionState;
     args: [DynamoDBConnectionState];
   }
   // DynamoDB handlers
-  dynamodbListTables: {
+  getDynamoDBReadOnlyTables: {
     return: string[];
+    args: []
+  }
+  setDynamoDBTableReadOnly: {
+    return: string[];
+    args: [string, string, boolean]
+  }
+  dynamodbListAllTables: {
+    return: DynamoDBTableRef[];
     args: []
   }
   dynamodbDescribeTable: {
     return: DynamoDBTableInfo;
-    args: [string]
+    args: [string, string]
   }
   dynamodbScanTable: {
     return: DynamoDBScanResult;
-    args: [string, DynamoDBScanOptions]
+    args: [string, string, DynamoDBScanOptions]
   }
   dynamodbQueryTable: {
     return: DynamoDBScanResult;
-    args: [string, DynamoDBQueryOptions]
+    args: [string, string, DynamoDBQueryOptions]
   }
   dynamodbGetItem: {
     return: Record<string, unknown> | null;
-    args: [string, Record<string, unknown>]
+    args: [string, string, Record<string, unknown>]
   }
   dynamodbPutItem: {
     return: void;
-    args: [string, Record<string, unknown>]
+    args: [string, string, Record<string, unknown>]
   }
   dynamodbDeleteItem: {
     return: void;
-    args: [string, Record<string, unknown>]
+    args: [string, string, Record<string, unknown>]
   }
   // Broker handlers
   getBrokerConfigs: {
@@ -1964,18 +1989,21 @@ interface Window {
     getDynamoDBConnections: () => Promise<DynamoDBConnectionConfig[]>
     saveDynamoDBConnection: (config: DynamoDBConnectionConfig) => Promise<void>
     deleteDynamoDBConnection: (id: string) => Promise<void>
-    getActiveDynamoDBConnection: () => Promise<string | null>
-    setActiveDynamoDBConnection: (id: string) => Promise<void>
+    setDynamoDBConnectionEnabled: (id: string, enabled: boolean) => Promise<void>
     testDynamoDBConnection: (id: string) => Promise<DynamoDBConnectionState>
+    getDynamoDBConnectionStates: () => Promise<DynamoDBConnectionState[]>
+    listAWSProfiles: () => Promise<string[]>
     subscribeDynamoDBConnectionState: (callback: (state: DynamoDBConnectionState) => void) => () => void
     // DynamoDB API
-    dynamodbListTables: () => Promise<string[]>
-    dynamodbDescribeTable: (tableName: string) => Promise<DynamoDBTableInfo>
-    dynamodbScanTable: (tableName: string, options?: DynamoDBScanOptions) => Promise<DynamoDBScanResult>
-    dynamodbQueryTable: (tableName: string, options: DynamoDBQueryOptions) => Promise<DynamoDBScanResult>
-    dynamodbGetItem: (tableName: string, key: Record<string, unknown>) => Promise<Record<string, unknown> | null>
-    dynamodbPutItem: (tableName: string, item: Record<string, unknown>) => Promise<void>
-    dynamodbDeleteItem: (tableName: string, key: Record<string, unknown>) => Promise<void>
+    getDynamoDBReadOnlyTables: () => Promise<string[]>
+    setDynamoDBTableReadOnly: (connectionId: string, tableName: string, readOnly: boolean) => Promise<string[]>
+    dynamodbListAllTables: () => Promise<DynamoDBTableRef[]>
+    dynamodbDescribeTable: (connectionId: string, tableName: string) => Promise<DynamoDBTableInfo>
+    dynamodbScanTable: (connectionId: string, tableName: string, options?: DynamoDBScanOptions) => Promise<DynamoDBScanResult>
+    dynamodbQueryTable: (connectionId: string, tableName: string, options: DynamoDBQueryOptions) => Promise<DynamoDBScanResult>
+    dynamodbGetItem: (connectionId: string, tableName: string, key: Record<string, unknown>) => Promise<Record<string, unknown> | null>
+    dynamodbPutItem: (connectionId: string, tableName: string, item: Record<string, unknown>) => Promise<void>
+    dynamodbDeleteItem: (connectionId: string, tableName: string, key: Record<string, unknown>) => Promise<void>
     // Broker API
     getBrokerConfigs: () => Promise<BrokerConfig[]>
     saveBrokerConfig: (config: BrokerConfig) => Promise<void>

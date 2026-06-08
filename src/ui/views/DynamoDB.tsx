@@ -1,5 +1,5 @@
 import { useState, useEffect, type FC } from 'react'
-import { useDynamoDB } from '@/ui/contexts/dynamodb'
+import { useDynamoDB, decodeTableKey } from '@/ui/contexts/dynamodb'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -7,14 +7,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { RefreshCw, ChevronLeft, ChevronRight, Database, Key, Hash, Plus, MoreHorizontal, Pencil, Eye, Trash2 } from 'lucide-react'
+import { RefreshCw, ChevronLeft, ChevronRight, Database, Key, Hash, Plus, MoreHorizontal, Pencil, Eye, Trash2, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { QueryBuilder } from '@/ui/components/dynamodb/QueryBuilder'
 import { ItemEditor } from '@/ui/components/dynamodb/ItemEditor'
 import { InlineCellEditor } from '@/ui/components/dynamodb/InlineCellEditor'
 
 interface DynamoDBViewProps {
-  tableName: string | null
+  itemId: string | null
 }
 
 interface EditingCell {
@@ -22,8 +22,13 @@ interface EditingCell {
   column: string
 }
 
-export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
-  const { getTableInfo, scanTable, queryTable, putItem, deleteItem } = useDynamoDB()
+export const DynamoDBView: FC<DynamoDBViewProps> = ({ itemId }) => {
+  const { getTableInfo, scanTable, queryTable, putItem, deleteItem, isTableReadOnly, toggleTableReadOnly } = useDynamoDB()
+
+  const decoded = itemId ? decodeTableKey(itemId) : null
+  const connectionId = decoded?.connectionId ?? ''
+  const tableName = decoded?.tableName ?? null
+  const readOnly = connectionId && tableName ? isTableReadOnly(connectionId, tableName) : false
   const [tableInfo, setTableInfo] = useState<DynamoDBTableInfo | null>(null)
   const [scanResult, setScanResult] = useState<DynamoDBScanResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -44,7 +49,7 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
   const loadTableInfo = async () => {
     if (!tableName) return
     try {
-      const info = await getTableInfo(tableName)
+      const info = await getTableInfo(connectionId, tableName)
       setTableInfo(info)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load table info')
@@ -65,7 +70,7 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
     }
 
     try {
-      const result = await scanTable(tableName, options)
+      const result = await scanTable(connectionId, tableName, options)
       setScanResult(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to scan table')
@@ -88,7 +93,7 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
     }
 
     try {
-      const result = await queryTable(tableName, options)
+      const result = await queryTable(connectionId, tableName, options)
       setScanResult(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to query table')
@@ -107,7 +112,7 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
       loadTableInfo()
       executeScan({ limit: 50 })
     }
-  }, [tableName])
+  }, [itemId])
 
   const handleNextPage = async () => {
     if (!scanResult?.lastEvaluatedKey || !lastQueryOptions) return
@@ -180,13 +185,13 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
 
   const handleSaveItem = async (item: Record<string, unknown>) => {
     if (!tableName) return
-    await putItem(tableName, item)
+    await putItem(connectionId, tableName, item)
     handleRefresh()
   }
 
   const handleDeleteItem = async (key: Record<string, unknown>) => {
     if (!tableName) return
-    await deleteItem(tableName, key)
+    await deleteItem(connectionId, tableName, key)
     handleRefresh()
   }
 
@@ -206,7 +211,7 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
     if (newValue === undefined) {
       delete updatedItem[column]
     }
-    await putItem(tableName, updatedItem)
+    await putItem(connectionId, tableName, updatedItem)
     setEditingCell(null)
     handleRefresh()
   }
@@ -248,6 +253,27 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Database className="h-5 w-5" />
             {tableName}
+            {tableName && connectionId && (
+              readOnly ? (
+                <button
+                  onClick={() => toggleTableReadOnly(connectionId, tableName)}
+                  title="Read-only — write actions are hidden. Click to remove the read-only pin."
+                  className="flex items-center gap-1 text-xs font-normal px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 hover:bg-amber-500/25 transition-colors"
+                >
+                  <Lock className="h-3 w-3" />
+                  Read-only
+                </button>
+              ) : (
+                <button
+                  onClick={() => toggleTableReadOnly(connectionId, tableName)}
+                  title="Mark this table read-only — hides write actions so no denied write is ever sent."
+                  className="flex items-center gap-1 text-xs font-normal px-1.5 py-0.5 rounded text-muted-foreground opacity-60 hover:opacity-100 hover:bg-muted/50 transition-colors"
+                >
+                  <Lock className="h-3 w-3" />
+                  Mark read-only
+                </button>
+              )
+            )}
           </h2>
           {tableInfo && (
             <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
@@ -263,14 +289,16 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={openCreateItem}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Item
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openCreateItem}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Item
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -378,17 +406,21 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
                           <Eye className="h-4 w-4 mr-2" />
                           View
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openItemEditor(item)}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDeleteItem(getItemKey(item))}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
+                        {!readOnly && (
+                          <>
+                            <DropdownMenuItem onClick={() => openItemEditor(item)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => handleDeleteItem(getItemKey(item))}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
@@ -401,11 +433,12 @@ export const DynamoDBView: FC<DynamoDBViewProps> = ({ tableName }) => {
                         key={col}
                         className={cn(
                           "px-3 py-2 whitespace-nowrap max-w-[300px]",
-                          !isEditing && "truncate cursor-pointer hover:bg-muted/50",
+                          !isEditing && "truncate",
+                          !isEditing && !readOnly && "cursor-pointer hover:bg-muted/50",
                           isKey && "bg-muted/30"
                         )}
                         title={!isEditing ? formatValue(item[col]) : undefined}
-                        onDoubleClick={() => setEditingCell({ rowIndex, column: col })}
+                        onDoubleClick={() => { if (!readOnly) setEditingCell({ rowIndex, column: col }) }}
                       >
                         {isEditing ? (
                           <InlineCellEditor

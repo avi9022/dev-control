@@ -2,6 +2,7 @@ import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDBManager } from "./dynamodb-manager.js";
 
 export async function getItem(
+  connectionId: string,
   tableName: string,
   key: Record<string, unknown>
 ): Promise<Record<string, unknown> | null> {
@@ -10,6 +11,6 @@ export async function getItem(
     Key: key,
   });
 
-  const response = await dynamoDBManager.getDocClient().send(command);
+  const response = await dynamoDBManager.getDocClient(connectionId).send(command);
   return (response.Item as Record<string, unknown>) || null;
 }

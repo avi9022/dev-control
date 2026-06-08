@@ -2,6 +2,7 @@ import { PutCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDBManager } from "./dynamodb-manager.js";
 
 export async function putItem(
+  connectionId: string,
   tableName: string,
   item: Record<string, unknown>
 ): Promise<void> {
@@ -10,5 +11,5 @@ export async function putItem(
     Item: item,
   });
 
-  await dynamoDBManager.getDocClient().send(command);
+  await dynamoDBManager.getDocClient(connectionId).send(command);
 }
